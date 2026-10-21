@@ -2,7 +2,7 @@
 
 **Open it: [assaycraftlab.com](https://assaycraftlab.com)**. It works offline after the first visit and can be installed as an app.
 
-A local-first electronic lab notebook (ELN) that runs in your browser. It has a Benchling-style notebook, a protocol library, Notion-style boards and a calendar. **Every entry is saved as a plain Markdown file** in a folder on your computer.
+A local-first electronic lab notebook (ELN) that runs in your browser.**Every entry is saved as a plain Markdown file** in a folder on your computer.
 
 **New here? Read [How Assaycraft works](docs/GUIDE.md)**, a guide to each feature: entries, dynamic tables, the buffer calculator, templates, protocols, stocks, boards, the calendar, version history and storage.
 
