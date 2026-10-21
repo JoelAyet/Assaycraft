@@ -1,0 +1,70 @@
+@media print {
+  :root {
+    --bg: #fff;
+    --panel: #fff;
+    --text: #000;
+  }
+  html,
+  body,
+  #root,
+  .gc-app,
+  .gc-main,
+  .gc-page,
+  .gc-doc-scroll {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+  .gc-sidebar,
+  .gc-topbar,
+  .gc-toolbar-wrap,
+  .gc-template-hint,
+  .gc-locked-banner,
+  .toasts,
+  .gc-image-tools,
+  .gc-sheet-bar,
+  .gc-add-row,
+  .gc-add-col,
+  .gc-date-clear,
+  .gc-add-chip,
+  .gc-file-actions,
+  .gc-seq-actions,
+  .gc-include-head .icon-btn,
+  .gc-include-head .btn,
+  .gc-buffer-add,
+  .gc-buffer .col-x,
+  .gc-buffer-bar .icon-btn {
+    display: none !important;
+  }
+  .gc-buffer-unit {
+    border: none !important;
+    background: none !important;
+    padding: 0 4px !important;
+  }
+  .gc-buffer-scroll {
+    overflow: visible !important;
+  }
+  .gc-buffer-grid {
+    min-width: 0;
+  }
+  .gc-doc {
+    max-width: none;
+    padding: 0;
+  }
+  .gc-sheet,
+  .gc-buffer,
+  .gc-seq,
+  .gc-file-card,
+  .gc-image figure {
+    break-inside: avoid;
+    box-shadow: none !important;
+  }
+  .gc-sheet-grid thead,
+  .gc-rowhead {
+    display: none;
+  }
+  .gc-sheet-scroll {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+}

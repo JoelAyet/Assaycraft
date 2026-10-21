@@ -1,0 +1,242 @@
+/*
+ * Assaycraft design tokens: clean white and neutral greys, near-black for primary actions,
+ * one accent (blue by default) for highlights: focus, links, selection and what is active.
+ * Headings use the system sans; the "Serif" font option switches headings and entry text to Newsreader.
+ */
+
+/* Newsreader (SIL Open Font License) for the Serif font option, bundled so it also works offline. */
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url('../../node_modules/@fontsource-variable/newsreader/files/newsreader-latin-opsz-normal.woff2') format('woff2-variations');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url('../../node_modules/@fontsource-variable/newsreader/files/newsreader-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  color-scheme: light;
+  --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Inter, 'Helvetica Neue', Arial, sans-serif;
+  --font-display:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Display', 'Segoe UI', 'Inter Display', Inter, 'Helvetica Neue', Arial,
+    sans-serif;
+  --serif: 'Newsreader', 'Iowan Old Style', 'Charter', 'Georgia', serif;
+  --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  /* Titles and headings, and the text in entries (Settings → Appearance → Font). */
+  --display: var(--font-display);
+  --display-weight: 650;
+  --prose-font: var(--font);
+
+  /* Surfaces */
+  --bg: #ffffff;
+  --bg-subtle: #f7f7f8;
+  --bg-muted: #f0f0f2;
+  --bg-hover: rgba(0, 0, 0, 0.045);
+  --bg-active: rgba(0, 0, 0, 0.075);
+  --sidebar-bg: #f9f9f9;
+  --panel: #ffffff;
+  --overlay: rgba(0, 0, 0, 0.32);
+
+  /* Text and lines */
+  --text: #0d0d0d;
+  --text-2: #4a4a4f;
+  --text-3: #66666e;
+  --text-4: #a9a9b1;
+  --border: #e8e8eb;
+  --border-strong: #d5d5db;
+
+  /* Primary actions are near-black (like ChatGPT); the accent is for highlights. */
+  --ink: #0d0d0d;
+  --ink-hover: #2f2f33;
+  --on-ink: #ffffff;
+
+  --accent: #0866ff;
+  --accent-hover: #0057e0;
+  --accent-soft: #e9f1ff;
+  --accent-text: #0050c8;
+  --on-accent: #ffffff;
+  /* The Assaycraft mark keeps its own blue whatever the accent. */
+  --brand: #2f7bff;
+
+  --danger: #d93a36;
+  --danger-soft: #fdeceb;
+  /* Red text that reads on the page (4.5:1). */
+  --danger-text: #b42318;
+  --on-danger: #fff;
+  --success: #12875a;
+  --warning: #9a5d00;
+
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px -8px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 24px 64px -16px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --focus: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+
+  /* Notion-like tag palette: background / text / dot */
+  --c-gray-bg: #ededef;
+  --c-gray-fg: #3a3a40;
+  --c-gray: #9a9aa2;
+  --c-brown-bg: #f0e6de;
+  --c-brown-fg: #4e3324;
+  --c-brown: #a27763;
+  --c-orange-bg: #fde6d3;
+  --c-orange-fg: #5d320f;
+  --c-orange: #e0791a;
+  --c-orange-text: #b4530f;
+  --c-yellow-bg: #fbf0c9;
+  --c-yellow-fg: #4f3a0f;
+  --c-yellow: #cf9a26;
+  --c-yellow-text: #8a5a00;
+  --c-green-bg: #dcf1e3;
+  --c-green-fg: #154a2c;
+  --c-green: #2f9e5f;
+  --c-teal-bg: #d6f0ec;
+  --c-teal-fg: #0f4741;
+  --c-teal: #1f9d90;
+  --c-blue-bg: #dfeaff;
+  --c-blue-fg: #133e86;
+  --c-blue: #2f74f0;
+  --c-purple-bg: #ece4fb;
+  --c-purple-fg: #432474;
+  --c-purple: #8b5cf6;
+  --c-pink-bg: #fbe2ee;
+  --c-pink-fg: #5d1f3e;
+  --c-pink: #e0559a;
+  --c-red-bg: #fde3e1;
+  --c-red-fg: #6b1d19;
+  --c-red: #e5484d;
+}
+
+:root[data-accent='violet'] {
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-soft: #f2ebfe;
+  --accent-text: #5b21b6;
+}
+:root[data-accent='green'] {
+  --accent: #0b7f5f;
+  --accent-hover: #086a4f;
+  --accent-soft: #e2f4ee;
+  --accent-text: #075c44;
+}
+/* Fully neutral, for a monochrome look. */
+:root[data-accent='graphite'] {
+  --accent: #3a3a40;
+  --accent-hover: #1f1f23;
+  --accent-soft: #ededef;
+  --accent-text: #1f1f23;
+}
+
+:root[data-font='serif'] {
+  --display: var(--serif);
+  --display-weight: 480;
+  --prose-font: var(--serif);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #212121;
+  --bg-subtle: #262626;
+  --bg-muted: #2f2f2f;
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-active: rgba(255, 255, 255, 0.1);
+  --sidebar-bg: #181818;
+  --panel: #2a2a2a;
+  --overlay: rgba(0, 0, 0, 0.6);
+
+  --text: #ececec;
+  --text-2: #c8c8ce;
+  --text-3: #adadb5;
+  --text-4: #66666d;
+  --border: #353538;
+  --border-strong: #46464b;
+
+  --ink: #ececec;
+  --ink-hover: #ffffff;
+  --on-ink: #171717;
+
+  --accent: #4d94ff;
+  --accent-hover: #6aa6ff;
+  --accent-soft: rgba(77, 148, 255, 0.16);
+  --accent-text: #9cc3ff;
+  --on-accent: #0d0d0d;
+  --brand: #4d94ff;
+
+  --danger: #f2706b;
+  --danger-soft: rgba(242, 112, 107, 0.15);
+  --danger-text: #f2706b;
+  /* Dark text on the light red, as on the accent (white would be 2.9:1). */
+  --on-danger: #0d0d0d;
+  --success: #4cc58a;
+  --warning: #e8b04a;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 24px -8px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 28px 64px -18px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.4);
+
+  --c-gray-bg: #3a3a3d;
+  --c-gray-fg: #dadadf;
+  --c-gray: #8e8e96;
+  --c-brown-bg: #4a3a30;
+  --c-brown-fg: #e8d1c3;
+  --c-brown: #b48b74;
+  --c-orange-bg: #5b3a1c;
+  --c-orange-fg: #f6caa0;
+  --c-orange: #ef8f3c;
+  --c-orange-text: #ef8f3c;
+  --c-yellow-bg: #574a20;
+  --c-yellow-fg: #f2dc98;
+  --c-yellow: #dcae45;
+  --c-yellow-text: #dcae45;
+  --c-green-bg: #1f4632;
+  --c-green-fg: #ade6c3;
+  --c-green: #49c07c;
+  --c-teal-bg: #1b4641;
+  --c-teal-fg: #a6e4dc;
+  --c-teal: #3cbcae;
+  --c-blue-bg: #1d3a66;
+  --c-blue-fg: #b8d3ff;
+  --c-blue: #5b9bff;
+  --c-purple-bg: #3b2d5e;
+  --c-purple-fg: #d9c8fb;
+  --c-purple: #a78bfa;
+  --c-pink-bg: #552a41;
+  --c-pink-fg: #f6c2dc;
+  --c-pink: #ee79b3;
+  --c-red-bg: #5c2523;
+  --c-red-fg: #f9c3c0;
+  --c-red: #f06b6f;
+}
+:root[data-theme='dark'][data-accent='violet'] {
+  --accent: #a78bfa;
+  --accent-hover: #b9a1fb;
+  --accent-soft: rgba(167, 139, 250, 0.16);
+  --accent-text: #cdbefc;
+}
+:root[data-theme='dark'][data-accent='green'] {
+  --accent: #3cc28f;
+  --accent-hover: #5bd1a3;
+  --accent-soft: rgba(60, 194, 143, 0.15);
+  --accent-text: #9ce6c7;
+}
+:root[data-theme='dark'][data-accent='graphite'] {
+  --accent: #d4d4d8;
+  --accent-hover: #ffffff;
+  --accent-soft: rgba(255, 255, 255, 0.1);
+  --accent-text: #ececec;
+}

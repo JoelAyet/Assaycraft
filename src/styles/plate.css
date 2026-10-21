@@ -1,0 +1,456 @@
+/* ───────── Plate layout ───────── */
+
+.gc-plate {
+  --well: 30px;
+  margin: 1em 0 !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  max-width: 100%;
+}
+.gc-plate.is-small {
+  --well: 44px;
+}
+.gc-plate.is-384 {
+  --well: 19px;
+}
+.gc-plate:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.gc-plate input,
+.gc-plate select {
+  font: inherit;
+  color: var(--text);
+}
+.gc-plate-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--c-purple);
+}
+.gc-plate-used {
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.gc-plate-format {
+  width: auto;
+}
+
+.gc-plate-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px 24px;
+  padding: 14px 14px 6px;
+}
+.gc-plate-scroll {
+  flex: 0 1 auto;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+/* The plate: a corner, column numbers, then a row letter and the wells of each row. */
+.gc-plate-grid {
+  display: grid;
+  gap: 3px;
+  width: max-content;
+  user-select: none;
+  touch-action: none;
+}
+.gc-plate-grid.is-readonly {
+  touch-action: auto;
+}
+.gc-plate-row {
+  display: contents;
+}
+.gc-plate-corner {
+  display: block;
+}
+.gc-plate-head {
+  min-width: 18px;
+  height: var(--well);
+  padding: 0 4px 0 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.gc-plate-row:first-child .gc-plate-head {
+  width: var(--well);
+  height: 20px;
+  padding: 0;
+}
+.gc-plate.is-384 .gc-plate-head {
+  font-size: 10px;
+}
+.gc-plate-head:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.gc-plate-head:disabled {
+  cursor: default;
+}
+.gc-well {
+  width: var(--well);
+  height: var(--well);
+  padding: 0;
+  border: 1.5px solid;
+  border-radius: 50%;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: crosshair;
+}
+.gc-plate.is-small .gc-well {
+  font-size: 13px;
+}
+.gc-plate.is-384 .gc-well {
+  border-width: 1px;
+  border-radius: 4px;
+}
+.gc-plate-grid.is-readonly .gc-well {
+  cursor: default;
+}
+.gc-well.is-empty {
+  border-color: var(--border-strong);
+  background: var(--bg-subtle);
+  color: var(--text-3);
+}
+.gc-well:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.gc-well.is-drag {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+/* Pointing at a sample shows its wells; the others fade back. */
+.gc-well {
+  transition: opacity 0.12s;
+}
+.gc-plate-grid.has-spot .gc-well:not(.is-spot) {
+  opacity: 0.25;
+}
+.gc-well.is-spot {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+/* Sample colours: the app's tones (fill, edge, text), in light and dark. */
+.c-blue {
+  background: var(--c-blue-bg);
+  border-color: var(--c-blue);
+  color: var(--c-blue-fg);
+}
+.c-orange {
+  background: var(--c-orange-bg);
+  border-color: var(--c-orange);
+  color: var(--c-orange-fg);
+}
+.c-green {
+  background: var(--c-green-bg);
+  border-color: var(--c-green);
+  color: var(--c-green-fg);
+}
+.c-purple {
+  background: var(--c-purple-bg);
+  border-color: var(--c-purple);
+  color: var(--c-purple-fg);
+}
+.c-pink {
+  background: var(--c-pink-bg);
+  border-color: var(--c-pink);
+  color: var(--c-pink-fg);
+}
+.c-teal {
+  background: var(--c-teal-bg);
+  border-color: var(--c-teal);
+  color: var(--c-teal-fg);
+}
+.c-yellow {
+  background: var(--c-yellow-bg);
+  border-color: var(--c-yellow);
+  color: var(--c-yellow-fg);
+}
+.c-red {
+  background: var(--c-red-bg);
+  border-color: var(--c-red);
+  color: var(--c-red-fg);
+}
+.c-brown {
+  background: var(--c-brown-bg);
+  border-color: var(--c-brown);
+  color: var(--c-brown-fg);
+}
+.c-gray {
+  background: var(--c-gray-bg);
+  border-color: var(--c-gray);
+  color: var(--c-gray-fg);
+}
+
+/* Samples: pick one to fill wells with it. */
+.gc-plate-samples {
+  flex: 1 1 220px;
+  min-width: 200px;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gc-plate-sample-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 8px;
+}
+.gc-plate-sample-row.is-brush,
+.gc-plate-eraser.is-brush {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.gc-plate-sample {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 3px 6px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.gc-plate-sample:disabled {
+  cursor: default;
+}
+.gc-plate-sample:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+.gc-plate-sample-row.is-brush .gc-plate-sample:hover {
+  background: none;
+}
+.gc-plate-swatch {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid;
+  border-radius: 50%;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.gc-plate-swatch.is-empty {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  color: var(--text-3);
+}
+.gc-plate-swatch svg {
+  width: 11px;
+  height: 11px;
+}
+.menu-item .gc-plate-swatch {
+  width: 14px;
+  height: 14px;
+}
+.menu-row-item .gc-plate-swatch {
+  width: 18px;
+  height: 18px;
+}
+.gc-plate-sample-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gc-plate-sample-count {
+  flex: none;
+  min-width: 2.4em;
+  text-align: right;
+}
+/* Last in the row when read-only (no ⋯ menu after it): off the row's edge. */
+.gc-plate-sample-count:last-child {
+  padding-right: 8px;
+}
+.gc-plate-sample-count {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.gc-plate-link {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+.gc-plate-link svg {
+  width: 11px;
+  height: 11px;
+}
+.gc-plate-link.is-missing {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+.gc-plate-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  margin-top: 4px;
+  padding: 0 6px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  color: var(--text-3);
+}
+.gc-plate-add:focus-within {
+  border-style: solid;
+  border-color: var(--accent);
+}
+.gc-plate-add > svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+.gc-plate-add input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  border: none;
+  outline: none;
+  background: none;
+  font-size: 13.5px !important;
+}
+/* The field's box already shows focus. */
+.gc-plate-add input:focus,
+.gc-plate-add input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.gc-plate-from-stocks {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  margin-top: 2px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.gc-plate-from-stocks:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.gc-plate-from-stocks svg {
+  width: 13px;
+  height: 13px;
+}
+/* Many samples: under the plate, in columns. */
+/* Block layout, not a flex column: there the list's height would be worked out for a single column. */
+.gc-plate-body.is-many {
+  display: block;
+}
+.gc-plate-body.is-many .gc-plate-samples {
+  margin-top: 16px;
+  max-width: none;
+  display: grid;
+  align-content: start;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 2px 14px;
+}
+.gc-plate-body.is-many .gc-plate-add {
+  grid-column: 1 / -1;
+  max-width: 340px;
+}
+.gc-plate-body.is-many .gc-plate-from-stocks {
+  grid-column: 1 / -1;
+}
+.gc-plate-hint {
+  margin: 0 !important;
+  padding: 2px 14px 12px;
+  font-size: 12.5px !important;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+@media (max-width: 760px) {
+  /* Wells and headers big enough to tap; a 384-well plate scrolls sideways in its box. */
+  .gc-plate,
+  .gc-plate.is-96 {
+    --well: 24px;
+  }
+  .gc-plate.is-small {
+    --well: 40px;
+  }
+  .gc-plate.is-384 {
+    --well: 24px;
+  }
+  .gc-plate-grid {
+    gap: 2px;
+  }
+  /* A 96-well plate fits the width of a phone. */
+  .gc-plate-body {
+    padding: 12px 8px 4px;
+  }
+  .gc-plate-bar .gc-buffer-name {
+    flex: 1 1 90px;
+  }
+  .gc-plate-head {
+    min-width: 24px;
+  }
+  .gc-plate-row:first-child .gc-plate-head {
+    height: 24px;
+  }
+  .gc-plate-samples {
+    max-width: none;
+  }
+  .gc-plate-used {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gc-well {
+    transition: none;
+  }
+}
+
+@media print {
+  .gc-plate-add,
+  .gc-plate-from-stocks,
+  .gc-plate-hint,
+  .gc-plate-eraser {
+    display: none;
+  }
+}

@@ -1,0 +1,417 @@
+/* ───────── Flow: a planned series of experiments ───────── */
+
+.gc-flow {
+  margin: 1em 0 !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  max-width: 100%;
+}
+.gc-flow:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.gc-flow-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--bg-subtle);
+}
+.gc-flow-head .spacer {
+  flex: 1;
+}
+.gc-flow-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--c-purple);
+}
+.gc-flow-name {
+  font-size: 14.5px;
+  font-weight: 620;
+  line-height: 30px;
+}
+.gc-flow-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.gc-flow-bar {
+  display: block;
+  width: 72px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+.gc-flow-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--c-green);
+}
+.gc-flow-grid {
+  padding: 14px;
+}
+.gc-flow-row,
+.gc-flow-turn {
+  display: grid;
+}
+.gc-flow-slot {
+  display: flex;
+  min-width: 0;
+}
+.gc-flow-slot > .gc-flow-card {
+  flex: 1;
+  min-width: 0;
+}
+.gc-flow-arrow,
+.gc-flow-turn span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+}
+.gc-flow-turn {
+  height: 28px;
+}
+.gc-flow-arrow svg,
+.gc-flow-turn svg {
+  width: 16px;
+  height: 16px;
+}
+.gc-flow .is-faint {
+  opacity: 0.35;
+}
+
+.gc-flow-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 116px;
+  padding: 10px 10px 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+.gc-flow-card.is-started {
+  box-shadow:
+    inset 3px 0 0 var(--accent),
+    var(--shadow-sm);
+}
+.gc-flow-card.is-done {
+  box-shadow:
+    inset 3px 0 0 var(--c-green),
+    var(--shadow-sm);
+}
+.gc-flow-card.is-missing {
+  box-shadow:
+    inset 3px 0 0 var(--c-red),
+    var(--shadow-sm);
+}
+.gc-flow-card.is-planned {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: var(--bg-subtle);
+  box-shadow: none;
+}
+.gc-flow-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.gc-flow-num {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.is-started .gc-flow-num {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.is-done .gc-flow-num {
+  background: var(--c-green-bg);
+  color: var(--c-green-fg);
+}
+.gc-flow-lock {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 4px;
+  color: var(--text-3);
+}
+.gc-flow-title {
+  flex: 1;
+  min-width: 0;
+  padding: 1px 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+span.gc-flow-title {
+  cursor: default;
+}
+button.gc-flow-title:hover {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+button.gc-flow-title.is-plain:hover {
+  color: var(--text);
+  text-decoration: underline dotted;
+}
+.gc-flow-menu {
+  flex: none;
+  margin: -3px -4px 0 0;
+}
+.gc-flow-card-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+.gc-flow-date {
+  font-size: 12.5px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.gc-flow-planned {
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  color: var(--text-3);
+}
+.gc-flow-tpl {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.gc-flow-tpl svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+}
+.gc-flow-result {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--bg-subtle);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.gc-flow-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 26px;
+  margin-top: auto;
+}
+.gc-flow-start svg {
+  width: 12px;
+  height: 12px;
+}
+/* In a template, a step is only a name and the template it starts from. */
+.gc-flow.is-template .gc-flow-card {
+  min-height: 84px;
+}
+.gc-flow-card.is-add {
+  justify-content: center;
+  padding: 8px;
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  box-shadow: none;
+}
+.gc-flow-add {
+  flex: 1;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 8px;
+  color: var(--text-2);
+  font-weight: 500;
+}
+.gc-flow-add:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.gc-flow-add svg {
+  width: 15px;
+  height: 15px;
+}
+.gc-flow-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--focus);
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+}
+.gc-flow-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-3);
+}
+@media (pointer: coarse) {
+  .gc-flow-card {
+    min-height: 0;
+  }
+  .gc-flow-start {
+    height: 36px;
+  }
+  /* Easier to tap: the name of a step opens or renames it. */
+  .gc-flow-title {
+    min-height: 32px;
+  }
+}
+
+/* In an entry that is a step: where it is in its flow. */
+.gc-flowbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 2px 0 18px;
+  padding: 7px 10px 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-subtle);
+  font-size: 13px;
+  color: var(--text-2);
+}
+.gc-flowbar-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--c-purple);
+}
+.gc-flowbar-where {
+  min-width: 0;
+}
+.gc-flowbar-parent {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text);
+  text-align: left;
+}
+.gc-flowbar-parent:hover {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.gc-flowbar-parent .mono {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.gc-flowbar-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+}
+.gc-flowbar-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 240px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+}
+button.gc-flowbar-step {
+  cursor: pointer;
+}
+.gc-flowbar-step span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gc-flowbar-step svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--text-3);
+}
+button.gc-flowbar-step:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+.gc-flowbar-step.is-planned {
+  border-style: dashed;
+  background: transparent;
+  color: var(--text-3);
+}
+@media (pointer: coarse) {
+  .gc-flowbar-parent {
+    min-height: 32px;
+  }
+}
+@media (max-width: 760px) {
+  .gc-flowbar-nav {
+    width: 100%;
+    margin-left: 0;
+  }
+  .gc-flowbar-step {
+    flex: 1 1 0;
+    max-width: none;
+    min-width: 0;
+    height: 34px;
+  }
+  .gc-flowbar-step.is-next {
+    justify-content: flex-end;
+  }
+}
+
+@media print {
+  .gc-flow-menu,
+  .gc-flow-start,
+  .gc-flow-card.is-add,
+  .gc-flow .is-faint {
+    display: none !important;
+  }
+  .gc-flow-card {
+    break-inside: avoid;
+  }
+}

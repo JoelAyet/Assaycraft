@@ -1,0 +1,237 @@
+.gc-seq {
+  --map-backbone: var(--text-3);
+  --map-stroke: rgba(0, 0, 0, 0.35);
+  --map-leader: var(--text-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+:root[data-theme='dark'] .gc-seq {
+  --map-stroke: rgba(255, 255, 255, 0.35);
+}
+.gc-file-seq.is-selected .gc-seq {
+  border-color: var(--accent);
+}
+.gc-seq-loading {
+  padding: 16px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+.gc-seq-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+.gc-seq-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--c-purple-bg);
+  color: var(--c-purple-fg);
+  flex: none;
+}
+.gc-seq-icon svg {
+  width: 19px;
+  height: 19px;
+}
+.gc-seq-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.gc-seq-name {
+  font-weight: 650;
+  font-size: 14px;
+  color: var(--text) !important;
+  text-decoration: none !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer !important;
+}
+.gc-seq-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.gc-seq-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.gc-seq-desc {
+  padding: 8px 14px 0;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.gc-seq-body {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px 10px;
+  align-items: flex-start;
+}
+.gc-seq-map {
+  flex: 0 0 380px;
+  max-width: 100%;
+}
+.gc-seq-map.is-linear {
+  flex: 1 1 100%;
+}
+.gc-seq-body:has(.gc-seq-map.is-linear) {
+  flex-direction: column;
+  align-items: stretch;
+}
+.gc-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+.gc-map text {
+  fill: var(--text-2);
+  font-family: var(--font);
+}
+.gc-map-tick {
+  font-size: 9px;
+  fill: var(--text-4) !important;
+}
+.gc-map-title {
+  font-size: 15px;
+  font-weight: 700;
+  fill: var(--text) !important;
+}
+.gc-map-sub {
+  font-size: 12px;
+  fill: var(--text-3) !important;
+}
+.gc-map-label text {
+  font-size: 10.5px;
+}
+.gc-map-flabel {
+  font-size: 10px;
+}
+.gc-map-feature {
+  cursor: pointer;
+}
+.gc-map-feature path {
+  transition: opacity 0.1s;
+}
+.gc-map-feature.is-hl path {
+  stroke: var(--accent);
+  stroke-width: 2px;
+}
+.gc-map-label.is-hl text {
+  font-weight: 700;
+  fill: var(--text) !important;
+}
+/* Selected (the whole block is, just after it is inserted), map text would be painted black: keep its colours. */
+.gc-map text::selection {
+  fill: var(--text-2);
+}
+.gc-map-tick::selection {
+  fill: var(--text-4) !important;
+}
+.gc-map-title::selection,
+.gc-map-label.is-hl text::selection {
+  fill: var(--text) !important;
+}
+.gc-map-sub::selection {
+  fill: var(--text-3) !important;
+}
+.gc-seq-features {
+  flex: 1;
+  min-width: 0;
+  max-height: 380px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.gc-seq-features table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.gc-seq-features th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-subtle);
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-3);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.gc-seq-features td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.gc-seq-features td:first-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gc-seq-features tr.is-hl td {
+  background: var(--accent-soft);
+}
+.gc-seq-features .num {
+  text-align: right;
+}
+.gc-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  flex: none;
+}
+.gc-seq-text {
+  padding: 0 10px 10px;
+}
+.gc-seq-text pre {
+  margin: 0 0 8px;
+  max-height: 340px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--bg-muted);
+}
+
+@media (max-width: 1100px) {
+  .gc-seq-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .gc-seq-map {
+    flex: none;
+    max-width: 420px;
+    align-self: center;
+    width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  /* The file name downloads the file: tall enough to tap. */
+  .gc-seq-name {
+    min-height: 28px;
+    line-height: 28px;
+  }
+}

@@ -1,0 +1,305 @@
+/* ───────── Version history ───────── */
+
+:root {
+  --diff-add-fg: #0f7a4f;
+  --diff-del-fg: #c0322e;
+  --diff-mod-fg: var(--warning);
+  --diff-add-line: #ebf7f0;
+  --diff-del-line: #fdeeed;
+  --diff-add-word: #c2ead3;
+  --diff-del-word: #f8cdca;
+}
+:root[data-theme='dark'] {
+  --diff-add-fg: #6fd3a0;
+  --diff-del-fg: #ff8f8a;
+  --diff-add-line: rgba(76, 197, 138, 0.11);
+  --diff-del-line: rgba(242, 112, 107, 0.11);
+  --diff-add-word: rgba(76, 197, 138, 0.32);
+  --diff-del-word: rgba(242, 112, 107, 0.32);
+}
+
+.gc-history-dialog {
+  max-width: 980px;
+}
+.gc-history-dialog .dialog-body {
+  padding-bottom: 0;
+}
+.gc-history {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  height: min(64vh, 660px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.gc-history-list {
+  overflow-y: auto;
+  padding: 6px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+.gc-history-day {
+  position: sticky;
+  top: -6px;
+  z-index: 1;
+  padding: 10px 8px 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: var(--bg-subtle);
+}
+.gc-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 9px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.gc-history-item:hover {
+  background: var(--bg-hover);
+}
+.gc-history-item.is-selected {
+  background: var(--accent-soft);
+}
+.gc-history-item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.gc-history-when {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.gc-history-tag {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 550;
+  background: var(--c-yellow-bg);
+  color: var(--c-yellow-fg);
+}
+.gc-history-tag.is-current {
+  background: var(--c-blue-bg);
+  color: var(--c-blue-fg);
+}
+.gc-history-delta {
+  display: flex;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.gc-history-delta .is-add {
+  color: var(--diff-add-fg);
+  font-weight: 600;
+}
+.gc-history-delta .is-del {
+  color: var(--diff-del-fg);
+  font-weight: 600;
+}
+
+.gc-history-view {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-y: auto;
+}
+.gc-history-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.gc-history-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 200px;
+  font-size: 13.5px;
+}
+.gc-history-title .muted {
+  font-size: 12.5px;
+}
+
+.gc-history-props {
+  margin: 12px 14px 0;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+  font-size: 13px;
+}
+.gc-history-props > div {
+  display: flex;
+  gap: 10px;
+  padding: 2px 0;
+}
+.gc-history-props dt {
+  flex: 0 0 90px;
+  color: var(--text-3);
+}
+.gc-history-props dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.gc-history-props del {
+  color: var(--text-2);
+  background: var(--diff-del-word);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.gc-history-props ins {
+  text-decoration: none;
+  background: var(--diff-add-word);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.gc-diff {
+  padding: 10px 0 16px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.gc-diff-same {
+  margin: 0 14px 8px;
+  font-family: var(--font);
+  font-size: 13px;
+}
+.gc-diff-line {
+  display: flex;
+  padding: 0 14px 0 0;
+}
+.gc-diff-mark {
+  flex: 0 0 26px;
+  text-align: center;
+  user-select: none;
+  font-weight: 600;
+}
+.gc-diff-text {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.gc-diff-line.is-settings .gc-diff-text {
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+.gc-diff-line.is-ins {
+  background: var(--diff-add-line);
+}
+.gc-diff-line.is-ins .gc-diff-mark {
+  color: var(--diff-add-fg);
+}
+.gc-diff-line.is-del {
+  background: var(--diff-del-line);
+}
+.gc-diff-line.is-del .gc-diff-mark {
+  color: var(--diff-del-fg);
+}
+.gc-diff-line.is-mod {
+  background: var(--bg-subtle);
+}
+.gc-diff-line.is-mod .gc-diff-mark {
+  color: var(--diff-mod-fg);
+}
+.gc-diff ins {
+  text-decoration: none;
+  background: var(--diff-add-word);
+  border-radius: 3px;
+}
+.gc-diff del {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--diff-del-fg) 60%, transparent);
+  background: var(--diff-del-word);
+  border-radius: 3px;
+}
+.gc-diff-skip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: calc(100% - 28px);
+  min-height: 28px;
+  margin: 4px 14px;
+  padding: 0 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-3);
+  font: inherit;
+  font-family: var(--font);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.gc-diff-skip:hover {
+  background: var(--bg-hover);
+  color: var(--text-2);
+}
+.gc-diff-skip svg {
+  width: 14px;
+  height: 14px;
+}
+
+.gc-history-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 18px 14px;
+  color: var(--text-2);
+  font-size: 13.5px;
+}
+.gc-history-empty p {
+  margin: 0;
+}
+.gc-history-empty svg {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  color: var(--text-3);
+}
+
+@media (max-width: 760px) {
+  .gc-history-dialog .dialog-body {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 8px;
+  }
+  .gc-history {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(120px, 32%) minmax(0, 1fr);
+  }
+  .gc-history-list {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+@media (pointer: coarse) {
+  .gc-diff-skip {
+    min-height: 40px;
+  }
+}
