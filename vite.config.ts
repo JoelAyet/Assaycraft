@@ -84,13 +84,14 @@ function offlineCache(): Plugin {
       const hash = createHash('sha256');
       const files: string[] = [];
       for (const file of Object.values(bundle)) {
-        if (file.fileName.endsWith('.map')) continue;
+        // Source maps, and the host's deploy settings (.assetsignore, wrangler.json), are not part of the app.
+        if (file.fileName.endsWith('.map') || isDeployFile(file.fileName)) continue;
         files.push(file.fileName);
         hash.update(file.fileName).update(file.type === 'chunk' ? file.code : file.source);
       }
       for (const name of publicDir ? readdirSync(publicDir) : []) {
         const path = join(publicDir, name);
-        if (!statSync(path).isFile()) continue;
+        if (!statSync(path).isFile() || isDeployFile(name)) continue;
         files.push(name);
         hash.update(name).update(readFileSync(path));
       }
@@ -101,6 +102,10 @@ function offlineCache(): Plugin {
       this.emitFile({ type: 'asset', fileName: 'sw.js', source });
     },
   };
+}
+
+function isDeployFile(name: string) {
+  return name.startsWith('.') || /^wrangler\.(json|jsonc|toml)$/.test(name);
 }
 
 function escapeRe(s: string) {
