@@ -30,8 +30,9 @@ import {
   FileText,
   FileType2,
   Columns2,
-  ArrowLeft,
   ArrowRight,
+  Check,
+  Play,
   Workflow,
 } from 'lucide-react';
 import { DocEditor } from '../editor/DocEditor';
@@ -41,6 +42,7 @@ import {
   createTemplate,
   duplicateDoc,
   flushWrite,
+  linkFlowStep,
   patchMeta,
   readDoc,
   saveAsProtocol,
@@ -162,7 +164,16 @@ function EntryProps({ meta, readOnly }: { meta: DocMeta; readOnly: boolean }) {
   );
 }
 
-/** In an entry that is a step of a flow: where it is in the flow, and the steps before and after it. */
+/** On a phone a flow's steps scroll sideways: open with the current one in view (once, not on every save). */
+function showCurrentStep(list: HTMLOListElement | null) {
+  const current = list?.querySelector<HTMLElement>('.is-current');
+  if (list && current && list.scrollWidth > list.clientWidth) list.scrollLeft = current.offsetLeft - list.offsetLeft - 12;
+}
+
+/**
+ * In an entry that is a step of a flow: which flow, every step (the ones started can be opened), and
+ * the next step, to open it or, when it has not been started, to start it from here.
+ */
 function FlowBar({ meta }: { meta: DocMeta }) {
   const docs = useNotebook((s) => s.docs);
   const found = useMemo(() => flowOfStep(meta.id, Object.values(docs)), [docs, meta.id]);
@@ -170,43 +181,103 @@ function FlowBar({ meta }: { meta: DocMeta }) {
   if (!found) return null;
   const { parent, index } = found;
   const steps = parent.flow!;
-  const near = (i: number, dir: 'prev' | 'next') => {
-    const s = steps[i];
-    if (!s) return null;
-    const entry = s.ref ? byId.get(s.ref) : undefined;
-    const icon = dir === 'prev' ? <ArrowLeft /> : <ArrowRight />;
-    const label = entry?.title || s.title || `Step ${i + 1}`;
-    return entry ? (
-      <button
-        className={`gc-flowbar-step is-${dir}`}
-        onClick={() => navigate({ name: 'doc', path: entry.path })}
-        title={`Step ${i + 1}: ${entry.id}`}
-      >
-        {dir === 'prev' && icon}
-        <span>{label}</span>
-        {dir === 'next' && icon}
-      </button>
-    ) : (
-      <span className={`gc-flowbar-step is-${dir} is-planned`} title={`Step ${i + 1}, not started yet`}>
-        {dir === 'prev' && icon}
-        <span>{label}</span>
-        {dir === 'next' && icon}
-      </span>
-    );
+  const entryOf = (i: number) => (steps[i]?.ref ? byId.get(steps[i].ref!) : undefined);
+  const done = steps.filter((_, i) => entryOf(i)?.status === 'completed').length;
+  const next = steps[index + 1];
+  const nextEntry = entryOf(index + 1);
+  const nextTitle = nextEntry?.title || next?.title || `Step ${index + 2}`;
+
+  const startNext = () => {
+    const i = index + 1;
+    const step = steps[i];
+    if (!step) return;
+    const template = step.template
+      ? Object.values(docs).find((d) => d.kind === 'template' && (d.id === step.template || d.title === step.template))
+      : undefined;
+    openNewEntryDialog({
+      heading: `Start step ${i + 1}`,
+      title: step.title,
+      templatePath: template?.path ?? null,
+      folder: isInside(parent.path, LAYOUT.projects) ? dirname(parent.path) : undefined,
+      onCreated: (path) => {
+        const entry = useNotebook.getState().docs[path];
+        if (entry)
+          void linkFlowStep(parent.path, i, entry).catch((err: Error) =>
+            toast(`Could not add it to ${parent.title}'s flow: ${err.message}`, 'error'),
+          );
+      },
+    });
   };
+
   return (
     <nav className="gc-flowbar" aria-label="Flow">
-      <Workflow className="gc-flowbar-icon" />
-      <span className="gc-flowbar-where">
-        Step {index + 1} of {steps.length} in{' '}
-        <button className="gc-flowbar-parent" onClick={() => navigate({ name: 'doc', path: parent.path })}>
-          {parent.id && parent.kind === 'entry' && <span className="mono">{parent.id}</span>} {parent.title}
-        </button>
-      </span>
-      <span className="gc-flowbar-nav">
-        {near(index - 1, 'prev')}
-        {near(index + 1, 'next')}
-      </span>
+      <div className="gc-flowbar-head">
+        <Workflow className="gc-flowbar-icon" />
+        <span className="gc-flowbar-where">
+          Step {index + 1} of {steps.length} in{' '}
+          <button className="gc-flowbar-parent" onClick={() => navigate({ name: 'doc', path: parent.path })}>
+            {parent.id && parent.kind === 'entry' && <span className="mono">{parent.id}</span>} {parent.title}
+          </button>
+        </span>
+        <span className="gc-flowbar-count">
+          {done} of {steps.length} done
+        </span>
+      </div>
+      <ol className="gc-flowbar-steps" ref={showCurrentStep} key={meta.id}>
+        {steps.map((s, i) => {
+          const entry = entryOf(i);
+          const state = i === index ? 'is-current' : entry ? (entry.status === 'completed' ? 'is-done' : 'is-started') : 'is-planned';
+          const label = entry?.title || s.title || `Step ${i + 1}`;
+          const inner = (
+            <>
+              <span className="gc-flowbar-num" aria-hidden="true">
+                {entry?.status === 'completed' && i !== index ? <Check /> : i + 1}
+              </span>
+              <span className="gc-flowbar-label">{label}</span>
+            </>
+          );
+          return (
+            <li key={i} className={`gc-flowbar-chip ${state}`}>
+              {entry && i !== index ? (
+                <button
+                  onClick={() => navigate({ name: 'doc', path: entry.path })}
+                  title={`Step ${i + 1}: ${entry.id} ${entry.title}`}
+                  aria-label={`Step ${i + 1}: ${label}`}
+                >
+                  {inner}
+                </button>
+              ) : (
+                <span
+                  aria-current={i === index ? 'step' : undefined}
+                  title={i === index ? 'This entry' : `Step ${i + 1}, not started yet`}
+                  aria-label={`Step ${i + 1}: ${label}${i === index ? ' (this entry)' : ', not started'}`}
+                >
+                  {inner}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      {next && (
+        <div className="gc-flowbar-next">
+          {nextEntry ? (
+            <button className="btn btn-sm" onClick={() => navigate({ name: 'doc', path: nextEntry.path })}>
+              <span className="gc-flowbar-next-title">Next: {nextTitle}</span>
+              <ArrowRight />
+            </button>
+          ) : !parent.locked && !next.ref ? (
+            <button className="btn btn-sm btn-primary" onClick={startNext} aria-label={`Start step ${index + 2}: ${nextTitle}`}>
+              <Play />
+              <span className="gc-flowbar-next-title">
+                Start step {index + 2}: {nextTitle}
+              </span>
+            </button>
+          ) : (
+            <span className="muted">Next: {nextTitle} (not started)</span>
+          )}
+        </div>
+      )}
     </nav>
   );
 }

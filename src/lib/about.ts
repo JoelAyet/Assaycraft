@@ -9,6 +9,6 @@ export const ABOUT = {
   /** The hosted app. */
   url: 'https://assaycraftlab.com',
   /** Source code, and a guide to every feature. */
-  repo: 'https://github.com/JoelAyet/Genecraft',
-  guide: 'https://github.com/JoelAyet/Genecraft/blob/HEAD/docs/GUIDE.md',
+  repo: 'https://github.com/JoelAyet/Assaycraft',
+  guide: 'https://github.com/JoelAyet/Assaycraft/blob/HEAD/docs/GUIDE.md',
 } as const;

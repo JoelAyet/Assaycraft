@@ -29,6 +29,7 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 **21 October 2026**
 
+- **Go from one step of a flow to the next.** Inside a step, the flow bar now shows every step and offers _Next_, or _Start step 3_ when the next one has not been started, so you can work through a flow without going back to the plan. Flows also work with any entry ID prefix: with a prefix such as `EXP` or `LAB-26-`, steps used to lose their bar. [Flows](#flows-a-series-of-experiments).
 - **TIFF images show in every browser.** Microscope frames, gel and blot images and scans saved as `.tif` now appear in the entry, not only in Safari; 16-bit and 32-bit images are contrast stretched for display, and stacks show one page at a time. The file stays exactly as your instrument saved it. [Files, images and SnapGene maps](#files-images-and-snapgene-maps).
 - **Labcraft is now Assaycraft.** Notebooks made with Labcraft open as they are: the first time, `labcraft.json` becomes `assaycraft.json` and the `.labcraft` folder (version history and activity) becomes `.assaycraft`. Your appearance settings in the browser carry over too.
 
@@ -260,7 +261,7 @@ On a card you also see the entry's **status**, its experiment **date**, a **lock
 
 ![Inside a step: its Result, and the bar that says where it is in the flow](screenshots/flow-step.png)
 
-**Inside a step's entry**, a bar under the properties says _Step 2 of 5 in EXP-0040 Production of GFP_. Click the coordinating entry to go back to the plan, or the step before or after to walk along the chain (a step not yet started is shown dashed). Click a card's name to open its entry.
+**Inside a step's entry**, a bar under the properties says _Step 2 of 5 in EXP-0040 Production of GFP_ and lists every step of the flow, with this one highlighted, the ones done ticked and the ones not started dashed. Click the coordinating entry to go back to the plan, or any started step to open it. When this step is done, the button under the steps takes you on: _Next: Expression test_ opens the next step, or, if it has not been started yet, _Start step 3: Expression test_ starts it right there, with its title and template, and adds it to the plan. Click a card's name to open its entry.
 
 ### 4. Change the plan
 

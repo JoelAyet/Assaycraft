@@ -95,8 +95,10 @@ test('a flow plans a series of experiments: each step starts as its own entry an
   // Inside the step: where it is in the flow, and a result to report.
   const bar = page.getByRole('navigation', { name: 'Flow' });
   await expect(bar).toContainText('Step 2 of 5 in EXP-0001 Production of GFP');
-  await expect(bar.locator('.gc-flowbar-step.is-prev')).toHaveText('Cloning of pET28-GFP');
-  await expect(bar.locator('.gc-flowbar-step.is-next')).toHaveText('Expression test');
+  await expect(bar.locator('.gc-flowbar-chip')).toHaveCount(5);
+  await expect(bar.locator('.gc-flowbar-chip.is-current')).toContainText('Transformation into BL21(DE3)');
+  await expect(bar.locator('.gc-flowbar-chip.is-planned')).toHaveCount(4);
+  await expect(bar.getByRole('button', { name: 'Start step 3: Expression test' })).toBeVisible();
   await page.getByPlaceholder('The outcome in one line').fill('12 colonies, 3 picked');
   await page.getByRole('button', { name: 'Lock', exact: true }).click();
   await page.getByRole('button', { name: 'Lock entry' }).click();
@@ -126,6 +128,54 @@ test('a flow plans a series of experiments: each step starts as its own entry an
   await expect(page.locator('.gc-title-input')).toHaveValue('Transformation into BL21(DE3)');
   await page.goto('/#/board');
   await expect(page.locator('.gc-card', { hasText: 'Production of GFP' })).toContainText('1/5');
+});
+
+/** A new entry from the Protein production template, with its step 2 started from the flow. */
+async function proteinFlowAtStep2(page: Page) {
+  await page.locator('.gc-new-btn').click();
+  await page.locator('.gc-template-option', { hasText: 'Protein production' }).click();
+  await page.locator('.gc-var', { hasText: 'Protein' }).locator('input').fill('GFP');
+  await page.getByRole('button', { name: 'Create entry' }).click();
+  await page.getByRole('button', { name: 'Start step 2: Transformation into BL21(DE3)' }).click();
+  await page.getByRole('dialog', { name: 'Start step 2' }).getByRole('button', { name: 'Start', exact: true }).click();
+  await expect(page.locator('.gc-title-input')).toHaveValue('Transformation into BL21(DE3)');
+}
+
+test('inside a step, the next step opens or starts from the step bar', async ({ page }) => {
+  await openFolderNotebook(page);
+  await proteinFlowAtStep2(page);
+  const bar = page.getByRole('navigation', { name: 'Flow' });
+
+  // Not started yet: start it from here, with the step's title and template, as from the plan.
+  await bar.getByRole('button', { name: 'Start step 3: Expression test' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Start step 3' });
+  await expect(dialog.locator('#ne-title')).toHaveValue('Expression test');
+  await expect(dialog.locator('.gc-template-option.active')).toContainText('General experiment');
+  await dialog.getByRole('button', { name: 'Start', exact: true }).click();
+  await expect(page.locator('.gc-title-input')).toHaveValue('Expression test');
+  await expect(bar).toContainText('Step 3 of 5 in EXP-0001 Production of GFP');
+  await expect(bar.locator('.gc-flowbar-chip.is-current')).toContainText('Expression test');
+
+  // The plan links the new entry, and the step before now offers to go on to it.
+  await waitForSave(page);
+  expect(await readFile(page, 'Projects/General/EXP-0001 Production of GFP.md')).toContain(
+    '3. [EXP-0003 Expression test](EXP-0003%20Expression%20test.md)\n',
+  );
+  await bar.getByRole('button', { name: 'Step 2: Transformation into BL21(DE3)' }).click();
+  await expect(page.locator('.gc-title-input')).toHaveValue('Transformation into BL21(DE3)');
+  await bar.getByRole('button', { name: /^Next: Expression test/ }).click();
+  await expect(page.locator('.gc-title-input')).toHaveValue('Expression test');
+  await bar.locator('.gc-flowbar-parent').click();
+  await expect(flowCard(page, 3)).toContainText('EXP-0003');
+});
+
+test('steps are found whatever the entry ID prefix', async ({ page }) => {
+  await openFolderNotebook(page);
+  await page.goto('/#/settings');
+  await page.getByLabel('Entry ID prefix').fill('LAB-26-');
+  await page.getByRole('button', { name: 'Save settings' }).click();
+  await proteinFlowAtStep2(page);
+  await expect(page.getByRole('navigation', { name: 'Flow' })).toContainText('Step 2 of 5 in LAB-26-0001 Production of GFP');
 });
 
 test('a flow is quick to write and rearrange, and opens again as it was', async ({ page }) => {
