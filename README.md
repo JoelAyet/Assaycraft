@@ -147,8 +147,6 @@ My Notebook/
 └── .trash/                            deleted items, and trash.json: where each came from (the Trash page restores them)
 ```
 
-Notebooks made with Labcraft (this app's earlier name) open as they are: the first time, `labcraft.json` is renamed `assaycraft.json` and `.labcraft/` becomes `.assaycraft/`.
-
 An entry is ordinary Markdown with YAML front matter:
 
 ```markdown
