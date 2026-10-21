@@ -44,6 +44,7 @@ import { defaultConfig, getState, hashToRoute, navigate, setState, toast, type S
 import { FIGURE_SRC } from '../pdf/layout';
 import type { ConvertedPdf } from '../pdf/convert';
 import { bodyFacts } from './text';
+import { replaceFlowStep } from '../flow/model';
 import { seedNotebook } from './seed';
 import { stockType, writeStockTable, type StockTable } from '../stocks/model';
 import { citationKey, refExtra, refFromMeta, type RefInfo } from '../literature/model';
@@ -494,6 +495,17 @@ export async function saveBody(stalePath: string, body: string) {
     pending.delete(path);
   }
   await runWrite(path, body);
+}
+
+/** Link an entry to step `index` of the flow kept in another page (from the step bar), writing that page's file. */
+export async function linkFlowStep(parentPath: string, index: number, entry: DocMeta) {
+  const path = currentPath(parentPath);
+  if (openBodies.has(path)) throw new Error('Its flow is open in another editor');
+  await flushWrite(path);
+  const { body } = await readDoc(path);
+  const next = replaceFlowStep(body, index, { title: entry.title, ref: entry.id, href: relative(dirname(path), entry.path) });
+  if (next === undefined) throw new Error('The flow no longer has that step');
+  await runWrite(path, next);
 }
 
 /** Update metadata in the store immediately and save it shortly after. */

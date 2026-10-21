@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseMarkdown } from '../../src/markdown/parse';
 import { serializeMarkdown } from '../../src/markdown/serialize';
-import { flowStepRefs, flowToMarkdown, idFromHref, normalizeFlow } from '../../src/flow/model';
+import { flowStepRefs, flowToMarkdown, idFromHref, normalizeFlow, replaceFlowStep } from '../../src/flow/model';
 import { bodyFacts } from '../../src/notebook/text';
 import { collectVariables, fillVariables, resetFlows } from '../../src/templates/engine';
 import type { JSONContent } from '@tiptap/core';
@@ -59,6 +59,11 @@ describe('flow', () => {
   it('finds the IDs of linked entries', () => {
     expect(idFromHref('EXP-0041%20Transformation.md')).toBe('EXP-0041');
     expect(idFromHref('../A/GC-12%20x.md#part')).toBe('GC-12');
+    // Every prefix Settings allows: letters, digits and hyphens before the number.
+    expect(idFromHref('LAB-26-0003%20x.md')).toBe('LAB-26-0003');
+    expect(idFromHref('EXP0007%20x.md')).toBe('EXP0007');
+    expect(idFromHref('2026-012%20x.md')).toBe('2026-012');
+    expect(idFromHref('Lab%20meeting.md')).toBeUndefined();
     expect(idFromHref('Notes/Lab%20meeting.md')).toBeUndefined();
     expect(idFromHref('photo.png')).toBeUndefined();
   });
@@ -68,7 +73,7 @@ describe('flow', () => {
     expect(flowStepRefs(body)).toEqual([
       { title: 'Transformation of E. coli', ref: 'EXP-0041' },
       { title: 'Incubation', ref: 'EXP-0042' },
-      { title: 'Lab-scale production' },
+      { title: 'Lab-scale production', template: 'protein-expression' },
       { title: 'Protein purification' },
     ]);
     const facts = bodyFacts(MD);
@@ -87,5 +92,21 @@ describe('flow', () => {
   it('normalizes whatever it is given', () => {
     expect(normalizeFlow(null)).toEqual({ steps: [] });
     expect(normalizeFlow({ steps: [{ title: 'A', ref: '', template: 't' }, null as never] })).toEqual({ steps: [{ title: 'A', template: 't' }] });
+  });
+
+  it('links one step of a flow written in a page, leaving the rest of the page as it was', () => {
+    const body =
+      'Intro\n\n<!-- gc:flow {"templates":{"3":"general-experiment"}} -->\n1. [EXP-0002 Clone](EXP-0002%20Clone.md)\n2. Grow\n3. Express\n\nAfter';
+    const next = replaceFlowStep(body, 2, { title: 'Express', ref: 'EXP-0005', href: 'EXP-0005 Express.md' })!;
+    expect(next).toBe(
+      'Intro\n\n<!-- gc:flow {"templates":{"3":"general-experiment"}} -->\n1. [EXP-0002 Clone](EXP-0002%20Clone.md)\n2. Grow\n3. [EXP-0005 Express](EXP-0005%20Express.md)\n\nAfter',
+    );
+    expect(flowStepRefs(next)).toEqual([
+      { title: 'Clone', ref: 'EXP-0002' },
+      { title: 'Grow' },
+      { title: 'Express', ref: 'EXP-0005', template: 'general-experiment' },
+    ]);
+    expect(replaceFlowStep(body, 7, { title: 'x' })).toBeUndefined();
+    expect(replaceFlowStep('No flow here', 0, { title: 'x' })).toBeUndefined();
   });
 });

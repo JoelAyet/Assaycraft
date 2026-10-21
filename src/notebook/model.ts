@@ -125,6 +125,8 @@ export interface DocMeta {
 export interface FlowStepRef {
   title: string;
   ref?: string;
+  /** ID or title of the template a new entry for the step starts from. */
+  template?: string;
 }
 
 export interface NotebookConfig {

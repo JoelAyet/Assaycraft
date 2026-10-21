@@ -43,12 +43,15 @@ export function normalizeFlow(input: Partial<FlowData> | null | undefined): Flow
   };
 }
 
-/** The ID in a link to a notebook page: pages with IDs are saved as "<ID> <title>.md". */
+/**
+ * The ID in a link to a notebook page: pages with IDs are saved as "<ID> <title>.md". An ID is the
+ * notebook's prefix (letters, digits and hyphens, as Settings allows: EXP-, EXP, LAB-26-…) then a number.
+ */
 export function idFromHref(href: string): string | undefined {
   const path = safeDecode(href.split('#')[0]);
   if (!path.endsWith('.md')) return undefined;
   const first = stem(basename(path)).split(' ')[0];
-  return /^[A-Za-z][A-Za-z0-9]*-\d+$/.test(first) ? first : undefined;
+  return /^[A-Za-z0-9][A-Za-z0-9-]*\d$/.test(first) ? first : undefined;
 }
 
 /** A step read from one list item: its text, and the link if the item is only a link. */
@@ -105,23 +108,48 @@ export function flowToMarkdown(input: FlowData): string {
   return lines.join('\n');
 }
 
-const FLOW_RE = /^<!--\s*gc:flow\b[\s\S]*?-->[ \t]*\r?\n((?:[ \t]*\d+[.)][ \t]+.*(?:\r?\n|$))*)/m;
+const FLOW_RE = /^<!--\s*gc:flow\b([\s\S]*?)-->[ \t]*\r?\n((?:[ \t]*\d+[.)][ \t]+.*(?:\r?\n|$))*)/m;
 const LINK_ITEM_RE = /^\[((?:[^\]\\]|\\.)*)\]\(\s*<?([^)>\s]+)>?\s*\)\s*$/;
 
-/** The steps of the first flow in a Markdown body, for pages that need them without parsing it all. */
-export function flowStepRefs(body: string): FlowStepRef[] | undefined {
+/** The first flow in a Markdown body, read straight from the text: where it is, and its steps. */
+function findFlow(body: string): { start: number; end: number; data: FlowData } | undefined {
   const m = FLOW_RE.exec(body);
   if (!m) return undefined;
-  const steps: FlowStepRef[] = [];
-  for (const line of m[1].split(/\r?\n/)) {
+  let meta: Record<string, unknown> = {};
+  try {
+    if (m[1].trim()) meta = JSON.parse(m[1].trim()) as Record<string, unknown>;
+  } catch {
+    // An unreadable comment only loses the step templates.
+  }
+  const items: { text: string; href?: string }[] = [];
+  for (const line of m[2].split(/\r?\n/)) {
     const item = /^[ \t]*\d+[.)][ \t]+(.*)$/.exec(line);
     if (!item) continue;
     const text = item[1].trim();
     const link = LINK_ITEM_RE.exec(text);
-    const step = link ? stepFromItem(link[1].replace(/\\(.)/g, '$1'), link[2]) : { title: text.replace(/\\(.)/g, '$1') };
-    steps.push(step.ref ? { title: step.title, ref: step.ref } : { title: step.title });
+    items.push(link ? { text: link[1].replace(/\\(.)/g, '$1'), href: link[2] } : { text: text.replace(/\\(.)/g, '$1') });
   }
-  return steps;
+  // The list's last line break stays outside the flow, as the editor writes it.
+  const end = m.index + m[0].length - (/\r?\n$/.exec(m[0])?.[0].length ?? 0);
+  return { start: m.index, end, data: flowFromItems(items, meta) };
+}
+
+/** The steps of the first flow in a Markdown body, for pages that need them without parsing it all. */
+export function flowStepRefs(body: string): FlowStepRef[] | undefined {
+  return findFlow(body)?.data.steps.map((s) => ({
+    title: s.title,
+    ...(s.ref ? { ref: s.ref } : {}),
+    ...(s.template ? { template: s.template } : {}),
+  }));
+}
+
+/** A body whose first flow has step `index` replaced (keeping its template), or undefined if there is no such step. */
+export function replaceFlowStep(body: string, index: number, step: FlowStep): string | undefined {
+  const flow = findFlow(body);
+  const old = flow?.data.steps[index];
+  if (!flow || !old) return undefined;
+  const steps = flow.data.steps.map((s, i) => (i === index ? { ...step, template: step.template ?? old.template } : s));
+  return body.slice(0, flow.start) + flowToMarkdown({ steps }) + body.slice(flow.end);
 }
 
 /** Entries by ID, to look steps up. */

@@ -301,19 +301,24 @@ button.gc-flow-title.is-plain:hover {
   }
 }
 
-/* In an entry that is a step: where it is in its flow. */
+/* In an entry that is a step: its flow, every step, and the next one to open or start. */
 .gc-flowbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
+  flex-direction: column;
+  gap: 10px;
   margin: 2px 0 18px;
-  padding: 7px 10px 7px 12px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--bg-subtle);
   font-size: 13px;
   color: var(--text-2);
+}
+.gc-flowbar-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
 }
 .gc-flowbar-icon {
   flex: none;
@@ -342,65 +347,128 @@ button.gc-flow-title.is-plain:hover {
   font-size: 12px;
   color: var(--text-2);
 }
-.gc-flowbar-nav {
+.gc-flowbar-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-3);
+}
+/* The steps in order, joined by a line. */
+.gc-flowbar-steps {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-left: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.gc-flowbar-step {
+.gc-flowbar-chip > button,
+.gc-flowbar-chip > span {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  max-width: 240px;
-  height: 28px;
-  padding: 0 10px;
+  gap: 6px;
+  max-width: 220px;
+  height: 30px;
+  padding: 0 10px 0 4px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--panel);
   color: var(--text);
+  font: inherit;
 }
-button.gc-flowbar-step {
+.gc-flowbar-chip > button {
   cursor: pointer;
 }
-.gc-flowbar-step span {
+.gc-flowbar-chip > button:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+.gc-flowbar-num {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg-muted);
+  color: var(--text-2);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.gc-flowbar-num svg {
+  width: 13px;
+  height: 13px;
+}
+.gc-flowbar-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.gc-flowbar-step svg {
-  flex: none;
-  width: 14px;
-  height: 14px;
-  color: var(--text-3);
+.gc-flowbar-chip.is-started .gc-flowbar-num {
+  background: var(--c-blue-bg);
+  color: var(--c-blue-fg);
 }
-button.gc-flowbar-step:hover {
-  border-color: var(--border-strong);
-  background: var(--bg-hover);
+.gc-flowbar-chip.is-done .gc-flowbar-num {
+  background: var(--c-green-bg);
+  color: var(--c-green-fg);
 }
-.gc-flowbar-step.is-planned {
+.gc-flowbar-chip.is-current > span {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.gc-flowbar-chip.is-current .gc-flowbar-num {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.gc-flowbar-chip.is-planned > span {
   border-style: dashed;
   background: transparent;
   color: var(--text-3);
+}
+.gc-flowbar-next {
+  display: flex;
+  justify-content: flex-end;
+}
+.gc-flowbar-next .btn {
+  max-width: 100%;
+}
+.gc-flowbar-next-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gc-flowbar-next svg {
+  flex: none;
 }
 @media (pointer: coarse) {
   .gc-flowbar-parent {
     min-height: 32px;
   }
-}
-@media (max-width: 760px) {
-  .gc-flowbar-nav {
-    width: 100%;
-    margin-left: 0;
-  }
-  .gc-flowbar-step {
-    flex: 1 1 0;
-    max-width: none;
-    min-width: 0;
+  .gc-flowbar-chip > button,
+  .gc-flowbar-chip > span {
     height: 34px;
   }
-  .gc-flowbar-step.is-next {
-    justify-content: flex-end;
+}
+@media (max-width: 760px) {
+  /* One row that scrolls sideways, instead of a tall pile of steps. */
+  .gc-flowbar-steps {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .gc-flowbar-chip {
+    flex: none;
+  }
+  .gc-flowbar-chip > button,
+  .gc-flowbar-chip > span {
+    max-width: 180px;
+  }
+  .gc-flowbar-next .btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 
