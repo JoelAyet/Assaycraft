@@ -67,6 +67,11 @@ test('a new notebook starts a tour that asks your name and points at each part o
       expect(card.y + card.height).toBeLessThanOrEqual(900);
     }
     if (t === 'The buffer calculator') await near('.gc-buffer');
+    if (t === 'Your phone at the bench') {
+      // It points at the notebook menu, where Connect a phone is.
+      await near('.gc-notebook-btn');
+      await expect(tour(page)).toContainText('Connect a phone');
+    }
     await tour(page).getByRole('button', { name: 'Next' }).click();
   }
   expect(seen).toEqual([
@@ -79,6 +84,7 @@ test('a new notebook starts a tour that asks your name and points at each part o
     'The buffer calculator',
     'Type / for more',
     'Find anything',
+    'Your phone at the bench',
     'Saved as you type',
   ]);
   await expect(title(page)).toHaveText('You’re ready');
