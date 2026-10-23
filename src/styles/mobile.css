@@ -485,6 +485,11 @@
     right: 10px;
     bottom: max(10px, env(safe-area-inset-bottom));
   }
+  /* Dialogs open from the bottom of the screen: a toast then shows at the top, off their buttons. */
+  body:has(.dialog-backdrop) .toasts {
+    top: max(10px, env(safe-area-inset-top));
+    bottom: auto;
+  }
   .toast {
     max-width: none;
   }

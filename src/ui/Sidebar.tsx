@@ -364,13 +364,13 @@ function SaveIndicator() {
     idle: null,
     pending: { icon: <LoaderCircle className="spin-slow" />, text: 'Editing…' },
     saving: { icon: <LoaderCircle className="spin" />, text: 'Saving…' },
-    saved: { icon: <CircleCheck />, text: 'All changes saved' },
+    saved: { icon: <CircleCheck />, text: 'Saved', title: 'All changes saved' },
     error: { icon: <CircleAlert />, text: 'Save failed' },
   } as const;
   const m = map[saveState];
   if (!m) return null;
   return (
-    <span className={`gc-save gc-save-${saveState}`}>
+    <span className={`gc-save gc-save-${saveState}`} title={'title' in m ? m.title : undefined}>
       {m.icon}
       {m.text}
     </span>
@@ -443,7 +443,14 @@ export function Sidebar() {
     route.name === 'folder' ? route.path : route.name === 'doc' && isInside(route.path, LAYOUT.projects) ? dirname(route.path) : undefined;
 
   const notebookMenu: MenuItemSpec[] = [
-    { heading: vault.kind === 'folder' ? `Folder: ${vault.name}` : 'Stored in this browser' },
+    {
+      heading:
+        vault.kind === 'folder'
+          ? `Folder: ${vault.name}`
+          : syncRole === 'phone'
+            ? 'In this browser, synced with a computer'
+            : 'Stored in this browser',
+    },
     { label: 'Settings', icon: <Settings />, onSelect: () => navigate({ name: 'settings' }) },
     ...(syncSupported()
       ? [

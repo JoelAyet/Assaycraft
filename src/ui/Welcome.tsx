@@ -59,6 +59,9 @@ export function Welcome() {
   const loading = useNotebook((s) => s.loading);
   const canFolder = supportsFolderAccess();
   const touch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+  // On a phone or tablet, the notebook usually lives on a computer: offer only that, the rest on request.
+  const [onItsOwn, setOnItsOwn] = useState(false);
+  const connectOnly = touch && syncSupported() && !onItsOwn;
 
   const refresh = () =>
     void listKnownNotebooks()
@@ -154,6 +157,25 @@ export function Welcome() {
       refresh();
     });
 
+  const connectCard = syncSupported() && (
+    <div className={`gc-option gc-option-connect${connectOnly ? ' is-recommended' : ''}`}>
+      <Laptop className="gc-option-icon" />
+      <h3>Connect to a computer</h3>
+      <p>
+        Use a notebook that is open on {touch ? 'your' : 'another'} computer: there, choose <em>Connect a phone</em> in the notebook menu and scan the
+        code it shows. This device keeps a copy, in sync while both are open.
+      </p>
+      <div className="gc-option-actions">
+        <button className={`btn btn-lg${connectOnly ? ' btn-primary' : ''}`} disabled={loading} onClick={() => openConnectComputer()}>
+          <ScanLine /> Scan the code
+        </button>
+        <button className="btn btn-ghost btn-lg" disabled={loading} onClick={() => openConnectComputer({ paste: true })}>
+          <ClipboardPaste /> Paste the link…
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="gc-welcome">
       <div className="gc-welcome-inner">
@@ -200,77 +222,72 @@ export function Welcome() {
           </section>
         )}
 
-        <section className="gc-welcome-options">
-          <div className={`gc-option ${canFolder ? 'is-recommended' : 'is-disabled'}`}>
-            <FolderOpen className="gc-option-icon" />
-            <h3>Open a notebook folder {canFolder && <span className="pill pill-sq tone-green">Recommended</span>}</h3>
-            <p>
-              Choose a folder on your computer (empty for a new notebook). Entries, templates and boards are saved there as Markdown files;
-              attachments and SnapGene files sit next to them.
-            </p>
-            {canFolder ? (
-              <button className="btn btn-primary btn-lg" disabled={loading} onClick={() => void openFolder()}>
-                <FolderOpen /> Choose folder…
-              </button>
-            ) : touch ? (
-              <p className="gc-option-note">
-                Phones and tablets cannot open folders: use browser storage. To bring a notebook from your computer, export it there (notebook menu →{' '}
-                <em>Export notebook</em>) and open the .zip here.
-              </p>
-            ) : (
-              <>
-                <p className="gc-option-note">
-                  This browser can read a folder but not save into it (that needs Chrome, Edge, Brave or Arc). Opening one copies its notebook into
-                  this browser; export a .zip to take your changes back.
-                </p>
-                <button className="btn btn-lg" disabled={loading} onClick={() => void openFolderCopy()}>
-                  <FolderOpen /> Open folder…
-                </button>
-              </>
-            )}
-          </div>
-          <div className="gc-option">
-            <Globe className="gc-option-icon" />
-            <h3>Use browser storage</h3>
-            <p>
-              Keeps the notebook inside this browser: works anywhere, no folder needed. Export everything as a .zip of Markdown files at any time.
-            </p>
-            <div className="gc-option-actions">
-              <button className="btn btn-lg" disabled={loading} onClick={() => void openBrowser()}>
-                <Globe /> Create browser notebook
-              </button>
-              <button className="btn btn-ghost btn-lg" disabled={loading} onClick={() => void openZip()} title="Open a notebook exported as a .zip">
-                <FileArchive /> Open a .zip…
-              </button>
-            </div>
-          </div>
-          {syncSupported() && (
-            <div className="gc-option">
-              <Laptop className="gc-option-icon" />
-              <h3>Connect to a computer</h3>
+        <section className={`gc-welcome-options${connectOnly ? ' is-connect-only' : ''}`}>
+          {/* On phones and tablets (no folders) connecting to a computer is the likeliest start: it comes first. */}
+          {touch && connectCard}
+          {!connectOnly && (
+            <div className={`gc-option ${canFolder ? 'is-recommended' : 'is-disabled'}`}>
+              <FolderOpen className="gc-option-icon" />
+              <h3>Open a notebook folder {canFolder && <span className="pill pill-sq tone-green">Recommended</span>}</h3>
               <p>
-                Use a notebook that is open on your computer: there, choose <em>Connect a phone</em> in the notebook menu and scan the code it shows.
-                This device keeps a copy, in sync while both are open.
+                Choose a folder on your computer (empty for a new notebook). Entries, templates and boards are saved there as Markdown files;
+                attachments and SnapGene files sit next to them.
+              </p>
+              {canFolder ? (
+                <button className="btn btn-primary btn-lg" disabled={loading} onClick={() => void openFolder()}>
+                  <FolderOpen /> Choose folder…
+                </button>
+              ) : touch ? (
+                <p className="gc-option-note">
+                  Phones and tablets cannot open folders: use browser storage, or connect to the computer that has the notebook. A .zip exported there
+                  (notebook menu → <em>Export notebook</em>) opens here too.
+                </p>
+              ) : (
+                <>
+                  <p className="gc-option-note">
+                    This browser can read a folder but not save into it (that needs Chrome, Edge, Brave or Arc). Opening one copies its notebook into
+                    this browser; export a .zip to take your changes back.
+                  </p>
+                  <button className="btn btn-lg" disabled={loading} onClick={() => void openFolderCopy()}>
+                    <FolderOpen /> Open folder…
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+          {!connectOnly && (
+            <div className="gc-option">
+              <Globe className="gc-option-icon" />
+              <h3>Use browser storage</h3>
+              <p>
+                Keeps the notebook inside this browser: works anywhere, no folder needed. Export everything as a .zip of Markdown files at any time.
               </p>
               <div className="gc-option-actions">
-                <button className="btn btn-lg" disabled={loading} onClick={() => openConnectComputer()}>
-                  <ScanLine /> Scan the code
+                <button className="btn btn-lg" disabled={loading} onClick={() => void openBrowser()}>
+                  <Globe /> Create browser notebook
                 </button>
-                <button className="btn btn-ghost btn-lg" disabled={loading} onClick={() => openConnectComputer({ paste: true })}>
-                  <ClipboardPaste /> Paste the link…
+                <button className="btn btn-ghost btn-lg" disabled={loading} onClick={() => void openZip()} title="Open a notebook exported as a .zip">
+                  <FileArchive /> Open a .zip…
                 </button>
               </div>
             </div>
           )}
+          {!touch && connectCard}
         </section>
 
-        <label className="checkbox gc-welcome-seed">
-          <input type="checkbox" checked={seed} onChange={(e) => setSeed(e.target.checked)} />
-          Start new notebooks with example templates (Q5 PCR, Gibson, gel, transformation, miniprep, cloning…) and a task board
-        </label>
+        {connectOnly ? (
+          <button className="btn btn-ghost gc-welcome-alone" onClick={() => setOnItsOwn(true)}>
+            No computer? Use this device on its own
+          </button>
+        ) : (
+          <label className="checkbox gc-welcome-seed">
+            <input type="checkbox" checked={seed} onChange={(e) => setSeed(e.target.checked)} />
+            Start new notebooks with example templates (Q5 PCR, Gibson, gel, transformation, miniprep, cloning…) and a task board
+          </label>
+        )}
 
         <footer className="gc-welcome-foot">
-          <ShieldCheck /> Your data stays on your computer: no account, no server, no tracking.
+          <ShieldCheck /> Your data stays on your devices: no account, no cloud storage, no tracking.
           <span className="gc-welcome-credit">
             {ABOUT.name} · created by <strong>{ABOUT.author}</strong>
           </span>

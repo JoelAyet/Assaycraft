@@ -34,10 +34,18 @@ export async function openFolderNotebook(page: Page, opts: { seed?: boolean; tou
       (await navigator.storage.getDirectory()).getDirectoryHandle(name, { create: true });
   }, NOTEBOOK);
   await page.goto('/');
+  await useWithoutComputer(page);
   if (opts.seed === false) await page.getByText('Start new notebooks with example templates').click();
   await page.getByRole('button', { name: /Choose folder/ }).click();
   // (On phones the sidebar is a hidden drawer.)
   await expect(page.locator('.gc-main')).toBeVisible();
+}
+
+/** On a phone or tablet the welcome page offers only Connect to a computer, until asked for the other ways. */
+export async function useWithoutComputer(page: Page) {
+  await page.locator('.gc-welcome-options').waitFor();
+  const alone = page.getByRole('button', { name: 'No computer? Use this device on its own' });
+  if (await alone.isVisible()) await alone.click();
 }
 
 export async function readFile(page: Page, path: string): Promise<string> {

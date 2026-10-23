@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { strToU8, zipSync } from 'fflate';
-import { openFolderNotebook, readFile, trackErrors, waitForSave, ymd } from './helpers';
+import { openFolderNotebook, readFile, trackErrors, useWithoutComputer, waitForSave, ymd } from './helpers';
 
 // A phone (iPhone 13 size), with touch.
 test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
@@ -131,6 +131,7 @@ test('open a notebook exported from a computer (.zip) on a phone', async ({ page
     'Lab notebook/Protocols/P-0001 Miniprep.md': strToU8('---\nid: P-0001\nkind: protocol\ntitle: Miniprep\nversion: "1.0"\n---\n\n1. Pellet.\n'),
   });
   await page.goto('/');
+  await useWithoutComputer(page);
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Open a .zip…' }).click();
   await (await chooser).setFiles({ name: 'Smith lab 2026-10-16.zip', mimeType: 'application/zip', buffer: Buffer.from(zip) });

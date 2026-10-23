@@ -91,8 +91,16 @@ export function plateToMarkdown(input: PlateData): string {
 type NodeFn = (state: MarkdownSerializerState, node: PMNode, parent: PMNode, index: number) => void;
 
 const nodes: Record<string, NodeFn> = {
-  paragraph(state, node) {
-    state.renderInline(node);
+  paragraph(state, node, parent, index) {
+    if (node.childCount === 0 && parent.type.name === 'doc') {
+      // Markdown has no empty paragraph: an empty line left between others (Enter pressed twice) is kept
+      // as <br>, so it reaches the other device and shows in other Markdown viewers. Empty lines at the end are not.
+      for (let i = index + 1; i < parent.childCount; i++)
+        if (parent.child(i).type !== node.type || parent.child(i).childCount > 0) {
+          state.write('<br>');
+          break;
+        }
+    } else state.renderInline(node);
     state.closeBlock(node);
   },
   heading(state, node) {

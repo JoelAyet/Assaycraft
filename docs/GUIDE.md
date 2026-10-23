@@ -30,7 +30,8 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 **23 October 2026**
 
-- **Your phone at the bench, in sync.** _Connect a phone_ in the notebook menu shows a QR code; on the phone, choose **Connect to a computer** and scan it. The phone gets a copy of the notebook, and while Assaycraft is open on both, what you write on one shows up on the other within a second or two. The phone keeps its copy (it works offline at the bench), and the two catch up when they reconnect. Nothing is stored online. [Your phone at the bench](#your-phone-at-the-bench-connect-a-phone).
+- **Your phone at the bench, in sync.** _Connect a phone_ in the notebook menu shows a QR code; on the phone, choose **Connect to a computer** and scan it. The phone gets a copy of the notebook, and while Assaycraft is open on both, what you write on one shows up on the other within a second or two, empty lines included. The phone keeps its copy (it works offline at the bench), and the two catch up when they reconnect. Nothing is stored online. On a phone or tablet, the welcome page now offers just this; _No computer? Use this device on its own_ shows the other ways. [Your phone at the bench](#your-phone-at-the-bench-connect-a-phone).
+- **Empty lines are kept.** An empty line left between paragraphs (Enter pressed twice) is saved, as `<br>` in the Markdown file, so it is still there when the page is opened again or on another device. Empty lines at the very end of a page are not saved.
 
 - **Safari and Firefox.** _Open folder…_ on the welcome screen now works in Safari and Firefox: they can read a notebook folder but not save into it, so its notebook is copied into the browser; export a .zip to take your changes back. Images and other attachments in browser notebooks now save in every browser, including Safari's private windows, and Assaycraft asks the browser to keep browser notebooks rather than clear them to free space. [Where the notebook is stored](#where-the-notebook-is-stored).
 
@@ -558,7 +559,7 @@ The same notebook on your computer and your phone, without storing it online.
 **Connecting a phone**
 
 1. On the computer, open the notebook and choose **Connect a phone** in the notebook menu. It shows a QR code.
-2. On the phone, open the site and choose **Connect to a computer** → _Scan the code_. (The phone's camera app works too: the code is a link that opens Assaycraft and connects.) No camera? Use _Copy link_ on the computer and _Paste the link…_ on the phone.
+2. On the phone, open the site and choose **Connect to a computer** → _Scan the code_ (on a phone or tablet it is the only choice on the welcome page; _No computer? Use this device on its own_ shows the others). The phone's camera app works too: the code is a link that opens Assaycraft and connects. No camera? Use _Copy link_ on the computer and _Paste the link…_ on the phone.
 3. The phone copies the notebook into its browser (entries, protocols, stocks, templates, boards and attachments) and opens it.
 
 **Then**
@@ -566,7 +567,7 @@ The same notebook on your computer and your phone, without storing it online.
 - While Assaycraft is open on both devices, what you write on one appears on the other within a second or two, also in a page open on both.
 - The phone keeps its copy and opens it without a connection. When both are open again they catch up: a page changed on one side is copied to the other, and a page deleted on one side is deleted on the other, unless it was changed there since.
 - A page changed on both before they caught up is kept twice: the computer's version in its place, and the phone's next to it as “… (from iPhone).md”. Compare the two and delete the one you do not need. Nothing is overwritten without a trace: when a page is replaced by the other device's version, the version it replaces goes into its [version history](#version-history).
-- The phone reconnects by itself whenever the notebook is open on both. The icon at the foot of the sidebar shows how it is going (green: in sync); click it for the details. On the phone the menu item is _Computer connection_.
+- The phone reconnects by itself whenever the notebook is open on both. The icon at the foot of the sidebar shows how it is going (green: in sync); click it for the details. On the phone the menu item is _Computer connection_, with _Try to connect now_ while the two are apart.
 - Files over 50 MB, such as long microscopy stacks, stay on the device they were added on.
 - The computer can connect several phones; each is listed on _Connect a phone_, with **Disconnect**. Disconnecting (from either device) stops the sync, and the phone keeps its copy as a notebook stored in its browser.
 

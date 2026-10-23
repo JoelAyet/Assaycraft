@@ -20,7 +20,8 @@ export function peerStatus(p: PeerStatus, other: 'phone' | 'computer'): { text: 
 }
 
 function lastSync(p: PeerStatus) {
-  return p.lastSync ? `In sync ${formatRelative(p.lastSync)}` : 'Not synced yet';
+  if (!p.lastSync) return 'Not synced yet';
+  return `${p.link === 'connected' ? 'In sync' : 'Last synced'} ${formatRelative(p.lastSync)}`;
 }
 
 function CopyLink({ url }: { url: string }) {
@@ -195,9 +196,11 @@ function PhoneView({ notebook }: { notebook: string }) {
           </div>
         </div>
         <div className="gc-row-buttons">
-          <button className="btn" onClick={() => window.dispatchEvent(new Event('online'))}>
-            <RefreshCw /> Try to connect now
-          </button>
+          {st.tone === 'idle' && (
+            <button className="btn" onClick={() => window.dispatchEvent(new Event('online'))}>
+              <RefreshCw /> Try to connect now
+            </button>
+          )}
           <button className="btn btn-ghost" onClick={() => void disconnect()}>
             <Unlink /> Disconnect from the computer
           </button>

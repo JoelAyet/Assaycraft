@@ -348,6 +348,13 @@ function assaycraftRule(state: StateCore) {
         tableMeta = null;
         continue;
       }
+      // An empty line kept by the serializer.
+      if (/^<br\s*\/?>$/i.test(t.content.trim())) {
+        out.push(new state.Token('paragraph_open', 'p', 1), new state.Token('paragraph_close', 'p', -1));
+        tableMeta = null;
+        bufferMeta = null;
+        continue;
+      }
       const imgs = imagesFromHtml(b, t.content);
       if (imgs) out.push(...imgs);
       else out.push(b.token('raw_block', null, t.content.replace(/\s+$/, '')));

@@ -7,7 +7,7 @@
   }
 }
 @media (min-width: 901px) and (max-width: 999px) {
-  .gc-welcome-options > .gc-option:nth-child(3) {
+  .gc-welcome-options > .gc-option-connect {
     grid-column: 1 / -1;
   }
 }
@@ -189,9 +189,8 @@
   }
 }
 
-/* On phones and tablets (no folders), connecting to a computer is the likeliest start: show it first. */
-@media (pointer: coarse) {
-  .gc-welcome-options > .gc-option:nth-child(3) {
-    order: -1;
-  }
+/* On a phone the welcome page offers Connect to a computer; the other ways open from this link. */
+.gc-welcome-alone {
+  display: flex;
+  margin: 4px auto 0;
 }

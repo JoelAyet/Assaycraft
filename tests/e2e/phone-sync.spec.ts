@@ -85,6 +85,13 @@ test('a phone connects with the code, gets the notebook, and edits go both ways 
     await phone.page.keyboard.type(' Added at the bench.');
     await expect(computer.page.locator('.ProseMirror')).toContainText('Added at the bench.', { timeout: 15_000 });
     await expect(computer.page.locator('.toast', { hasText: 'outside Assaycraft' })).toHaveCount(0);
+    // An empty line (Enter pressed twice) reaches it as well.
+    await phone.page.keyboard.press('Enter');
+    await phone.page.keyboard.press('Enter');
+    await phone.page.keyboard.type('After an empty line.');
+    await expect(computer.page.locator('.ProseMirror > p')).toHaveText(['Written on the computer. Added at the bench.', '', 'After an empty line.'], {
+      timeout: 15_000,
+    });
 
     // And the other way.
     await computer.page.locator('.ProseMirror').click();
