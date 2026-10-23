@@ -22,10 +22,18 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 - [Version history](#version-history)
 - [Trash](#trash)
 - [Where the notebook is stored](#where-the-notebook-is-stored)
+- [Your phone at the bench (Connect a phone)](#your-phone-at-the-bench-connect-a-phone)
 - [Offline, installing and phones](#offline-installing-and-phones)
 - [Settings](#settings)
 
 ## What's new
+
+**23 October 2026**
+
+- **Your phone at the bench, in sync.** _Connect a phone_ in the notebook menu shows a QR code; on the phone, choose **Connect to a computer** and scan it. The phone gets a copy of the notebook, and while Assaycraft is open on both, what you write on one shows up on the other within a second or two, empty lines included. The phone keeps its copy (it works offline at the bench), and the two catch up when they reconnect. Nothing is stored online. On a phone or tablet, the welcome page now offers just this; _No computer? Use this device on its own_ shows the other ways. [Your phone at the bench](#your-phone-at-the-bench-connect-a-phone).
+- **Empty lines are kept.** An empty line left between paragraphs (Enter pressed twice) is saved, as `<br>` in the Markdown file, so it is still there when the page is opened again or on another device. Empty lines at the very end of a page are not saved.
+
+- **Safari and Firefox.** _Open folder…_ on the welcome screen now works in Safari and Firefox: they can read a notebook folder but not save into it, so its notebook is copied into the browser; export a .zip to take your changes back. Images and other attachments in browser notebooks now save in every browser, including Safari's private windows, and Assaycraft asks the browser to keep browser notebooks rather than clear them to free space. [Where the notebook is stored](#where-the-notebook-is-stored).
 
 **21 October 2026**
 
@@ -68,9 +76,9 @@ The welcome screen offers two ways to keep a notebook:
 | **A folder on this computer** | Any folder you pick                                  | One computer, your own backups                      |
 | **Browser storage**           | Inside the browser (works in Firefox and Safari too) | Trying it out, or browsers that cannot open folders |
 
-Folders need a Chromium browser (Chrome, Edge, Brave, Arc). The first time you open a notebook you can fill it with examples: templates, sub-templates, protocols, stocks, a paper, a task board and an **example entry** (`Projects/Getting started/EXAMPLE-1`) that shows a flow, a buffer and a citation in use. Its ID is outside your numbering, so your first entry is still `EXP-0001`; delete it whenever you like.
+Saving into a folder needs a Chromium browser (Chrome, Edge, Brave, Arc). Safari and Firefox can open a notebook folder but not save into it, so they copy its notebook into browser storage. The first time you open a notebook you can fill it with examples: templates, sub-templates, protocols, stocks, a paper, a task board and an **example entry** (`Projects/Getting started/EXAMPLE-1`) that shows a flow, a buffer and a citation in use. Its ID is outside your numbering, so your first entry is still `EXP-0001`; delete it whenever you like.
 
-**The tour.** A new notebook starts a short tour. It first asks for **your name**, which signs your entries as their author (the same setting as in _Settings → Notebook_). Then it points at each part of the app: the New entry button, the library (protocols, stocks and literature), templates, notes, boards and the calendar, then opens the example entry to show its **flow** and its **buffer calculator**, the `/` menu, search and saving. Click _Next_ (or press →), _Back_ (←), or _Skip tour_ (Esc). It only starts once; take it again from _Settings → About_, the notebook menu or by searching “tour”.
+**The tour.** A new notebook starts a short tour. It first asks for **your name**, which signs your entries as their author (the same setting as in _Settings → Notebook_). Then it points at each part of the app: the New entry button, the library (protocols, stocks and literature), templates, notes, boards and the calendar, then opens the example entry to show its **flow** and its **buffer calculator**, the `/` menu, search, **connecting your phone** and saving. Click _Next_ (or press →), _Back_ (←), or _Skip tour_ (Esc). It only starts once; take it again from _Settings → About_, the notebook menu or by searching “tour”.
 
 ![The first step of the tour asks for your name](screenshots/tour.png)
 
@@ -536,18 +544,45 @@ On disk, the trash is the notebook's `.trash/` folder. `.trash/trash.json` remem
 
 **A folder.** Assaycraft reads and writes the folder directly. The browser remembers it, and after a restart it may ask once to allow access again. If you change a file in another program, Assaycraft picks the change up when you come back to the window.
 
-**Browser storage.** The notebook lives inside the browser's own storage. It works everywhere, but it is tied to that browser on that device: export a .zip regularly as a backup.
+**Browser storage.** The notebook lives inside the browser's own storage. It works everywhere, but it is tied to that browser on that device: export a .zip regularly as a backup. Assaycraft asks the browser to keep it rather than clear it when space runs low (Firefox asks you once; Chrome and Safari decide on their own, and Safari may still clear a site you have not visited for weeks, so keep those backups).
+
+**A folder in Safari or Firefox.** These browsers can read a folder but cannot save into it. _Open folder…_ copies the folder's notebook (Markdown files, attachments and settings; not `.git` or system files such as `.DS_Store`) into a new browser notebook named after it. Your changes stay in the browser: to bring them back to the folder, use _Export notebook (.zip)_ and unpack it there. To keep working directly in the folder, open it in Chrome, Edge, Brave or Arc.
 
 **Notebooks made with Labcraft** (this app's earlier name) open as they are: the first time, `labcraft.json` is renamed `assaycraft.json` and the `.labcraft` folder `.assaycraft`. Nothing else in the notebook changes. An exported .zip from Labcraft can be opened or imported the same way.
 
 **Export and import.** The notebook menu has _Export notebook (.zip)_ (everything, including attachments and history) and _Import .zip into notebook…_. Importing adds new files, skips identical ones and, when a file differs, adds the incoming one next to it as a copy (“… (2).md”), so nothing is overwritten.
+
+## Your phone at the bench (Connect a phone)
+
+The same notebook on your computer and your phone, without storing it online.
+
+**Connecting a phone**
+
+1. On the computer, open the notebook and choose **Connect a phone** in the notebook menu. It shows a QR code.
+2. On the phone, open the site and choose **Connect to a computer** → _Scan the code_ (on a phone or tablet it is the only choice on the welcome page; _No computer? Use this device on its own_ shows the others). The phone's camera app works too: the code is a link that opens Assaycraft and connects. No camera? Use _Copy link_ on the computer and _Paste the link…_ on the phone.
+3. The phone copies the notebook into its browser (entries, protocols, stocks, templates, boards and attachments) and opens it.
+
+**Then**
+
+- While Assaycraft is open on both devices, what you write on one appears on the other within a second or two, also in a page open on both.
+- The phone keeps its copy and opens it without a connection. When both are open again they catch up: a page changed on one side is copied to the other, and a page deleted on one side is deleted on the other, unless it was changed there since.
+- A page changed on both before they caught up is kept twice: the computer's version in its place, and the phone's next to it as “… (from iPhone).md”. Compare the two and delete the one you do not need. Nothing is overwritten without a trace: when a page is replaced by the other device's version, the version it replaces goes into its [version history](#version-history).
+- The phone reconnects by itself whenever the notebook is open on both. The icon at the foot of the sidebar shows how it is going (green: in sync); click it for the details. On the phone the menu item is _Computer connection_, with _Try to connect now_ while the two are apart.
+- Files over 50 MB, such as long microscopy stacks, stay on the device they were added on.
+- The computer can connect several phones; each is listed on _Connect a phone_, with **Disconnect**. Disconnecting (from either device) stops the sync, and the phone keeps its copy as a notebook stored in its browser.
+
+**Networks and privacy**
+
+- The devices connect directly when their networks allow it (the same Wi-Fi, most home networks). When they do not, as with a phone on mobile data and a computer on an institute network, they go through Assaycraft's relay. Everything sent through the relay is end-to-end encrypted with a key that is only in the QR code and on your two devices: the relay passes along messages it cannot read, and stores nothing.
+- The QR code is a key to the notebook: show it only to your own phone. It stops working when you leave the page, once a phone has used it.
+- Connecting needs the website (not the single-file version).
 
 ## Offline, installing and phones
 
 - After the first visit the app works **without a connection**: it keeps a copy of itself on the device (_Settings → About_ says so). When a new version is published, open copies download it and offer a **Reload**.
 - **Install it as an app** from the browser's address bar (Chrome, Edge) or with _Add to Home Screen_ on a phone. It then opens in its own window.
 - On phones and tablets the sidebar becomes a menu, dialogs fill the screen, boards swipe by column and the calendar opens as an agenda: handy for following a protocol at the bench.
-- **Phones cannot open folders from a website.** To take a notebook to a phone, export a .zip on the computer and choose _Open a .zip…_ on the phone. Notes made on the phone come back the same way, with _Import .zip into notebook…_.
+- **Phones cannot open folders from a website.** To use a notebook on a phone, [connect the phone](#your-phone-at-the-bench-connect-a-phone) to the computer. Or carry a copy by hand: export a .zip on the computer and choose _Open a .zip…_ on the phone; notes made on the phone come back the same way, with _Import .zip into notebook…_.
 - There is also a **single-file version** (`assaycraft.html`): the whole app in one file that runs offline from your disk, without any website.
 
 ## Settings

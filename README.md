@@ -42,6 +42,7 @@ A local-first electronic lab notebook (ELN) that runs in your browser. **Every e
 - **Search everything** with <kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd>, a home dashboard with a GitHub-style activity graph, a trash with undo, print to PDF, and export/import as a `.zip`.
 - **A clean, modern interface**: white and neutral greys with blue highlights, and page properties in the style of Notion. Choose light or dark, an accent colour (blue, violet, green or graphite) and a sans or serif font in _Settings → Appearance_.
 - **Works on phones and tablets**: the sidebar becomes a menu, pages and dialogs use the whole screen, boards swipe column by column and the calendar opens as an agenda. Handy for reading a protocol at the bench.
+- **Your phone at the bench, in sync** (_Connect a phone_ in the notebook menu): scan a QR code and the phone gets a copy of the notebook. While Assaycraft is open on both, what you write on one shows up on the other within a second or two; the phone keeps its copy and works offline, and the two catch up when they reconnect. Nothing is stored online: the devices connect directly when the network allows, or else through a relay that only passes end-to-end encrypted messages. [How it works](docs/GUIDE.md#your-phone-at-the-bench-connect-a-phone).
 
 |                                                                   |                                                                                      |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -90,6 +91,12 @@ npm run build        # → dist/
 
 Upload the `dist/` folder to any static host (for example Cloudflare Pages, Netlify or GitHub Pages). Only the app is online; notebooks stay on each device, so the host only ever serves the same few files.
 
+**Cloudflare Workers** (how assaycraftlab.com is hosted; free): the repository has a `wrangler.jsonc` and a small Worker in `worker/`. Connect the repository under Workers & Pages → Create → Import a repository, with `npm run build` as the build command and `npx wrangler deploy` as the deploy command. The Worker serves `dist/` and runs the relay that _Connect a phone_ uses (a Durable Object, included in the free plan). The `name` in `wrangler.jsonc` must be the Worker's name in the dashboard.
+
+On a static host (the options below, Netlify, GitHub Pages…) everything works except _Connect a phone_, which needs the relay.
+
+**Try changes before they go live**: push them to a branch other than `main`, for example `test`. Cloudflare builds the branch as a _Preview_: a test copy of the site at `https://<branch>-<worker>.<your-subdomain>.workers.dev` (for `test` on the `assaycraft` Worker, `https://test-assaycraft.<your-subdomain>.workers.dev`). People using the real site never see it, it has its own relay (the `previews` block in `wrangler.jsonc`), and its browser notebooks are separate from the real site's (to try a folder notebook there, use a copy of the folder). Open the Preview address on the computer and on the phone; when everything works, merge the branch into `main` and the real site updates. The build log of each branch push is under the Worker's Deployments tab.
+
 **Cloudflare Pages** (free, no bandwidth limit for static files):
 
 - _From GitHub_: Workers & Pages → Create → Pages → Connect to Git, pick this repository, then set the build command to `npm run build` and the output directory to `dist`. Every push publishes a new version.
@@ -106,7 +113,7 @@ Keep the same address once people use it: notebooks in browser storage, the offl
 
 When you start, Assaycraft asks how to store the notebook:
 
-- **Open a notebook folder (recommended).** Pick an empty folder, or one you used before. Everything is saved there as Markdown, so you can back it up, put it in Git or read it with any editor (VS Code, Obsidian, GitHub). This needs a Chromium browser such as Chrome, Edge, Brave or Arc. The browser remembers the folder and may ask you to allow access again after a restart.
+- **Open a notebook folder (recommended).** Pick an empty folder, or one you used before. Everything is saved there as Markdown, so you can back it up, put it in Git or read it with any editor (VS Code, Obsidian, GitHub). Saving into the folder needs a Chromium browser such as Chrome, Edge, Brave or Arc; the browser remembers the folder and may ask you to allow access again after a restart. Safari and Firefox can open a notebook folder too, but cannot save into it: they copy its notebook into browser storage, and _Export notebook (.zip)_ takes your changes back.
 - **Browser storage.** Works in any browser (Firefox, Safari…). The notebook lives inside the browser; use _Export notebook (.zip)_ to back it up.
 
 Changes are saved automatically. If you edit a file in another program, Assaycraft picks the change up when you come back to the window.
@@ -186,6 +193,7 @@ Clone **EGFP** into **pX330**. Water is H<sub>2</sub>O.
 - **Flows** are numbered lists under a comment: each step is its name, or a link to the entry that carries it out, and the comment keeps the template of each step: `<!-- gc:flow {"templates":{"3":"general-experiment"}} -->`. The status, dates and result of a step are read from its entry (`result:` in its front matter).
 - **Plate layouts** are a comment with the plate's name, format and samples (their colour and the stock or entry each is linked to), then a table with one cell per well: `<!-- gc:plate {"name":"ELISA 1","format":96,"samples":[{"name":"WT","color":"blue","ref":"GS-0001"}]} -->`. A plate table edited by hand, or pasted from Excel, is read back; new names in it become samples.
 - **Attachments** are links to files in `attachments/<entry id>/`.
+- **Empty lines** left between paragraphs are a `<br>` on a line of its own (Markdown has no empty paragraph), so they survive a reload or a sync and show in other Markdown viewers too.
 - **Stocks** are one Markdown file per collection in `Stocks/` (front matter `kind: stocks`, `stock:` the kind, `prefix:` for new IDs) holding a plain table whose first column is the ID. Length, GC % and Tm are written into the table too, so the file reads on its own. A link to one stock is an ordinary link with the ID as its fragment: `[PR-0001 EGFP-fwd](../../Stocks/Primers.md#PR-0001)`.
 - **Protocols** an entry follows are listed by ID in `protocols:`. A protocol's file has `version:` and a `revisions:` list (version, date, note). A protocol imported from a PDF has `source:`, the path of the original PDF (kept in `Protocols/attachments/<id>/` with the figures).
 - **Papers** are one Markdown file each in `Literature/`, named after the citation key, with `kind: reference` and the reference in the front matter (`authors:` one per line, `year:`, `journal:`, `volume:`, `issue:`, `pages:`, `doi:`, `pmid:`, `url:`). A citation is a relative link whose text is the short citation: `[Jinek et al., 2012](../../Literature/Jinek2012%20A%20programmable….md)`.
@@ -236,12 +244,10 @@ PDFs made from documents (Word, Google Docs, LaTeX, vendor manuals) convert best
 
 Assaycraft adapts to small screens: the ☰ button opens the menu, dialogs and side panels fill the screen, boards scroll one column at a time and the calendar starts as an agenda. Protocols and attached PDFs can be read and ticked off at the bench.
 
-Phones cannot open folders, and they usually cannot run an HTML file saved on the phone, so:
+Phones cannot open folders, and they usually cannot run an HTML file saved on the phone. To use your notebook on a phone:
 
-1. **Put the app online once** (see [Put it online](#put-it-online-installable-works-offline)). Open the address on the phone and use _Add to Home Screen_: after the first visit it also works without a connection.
-2. **Bring your notebook**: on the computer, use the notebook menu → _Export notebook (.zip)_; on the phone, choose **Open a .zip…** on the welcome screen. The notebook is then stored in the phone's browser.
-
-The copy on the phone does not sync back by itself. To bring notes made on the phone to the computer, export a .zip on the phone and use _Import .zip into notebook…_ on the computer: new files are added, unchanged ones are skipped, and a file that differs is added next to the existing one as a copy (“… (2).md”), so nothing is overwritten.
+1. **Connect it to the computer** (recommended): on the computer, open the notebook and choose _Connect a phone_ in the notebook menu; on the phone, open the site and choose **Connect to a computer** (on phones and tablets the welcome page offers only this, with the other ways under _No computer? Use this device on its own_), then scan the code. The phone gets a copy, and the two stay in sync while Assaycraft is open on both. Use _Add to Home Screen_ on the phone to open it like an app. [More in the guide](docs/GUIDE.md#your-phone-at-the-bench-connect-a-phone).
+2. **Or carry a copy by hand**: on the computer, use the notebook menu → _Export notebook (.zip)_; on the phone, choose **Open a .zip…** on the welcome screen. This copy does not sync: to bring notes made on the phone back, export a .zip on the phone and use _Import .zip into notebook…_ on the computer (new files are added, unchanged ones skipped, and a file that differs is added next to the existing one as a copy, “… (2).md”).
 
 ## Tables
 
@@ -259,16 +265,17 @@ Functions: `SUM AVERAGE MIN MAX COUNT COUNTA COUNTBLANK MEDIAN STDEV STDEVP VAR 
 ## Development
 
 ```bash
-npm run dev            # dev server
+npm run dev            # dev server (with a local relay for Connect a phone)
 npm run typecheck      # TypeScript
 npm test               # unit tests (Vitest)
 npm run test:e2e       # browser tests (Playwright; run `npm run build` and `npm run build:single` first to include the offline and single-file tests)
 npm run build          # static site in dist/ (deployable to any static host; works offline after the first visit)
 npm run build:single   # single offline file in dist-single/
 npm run format         # Prettier
+npx wrangler dev       # the real Cloudflare Worker and relay, serving dist/ (run `npm run build` first)
 ```
 
-The Serif font option uses [Newsreader](https://github.com/productiontype/Newsreader) by Production Type, bundled under the SIL Open Font License ([license](docs/licenses/Newsreader-OFL.txt)). PDFs are read with Mozilla's [PDF.js](https://mozilla.github.io/pdf.js/), bundled under the Apache License 2.0 ([license](docs/licenses/pdfjs-Apache-2.0.txt)); it is loaded only when you import or view a PDF. TIFF images are decoded with Photopea's [UTIF.js](https://github.com/photopea/UTIF.js) ([MIT license](docs/licenses/UTIF-MIT.txt)) and [pako](https://github.com/nodeca/pako) ([MIT license](docs/licenses/pako-MIT.txt)), loaded only when an entry has a TIFF.
+The Serif font option uses [Newsreader](https://github.com/productiontype/Newsreader) by Production Type, bundled under the SIL Open Font License ([license](docs/licenses/Newsreader-OFL.txt)). PDFs are read with Mozilla's [PDF.js](https://mozilla.github.io/pdf.js/), bundled under the Apache License 2.0 ([license](docs/licenses/pdfjs-Apache-2.0.txt)); it is loaded only when you import or view a PDF. TIFF images are decoded with Photopea's [UTIF.js](https://github.com/photopea/UTIF.js) ([MIT license](docs/licenses/UTIF-MIT.txt)) and [pako](https://github.com/nodeca/pako) ([MIT license](docs/licenses/pako-MIT.txt)), loaded only when an entry has a TIFF. QR codes are drawn with Kazuhiko Arase's [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) ([MIT license](docs/licenses/qrcode-generator-MIT.txt)) and read with [jsQR](https://github.com/cozmo/jsQR) (Apache License 2.0, [license](docs/licenses/jsQR-Apache-2.0.txt)), both loaded only for _Connect a phone_.
 
 The PDF tests use sample PDFs made with Word-style (LibreOffice), Chromium and ReportLab output: see [tests/fixtures/pdf](tests/fixtures/pdf/README.md).
 
@@ -285,4 +292,6 @@ Code layout:
 | `src/templates/` | Sub-template expansion, variables, copying attached files        |
 | `src/pdf/`       | PDF import: reading pages with PDF.js, rebuilding the layout     |
 | `src/offline/`   | Offline copy of the hosted app (service worker)                  |
+| `src/sync/`      | Connect a phone: pairing, WebRTC and relay links, file sync      |
+| `worker/`        | The Cloudflare Worker: serves the app, and the phone relay       |
 | `src/ui/`        | Pages: home, entries, protocols, boards, calendar, templates…    |

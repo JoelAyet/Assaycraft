@@ -5,7 +5,13 @@ import { VaultError, type FileStat, type Vault, type VaultEntry, type WriteData 
 interface Rec {
   path: string;
   kind: 'file' | 'directory';
-  data?: Blob | string;
+  /**
+   * Text as a string, anything else as an ArrayBuffer (with its media type in `type`). Safari's
+   * private windows cannot store Blobs in IndexedDB; notebooks saved before that was known may
+   * still hold Blobs, which are read as before.
+   */
+  data?: Blob | string | ArrayBuffer;
+  type?: string;
   size?: number;
   lastModified: number;
 }
@@ -92,6 +98,7 @@ export class IdbVault implements Vault {
   async readText(path: string): Promise<string> {
     const rec = await this.get(splitPath(path).join('/'));
     if (!rec || rec.kind !== 'file') throw new VaultError(`Not found: ${path}`, 'not-found');
+    if (rec.data instanceof ArrayBuffer) return new TextDecoder().decode(rec.data);
     return typeof rec.data === 'string' ? rec.data : (rec.data?.text() ?? '');
   }
 
@@ -100,7 +107,12 @@ export class IdbVault implements Vault {
     const rec = await this.get(p);
     if (!rec || rec.kind !== 'file') throw new VaultError(`Not found: ${path}`, 'not-found');
     const data = rec.data ?? '';
-    const blob = typeof data === 'string' ? new Blob([data], { type: 'text/plain' }) : data;
+    const blob =
+      typeof data === 'string'
+        ? new Blob([data], { type: 'text/plain' })
+        : data instanceof ArrayBuffer
+          ? new Blob([data], { type: rec.type ?? '' })
+          : data;
     return new File([blob], basename(p), { lastModified: rec.lastModified, type: blob.type });
   }
 
@@ -108,23 +120,21 @@ export class IdbVault implements Vault {
     const parts = splitPath(path);
     if (!parts.length) throw new VaultError('Invalid path');
     const p = parts.join('/');
-    let stored: Blob | string;
-    let size: number;
-    if (typeof data === 'string') {
-      stored = data;
-      size = new TextEncoder().encode(data).length;
-    } else if (data instanceof Blob) {
-      stored = data;
-      size = data.size;
-    } else {
-      stored = new Blob([data]);
-      size = stored.size;
-    }
+    // Read the bytes before the transaction starts: it would close while waiting for them.
+    let stored: string | ArrayBuffer;
+    let type: string | undefined;
+    if (typeof data === 'string') stored = data;
+    else if (data instanceof Blob) {
+      stored = await data.arrayBuffer();
+      type = data.type || undefined;
+    } else if (data instanceof ArrayBuffer) stored = data.slice(0);
+    else stored = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    const size = typeof stored === 'string' ? new TextEncoder().encode(stored).length : stored.byteLength;
     const { tx, store } = this.store('readwrite');
     for (let i = 1; i < parts.length; i++) {
       store.put({ path: parts.slice(0, i).join('/'), kind: 'directory', lastModified: Date.now() } satisfies Rec);
     }
-    store.put({ path: p, kind: 'file', data: stored, size, lastModified: Date.now() } satisfies Rec);
+    store.put({ path: p, kind: 'file', data: stored, type, size, lastModified: Date.now() } satisfies Rec);
     await txDone(tx);
   }
 
@@ -157,7 +167,8 @@ export class IdbVault implements Vault {
   async moveFile(from: string, to: string): Promise<void> {
     const src = await this.get(splitPath(from).join('/'));
     if (!src || src.kind !== 'file') throw new VaultError(`Not found: ${from}`, 'not-found');
-    await this.write(to, src.data ?? '');
+    const data = src.data ?? '';
+    await this.write(to, data instanceof ArrayBuffer ? new Blob([data], { type: src.type ?? '' }) : data);
     await this.remove(from);
   }
 }

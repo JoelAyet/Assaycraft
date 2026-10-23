@@ -16,6 +16,7 @@ import './styles/seq.css';
 import './styles/board.css';
 import './styles/calendar.css';
 import './styles/pdf.css';
+import './styles/sync.css';
 import './styles/mobile.css';
 import './styles/print.css';
 

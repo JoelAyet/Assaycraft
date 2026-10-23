@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "assaycraft",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./dist", "binding": "ASSETS", "not_found_handling": "single-page-application", "run_worker_first": ["/connect/*"] },
+  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "PairingRoom" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PairingRoom"] }],
+  // Previews (`npx wrangler preview`, run by Cloudflare for branches other than main) get their own
+  // relay, kept apart from the live site's.
+  "previews": { "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "PairingRoom" }] } },
+  "observability": { "enabled": true },
+}

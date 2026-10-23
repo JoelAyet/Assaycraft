@@ -9,13 +9,18 @@ export function downloadBlob(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
-/** Opens a native file picker and resolves with the chosen files (empty when cancelled). */
-export function pickFiles(opts: { accept?: string; multiple?: boolean } = {}): Promise<File[]> {
+/**
+ * Opens a native file picker and resolves with the chosen files (empty when cancelled). With
+ * `folder`, the user picks a folder instead and gets every file in it, each with its path inside
+ * the folder in `webkitRelativePath` (read only: every browser can do this, not only Chromium).
+ */
+export function pickFiles(opts: { accept?: string; multiple?: boolean; folder?: boolean } = {}): Promise<File[]> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
     if (opts.accept) input.accept = opts.accept;
     input.multiple = opts.multiple ?? true;
+    if (opts.folder) input.webkitdirectory = true;
     input.style.display = 'none';
     let done = false;
     const finish = (files: File[]) => {

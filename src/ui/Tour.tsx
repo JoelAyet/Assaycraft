@@ -7,6 +7,7 @@ import { saveConfig } from '../notebook/actions';
 import { EXAMPLE_ENTRY_ID } from '../notebook/seed';
 import { PHONE, useMediaQuery } from '../lib/useMedia';
 import { openNewEntryDialog } from './NewEntryDialog';
+import { syncSupported, useSync } from '../sync/manager';
 
 /**
  * A short guided tour of a new notebook: it asks for your name, then each step points at one part of
@@ -20,7 +21,7 @@ const useTour = create<{ step: number | null; steps: Step[] }>(() => ({ step: nu
 export function startTour() {
   // Steps on the example entry are left out once it has been deleted.
   const example = !!exampleEntry();
-  useTour.setState({ step: 0, steps: STEPS.filter((s) => !s.onExample || example) });
+  useTour.setState({ step: 0, steps: STEPS.filter((s) => (!s.onExample || example) && (!s.when || s.when())) });
 }
 
 /** The first time a notebook is created in this browser. */
@@ -72,11 +73,15 @@ interface Step {
   sidebar?: boolean;
   /** Shown on the example entry, which the step opens. */
   onExample?: boolean;
+  /** Left out when this says no. */
+  when?: () => boolean;
 }
 
 const mod = () => (/Mac|iPhone|iPad/i.test(navigator.userAgent) ? '⌘' : 'Ctrl');
 /** A phone or tablet: no keyboard shortcuts to mention. */
 const touch = () => window.matchMedia('(pointer: coarse)').matches;
+/** This notebook is a phone's copy of one on a computer. */
+const computersCopy = () => useSync.getState().role === 'phone';
 
 const STEPS: Step[] = [
   {
@@ -186,6 +191,25 @@ const STEPS: Step[] = [
         finds entries, papers, protocols, templates and single stocks, and runs commands such as “New note”.
       </>
     ),
+  },
+  {
+    title: 'Your phone at the bench',
+    target: one('.gc-notebook-btn'),
+    sidebar: true,
+    // A phone with a notebook of its own has no phone to connect.
+    when: () => syncSupported() && (computersCopy() || !touch()),
+    body: () =>
+      computersCopy() ? (
+        <>
+          This notebook is a copy of the one on your computer: while Assaycraft is open on both, what you write on either shows up on the other.{' '}
+          <strong>Computer connection</strong>, in this menu, shows how the sync is going.
+        </>
+      ) : (
+        <>
+          Choose <strong>Connect a phone</strong> in this menu and scan the code with your phone. It gets a copy of the notebook, and while Assaycraft
+          is open on both, what you write on either shows up on the other. Nothing is stored online.
+        </>
+      ),
   },
   {
     title: 'Saved as you type',

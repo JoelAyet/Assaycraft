@@ -213,6 +213,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* A narrow chip (a laptop-sized window) shows the title, not the ID with a letter of it; the ID is in its tooltip. */
+.gc-week-items .gc-cal-item {
+  container-type: inline-size;
+}
+@container (max-width: 150px) {
+  .gc-cal-id {
+    display: none;
+  }
+}
 .gc-cal-more {
   pointer-events: auto;
   margin: 0 4px;

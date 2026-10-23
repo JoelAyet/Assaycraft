@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { openFolderNotebook, waitForSave } from './helpers';
+import { newBlankEntry, openFolderNotebook, skipTour, trackErrors, waitForSave } from './helpers';
+
+const PHONE_UA = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36';
 
 /**
  * Design checks on the main screens, in light and dark and on a phone: text contrast (WCAG AA),
@@ -116,6 +118,9 @@ function audit(phone: boolean) {
       // No “…” is drawn on a flex or grid row, whatever text-overflow says. (Screen-reader-only text is 1 px wide.)
       if (el.clientWidth > 2 && (s.textOverflow !== 'ellipsis' || /flex|grid/.test(s.display)))
         cut.push({ el: name(el), text: text.slice(0, 40), w: el.clientWidth, need: el.scrollWidth });
+      // A “…” after a letter or two says nothing: a label squeezed that far is cut off too.
+      else if (el.clientWidth > 2 && el.clientWidth < 3 * size)
+        cut.push({ el: name(el), text: text.slice(0, 40), w: el.clientWidth, need: el.scrollWidth, squeezed: true });
     }
     const box = el.getBoundingClientRect();
     if (box.width > 2 && runsOff(el, box.right)) offscreen.push({ el: name(el), text: text.slice(0, 40), right: Math.round(box.right) });
@@ -359,6 +364,9 @@ for (const s of SETUPS) {
       await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
       await page.goto('/#/settings');
       await check('Settings');
+      await page.goto('/#/phone');
+      await page.getByRole('img', { name: /QR code/ }).waitFor();
+      await check('Connect a phone');
       await page.goto('/#/');
       await page.keyboard.press('Control+k');
       await page.keyboard.type('gib');
@@ -375,7 +383,96 @@ for (const s of SETUPS) {
       await page.getByRole('menuitem', { name: 'Switch notebook' }).click();
       await page.locator('.gc-recent-row').waitFor();
       await check('Welcome, recent notebook');
+      await page.getByRole('button', { name: /Paste the link/ }).click();
+      await page.getByLabel('Link from the computer').fill('not a link');
+      await page.getByRole('button', { name: 'Connect', exact: true }).click();
+      await check('Connect to a computer');
 
+      expect(problems).toEqual({});
+    });
+
+    test('Connect a phone, on both devices, passes the design checks', async ({ browser }) => {
+      test.setTimeout(120_000);
+      const problems: Record<string, unknown> = {};
+      const device = async (phone: boolean, mine: boolean) => {
+        const context = await browser.newContext({
+          viewport: mine ? { width: s.w, height: s.h } : phone ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+          isMobile: phone,
+          hasTouch: phone,
+          colorScheme: mine ? s.scheme : 'light',
+          userAgent: phone ? PHONE_UA : undefined,
+        });
+        const page = await context.newPage();
+        await skipTour(page);
+        return { context, page, errors: trackErrors(page) };
+      };
+      // This setup's screen is the computer's or the phone's; the other device is plain.
+      const computer = await device(false, !s.phone);
+      const phone = await device(true, s.phone);
+      const mine = s.phone ? phone.page : computer.page;
+      const check = async (screen: string) => {
+        await mine.waitForTimeout(250);
+        const r = await mine.evaluate(audit, s.phone);
+        const found = { contrast: r.contrast, unnamed: r.unnamed, small: r.small, cut: r.cut, offscreen: r.offscreen, pageOverflow: r.pageOverflow };
+        if (found.contrast.length || found.unnamed.length || found.small.length || found.cut.length || found.offscreen.length || found.pageOverflow)
+          problems[screen] = found;
+      };
+      try {
+        if (s.phone) {
+          await phone.page.goto('/');
+          await check('Phone welcome: Connect to a computer');
+          await phone.page.getByRole('button', { name: 'Scan the code' }).click();
+          // The scanner, or (no camera here) the link to paste.
+          await phone.page.waitForTimeout(1000);
+          await check('Scan the code');
+          await phone.page.keyboard.press('Escape');
+          await phone.page.getByRole('button', { name: 'No computer? Use this device on its own' }).click();
+          await check('Phone welcome, every way');
+        }
+        await computer.page.goto('/');
+        await computer.page.getByRole('button', { name: /Create browser notebook/ }).click();
+        await computer.page.getByRole('dialog').getByRole('textbox').fill('Smith lab');
+        await computer.page.getByRole('button', { name: 'Create notebook' }).click();
+        await computer.page.goto('/#/phone');
+        await computer.page.getByRole('img', { name: /QR code/ }).waitFor();
+        const url = (await computer.page.getByRole('button', { name: 'Copy link' }).getAttribute('data-url'))!;
+        await phone.page.goto(url);
+        await phone.page.locator('.gc-main').waitFor({ timeout: 30_000 });
+        await computer.page.locator('.gc-peer', { hasText: 'Connected' }).waitFor({ timeout: 20_000 });
+        if (!s.phone) {
+          await check('Phone connected');
+          await computer.page.getByRole('button', { name: 'Disconnect' }).click();
+          await check('Disconnect phone dialog');
+          await computer.page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+          // An entry just written: the sidebar's foot holds the phone's icon and “Saved”.
+          await newBlankEntry(computer.page, 'Bench log');
+          await computer.page.locator('.ProseMirror').click();
+          await computer.page.keyboard.type('Written on the computer.');
+          await waitForSave(computer.page);
+          await check('Entry, with the phone icon in the sidebar');
+          await phone.context.close();
+          await computer.page.goto('/#/phone');
+          await computer.page.locator('.gc-peer', { hasText: 'Not connected' }).waitFor({ timeout: 90_000 });
+          await check('Phone gone');
+        } else {
+          await phone.page.goto(url.replace(/#.*/, '#/phone'));
+          await phone.page.locator('.gc-peer-status', { hasText: 'Connected' }).waitFor({ timeout: 20_000 });
+          await check('Computer connection');
+          await phone.page.locator('.gc-nav-toggle').first().click();
+          await phone.page.locator('.gc-notebook-name').click();
+          await check('Phone notebook menu');
+          await phone.page.keyboard.press('Escape');
+          await computer.context.close();
+          await phone.page.goto(url.replace(/#.*/, '#/phone'));
+          await phone.page.locator('.gc-peer-status', { hasText: 'Waiting for the computer' }).waitFor({ timeout: 90_000 });
+          await check('Computer gone');
+        }
+        expect(computer.errors).toEqual([]);
+        expect(phone.errors).toEqual([]);
+      } finally {
+        await computer.context.close().catch(() => {});
+        await phone.context.close().catch(() => {});
+      }
       expect(problems).toEqual({});
     });
   });

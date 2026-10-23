@@ -51,6 +51,8 @@ import { citationKey, refExtra, refFromMeta, type RefInfo } from '../literature/
 import { TRASH_DIR, TRASH_INDEX, listTrash, parseTrashIndex, serializeTrashIndex, type TrashItem, type TrashRecord } from './trash';
 import { HISTORY_DIR, historyPathFor, moveHistory, recordVersion } from '../history/store';
 import { ACTIVITY_FILE, flushActivity, importActivity, loadActivity, recordEdit, reloadActivity } from './activity';
+import { SyncableVault } from '../sync/vault';
+import { setSyncHooks, startSync, stopSync } from '../sync/manager';
 
 // ───────────────────────────── helpers ─────────────────────────────
 
@@ -209,7 +211,9 @@ async function supportsUnicodeNames(v: Vault): Promise<boolean> {
 }
 
 /** Open a notebook, creating it first in an empty folder. Resolves true when it was just created. */
-export async function openNotebook(v: Vault, opts: { seed?: boolean } = {}): Promise<boolean> {
+export async function openNotebook(opened: Vault, opts: { seed?: boolean } = {}): Promise<boolean> {
+  // Every change goes through this wrapper, so a connected phone or computer can be sent it.
+  const v = opened instanceof SyncableVault ? opened : new SyncableVault(opened);
   setState({ loading: true });
   try {
     setAsciiFileNames(!(await supportsUnicodeNames(v)));
@@ -236,6 +240,7 @@ export async function openNotebook(v: Vault, opts: { seed?: boolean } = {}): Pro
     await loadActivity(v);
     const trash = await listTrash(v).catch(() => []);
     setState({ vault: v, config, docs, folders, trash, docKeys: {}, loading: false, route: hashToRoute(location.hash) });
+    void startSync(v).catch((err) => console.warn('Could not start syncing with paired devices', err));
     return created;
   } catch (err) {
     setState({ loading: false });
@@ -245,15 +250,24 @@ export async function openNotebook(v: Vault, opts: { seed?: boolean } = {}): Pro
 
 export async function closeNotebook() {
   await flushAllWrites();
+  stopSync();
   await loadActivity(null);
   setState({ vault: null, docs: {}, folders: [], route: { name: 'home' }, peek: null });
   history.replaceState(null, '', '#/');
 }
 
 let rescanning: Promise<void> | null = null;
+let rescanAgain: Promise<void> | null = null;
 /** Re-read files that changed on disk (e.g. edited in another app). */
 export function rescan(): Promise<void> {
-  if (rescanning) return rescanning;
+  // A file may have changed after the running scan read it: one more scan follows that one.
+  if (rescanning) {
+    const next = () => {
+      rescanAgain = null;
+      return rescan();
+    };
+    return (rescanAgain ??= rescanning.then(next, next));
+  }
   const v = getState().vault;
   if (!v) return Promise.resolve();
   setState({ scanning: true });
@@ -286,9 +300,10 @@ export function rescan(): Promise<void> {
 
 export async function readDoc(path: string): Promise<{ meta: DocMeta; body: string }> {
   const v = vault();
+  // The date first: a file written in between (by the other device) then reads as changed, and reloads.
+  const stat = await v.stat(path);
   const text = await v.readText(path);
   const { data, body } = splitFrontMatter(text);
-  const stat = await v.stat(path);
   const kind = kindForPath(path, data.kind) ?? 'entry';
   const fallback = kind === 'board' ? basename(dirname(path)) : stem(path).replace(/^[A-Z]{1,6}-\d+\s+/, '');
   const meta: DocMeta = { ...metaFromFrontMatter(path, kind, data, fallback), mtime: stat?.lastModified ?? 0, ...bodyFacts(body, kind) };
@@ -1570,15 +1585,53 @@ export async function importZip(file: Blob): Promise<{ added: number; copies: nu
 export async function openZipNotebook(file: File, create: (name: string) => Promise<Vault>): Promise<number> {
   const files = unpackZip(new Uint8Array(await file.arrayBuffer()));
   if (!files.some((f) => f.path.endsWith('.md'))) throw new Error('This .zip does not contain a notebook (no Markdown files in it).');
-  let name = stem(file.name).replace(/\s+\d{4}-\d{2}-\d{2}$/, '') || 'Lab notebook';
+  const name = stem(file.name).replace(/\s+\d{4}-\d{2}-\d{2}$/, '');
+  return openNotebookCopy(
+    files.map((f) => ({ path: f.path, read: () => f.data.slice() })),
+    name,
+    create,
+  );
+}
+
+// Files a computer adds to folders on its own, and a Git repository's internals: not part of the notebook.
+const FOLDER_JUNK = /(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini|\._[^/]*)$|(^|\/)\.git\//;
+
+/**
+ * Open a notebook folder in a browser that can read folders but not save into them (Safari,
+ * Firefox): its files are copied into a new notebook stored in this browser. `files` come from a
+ * folder picker, each with its path inside the chosen folder in `webkitRelativePath`.
+ */
+export async function openFolderCopyNotebook(files: File[], create: (name: string) => Promise<Vault>): Promise<number> {
+  const folder = files[0]?.webkitRelativePath.split('/')[0] || '';
+  const inFolder = (f: File) => f.webkitRelativePath.split('/').slice(1).join('/');
+  const kept = files.filter((f) => inFolder(f) && !FOLDER_JUNK.test(inFolder(f)));
+  if (!kept.some((f) => inFolder(f).endsWith('.md')))
+    throw new Error(
+      `${folder ? `“${folder}”` : 'This folder'} has no notebook in it (no Markdown files). To start a new notebook, use “Create browser notebook”.`,
+    );
+  return openNotebookCopy(
+    kept.map((f) => ({ path: inFolder(f), read: async () => new Uint8Array(await f.arrayBuffer()) })),
+    folder,
+    create,
+  );
+}
+
+/** Copy a notebook's files into a new browser notebook and open it. Named after its config, else `fallbackName`. */
+async function openNotebookCopy(
+  files: { path: string; read: () => Uint8Array<ArrayBuffer> | Promise<Uint8Array<ArrayBuffer>> }[],
+  fallbackName: string,
+  create: (name: string) => Promise<Vault>,
+): Promise<number> {
+  let name = fallbackName || 'Lab notebook';
   const config = files.find((f) => isConfigFile(f.path));
   try {
-    if (config) name = (JSON.parse(strFromU8(config.data)) as { name?: string }).name || name;
+    if (config) name = (JSON.parse(strFromU8(await config.read())) as { name?: string }).name || name;
   } catch {
-    // Keep the file name.
+    // Keep the file or folder name.
   }
   const v = await create(name);
-  for (const f of files) await v.write(f.path, f.data.slice());
+  // One file at a time, so a folder of large images is never all in memory at once.
+  for (const f of files) await v.write(f.path, await f.read());
   await openNotebook(v, { seed: false });
   for (const d of [
     LAYOUT.projects,
@@ -1593,3 +1646,72 @@ export async function openZipNotebook(file: File, create: (name: string) => Prom
     if (!(await v.exists(d))) await v.mkdir(d);
   return files.length;
 }
+
+// ───────────────────────────── connected devices ─────────────────────────────
+
+/** Paths changed by the other device, reloaded without the "changed outside" note. */
+let remoteRescan: ReturnType<typeof setTimeout> | undefined;
+function remoteChanged(paths: string[]) {
+  for (const p of paths) {
+    quietReloads.add(p);
+    setTimeout(() => quietReloads.delete(p), 3000);
+  }
+  clearTimeout(remoteRescan);
+  remoteRescan = setTimeout(
+    () =>
+      void rescan().then(async () => {
+        // The other device may have changed the notebook's settings (name, ID prefixes, statuses).
+        const v = getState().vault;
+        if (v && paths.some(isConfigFile)) {
+          const config = await loadConfig(v);
+          if (config) setState({ config });
+        }
+        warnDuplicateIds();
+      }),
+    100,
+  );
+}
+
+/**
+ * Each device numbers new entries after the highest ID it knows. Entries made on both while they
+ * were apart can share an ID: both are kept, and this says which ones, once.
+ */
+const warnedIds = new Set<string>();
+function warnDuplicateIds() {
+  const byId = new Map<string, DocMeta[]>();
+  for (const d of Object.values(getState().docs))
+    if (d.id && (d.kind === 'entry' || d.kind === 'protocol' || d.kind === 'card')) byId.set(d.id, [...(byId.get(d.id) ?? []), d]);
+  for (const [id, docs] of byId) {
+    const key =
+      id +
+      '|' +
+      docs
+        .map((d) => d.path)
+        .sort()
+        .join('|');
+    if (docs.length < 2 || warnedIds.has(key)) continue;
+    warnedIds.add(key);
+    toast(
+      `${id} is now the ID of ${docs.length} pages, made on different devices while they were apart: ${docs.map((d) => `“${d.title}”`).join(' and ')}. Both are kept.`,
+      'info',
+      undefined,
+      { sticky: true },
+    );
+  }
+}
+
+setSyncHooks({
+  isBusy: (path) => pending.has(path) || chains.has(path),
+  // Overwriting a page with the other device's version: the version it replaces goes into its history.
+  beforeOverwrite: async (path) => {
+    const meta = getState().docs[path];
+    const v = getState().vault;
+    if (meta && v) await versionBeforeWrite(v, path, meta);
+  },
+  applied: remoteChanged,
+  conflict: (path, copy, from) =>
+    toast(`“${basename(path)}” was changed here and on the ${from}: both versions are kept (${basename(copy)}).`, 'info', undefined, {
+      sticky: true,
+    }),
+  notice: (message, kind = 'info') => toast(message, kind),
+});

@@ -169,6 +169,23 @@ describe('markdown round-trip', () => {
     expect(roundTrip(md)).toBe(md);
   });
 
+  it('keeps empty lines between paragraphs, as <br> (Markdown drops empty paragraphs)', () => {
+    const schema = parseMarkdown('x').type.schema;
+    const p = (text?: string) => schema.nodes.paragraph.create(null, text ? schema.text(text) : null);
+    const doc = schema.nodes.doc.create(null, [p(), p('First'), p(), p(), p('Second'), p(), p()]);
+    const md = serializeMarkdown(doc);
+    // Empty lines before and between paragraphs are kept; those at the end are not.
+    expect(md).toBe('<br>\n\nFirst\n\n<br>\n\n<br>\n\nSecond\n');
+    const back = parseMarkdown(md);
+    expect(back.childCount).toBe(5);
+    expect(back.child(2).type.name).toBe('paragraph');
+    expect(back.child(2).childCount).toBe(0);
+    expect(roundTrip(md)).toBe(md);
+    // A blank page stays an empty file, and a <br> inside a paragraph is still a line break.
+    expect(serializeMarkdown(schema.nodes.doc.create(null, [p()]))).toBe('');
+    expect(roundTrip('a<br>b\n')).toBe('a\\\nb\n');
+  });
+
   it('handles an empty document', () => {
     expect(roundTrip('')).toBe('');
   });
