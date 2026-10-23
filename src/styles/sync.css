@@ -1,0 +1,197 @@
+/* ───────── Connect a phone ───────── */
+
+/* Welcome: a third way to start (Connect to a computer), side by side on wide screens. */
+@media (min-width: 1000px) {
+  .gc-welcome-options:has(> .gc-option:nth-child(3)) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 901px) and (max-width: 999px) {
+  .gc-welcome-options > .gc-option:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+.gc-pair {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 20px 28px;
+  align-items: start;
+}
+.gc-pair-code {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+.gc-qr {
+  display: block;
+  border-radius: 8px;
+}
+.gc-qr-empty {
+  width: 220px;
+  height: 220px;
+  background: var(--bg-muted);
+}
+.gc-pair-wait {
+  font-size: 13px;
+  color: var(--text-2);
+  text-align: center;
+  max-width: 220px;
+}
+.gc-pair-steps {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+.gc-pair-again {
+  margin-top: 10px;
+}
+.gc-pair-notes {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.gc-peers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.gc-peer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.gc-peer + .gc-peer {
+  border-top: 1px solid var(--border);
+}
+.gc-peer-icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--text-2);
+}
+.gc-peer-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gc-peer-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.gc-storage-card .gc-peer-status {
+  margin-top: 4px;
+}
+
+.gc-sync-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--text-4);
+}
+.gc-sync-dot.is-live {
+  background: var(--success);
+}
+.gc-sync-dot.is-busy {
+  background: var(--accent);
+}
+.gc-sync-indicator {
+  position: relative;
+}
+.gc-sync-indicator .gc-sync-dot {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 7px;
+  height: 7px;
+  box-shadow: 0 0 0 2px var(--sidebar-bg);
+}
+
+/* The phone's side: scanning the code, then copying the notebook. */
+.gc-connect-lede {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+.gc-scanner {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1;
+  max-height: 60vh;
+  margin: 0 auto 10px;
+  border-radius: 14px;
+  background: #111;
+}
+.gc-scanner video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.gc-scanner-frame {
+  position: absolute;
+  inset: 18%;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  border-radius: 14px;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.28);
+}
+.gc-connect-paste {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gc-connect-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14.5px;
+}
+.gc-connect-status p {
+  margin: 0;
+}
+.gc-connect-progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--accent);
+}
+
+@media (max-width: 760px) {
+  .gc-pair {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .gc-pair-steps {
+    justify-self: stretch;
+  }
+}
+
+/* On phones and tablets (no folders), connecting to a computer is the likeliest start: show it first. */
+@media (pointer: coarse) {
+  .gc-welcome-options > .gc-option:nth-child(3) {
+    order: -1;
+  }
+}

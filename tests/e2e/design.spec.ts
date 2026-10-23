@@ -359,6 +359,9 @@ for (const s of SETUPS) {
       await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
       await page.goto('/#/settings');
       await check('Settings');
+      await page.goto('/#/phone');
+      await page.getByRole('img', { name: /QR code/ }).waitFor();
+      await check('Connect a phone');
       await page.goto('/#/');
       await page.keyboard.press('Control+k');
       await page.keyboard.type('gib');
@@ -375,6 +378,10 @@ for (const s of SETUPS) {
       await page.getByRole('menuitem', { name: 'Switch notebook' }).click();
       await page.locator('.gc-recent-row').waitFor();
       await check('Welcome, recent notebook');
+      await page.getByRole('button', { name: /Paste the link/ }).click();
+      await page.getByLabel('Link from the computer').fill('not a link');
+      await page.getByRole('button', { name: 'Connect', exact: true }).click();
+      await check('Connect to a computer');
 
       expect(problems).toEqual({});
     });

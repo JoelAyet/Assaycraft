@@ -17,6 +17,9 @@ import { StocksPage } from './stocks/StocksPage';
 import { LiteraturePage } from './literature/LiteraturePage';
 import { TrashPage } from './ui/TrashPage';
 import { SettingsPage } from './ui/SettingsPage';
+import { PhonePage } from './ui/PhonePage';
+import { openConnectComputer } from './ui/ConnectComputer';
+import { parsePairCode } from './sync/manager';
 import { CardPeek } from './ui/CardPeek';
 import { CommandPalette } from './ui/CommandPalette';
 import { ContextMenuHost, DialogHost } from './ui/overlay';
@@ -99,6 +102,8 @@ function Page() {
       return <StocksPage path={route.path} id={route.id} />;
     case 'settings':
       return <SettingsPage />;
+    case 'phone':
+      return <PhonePage />;
     default:
       return <HomePage />;
   }
@@ -173,6 +178,17 @@ async function autoOpen() {
 
 let autoOpened = false;
 
+/**
+ * A pairing link (#/pair/<code>), opened by scanning the computer's QR code with the camera app:
+ * take the code out of the address (it is a key) and connect to that computer.
+ */
+function takePairLink(): string | null {
+  if (!location.hash.startsWith('#/pair/')) return null;
+  const secret = parsePairCode(location.href);
+  history.replaceState(null, '', '#/');
+  return secret;
+}
+
 export function App() {
   const vault = useNotebook((s) => s.vault);
   const theme = useNotebook((s) => s.theme);
@@ -182,9 +198,22 @@ export function App() {
   useEffect(() => {
     if (autoOpened) return;
     autoOpened = true;
+    const secret = takePairLink();
+    if (secret) {
+      openConnectComputer({ secret });
+      return;
+    }
     void autoOpen().then(() => {
       if (!getState().vault && location.hash.length > 2) navigate({ name: 'home' }, { replace: true });
     });
+  }, []);
+  useEffect(() => {
+    const onHash = () => {
+      const secret = takePairLink();
+      if (secret) openConnectComputer({ secret });
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
   }, []);
   useEffect(() => {
     const onError = (e: PromiseRejectionEvent) => {

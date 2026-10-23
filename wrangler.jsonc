@@ -1,0 +1,31 @@
+// Cloudflare deploy settings for assaycraftlab.com (used by `wrangler deploy` in Cloudflare's build).
+// "name" must match the Worker that serves the site in the Cloudflare dashboard.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "assaycraft",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // As before: any address of the app gets the app page.
+    "not_found_handling": "single-page-application",
+    // Only the phone relay runs code; every other request is a plain file.
+    "run_worker_first": ["/connect/*"],
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "PairingRoom" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PairingRoom"] }],
+  "env": {
+    // A separate test site, "assaycraft-test", for trying changes on a real phone before they go live:
+    // deployed with `npx wrangler deploy --env test` (see README, "Try changes before they go live").
+    "test": {
+      "durable_objects": {
+        "bindings": [{ "name": "ROOMS", "class_name": "PairingRoom" }],
+      },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PairingRoom"] }],
+    },
+  },
+  "observability": { "enabled": true },
+}

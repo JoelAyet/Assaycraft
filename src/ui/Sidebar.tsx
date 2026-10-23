@@ -18,6 +18,8 @@ import {
   Globe,
   HardDrive,
   Home,
+  Laptop,
+  Smartphone,
   KanbanSquare,
   LayoutTemplate,
   LoaderCircle,
@@ -38,6 +40,8 @@ import {
   FolderInput,
   X,
 } from 'lucide-react';
+import { syncSupported, useSync } from '../sync/manager';
+import { peerStatus } from './PhonePage';
 import { BUILTIN_EXPERIMENTS_BOARD, navigate, setState, setTheme, toast, useNotebook, type Route } from '../notebook/store';
 import { LAYOUT, type DocMeta } from '../notebook/model';
 import {
@@ -373,8 +377,27 @@ function SaveIndicator() {
   );
 }
 
+/** Connected phones (or, on a phone, the computer): one icon with a dot, green while in sync. */
+function SyncIndicator() {
+  const role = useSync((s) => s.role);
+  const peers = useSync((s) => s.peers);
+  const list = Object.values(peers);
+  if (!role || !list.length) return null;
+  const other = role === 'phone' ? 'computer' : 'phone';
+  const states = list.map((p) => peerStatus(p, other));
+  const tone = states.some((st) => st.tone === 'busy') ? 'busy' : states.some((st) => st.tone === 'live') ? 'live' : 'idle';
+  const title = list.map((p, i) => `${p.device || (role === 'phone' ? 'Computer' : 'Phone')}: ${states[i].text}`).join('\n');
+  return (
+    <button className="icon-btn icon-btn-sm gc-sync-indicator" title={title} aria-label={title} onClick={() => navigate({ name: 'phone' })}>
+      {role === 'phone' ? <Laptop /> : <Smartphone />}
+      <span className={`gc-sync-dot is-${tone}`} aria-hidden="true" />
+    </button>
+  );
+}
+
 export function Sidebar() {
   const vault = useNotebook((s) => s.vault)!;
+  const syncRole = useSync((s) => s.role);
   const config = useNotebook((s) => s.config);
   const docs = useNotebook((s) => s.docs);
   const folders = useNotebook((s) => s.folders);
@@ -422,6 +445,13 @@ export function Sidebar() {
   const notebookMenu: MenuItemSpec[] = [
     { heading: vault.kind === 'folder' ? `Folder: ${vault.name}` : 'Stored in this browser' },
     { label: 'Settings', icon: <Settings />, onSelect: () => navigate({ name: 'settings' }) },
+    ...(syncSupported()
+      ? [
+          syncRole === 'phone'
+            ? { label: 'Computer connection', icon: <Laptop />, onSelect: () => navigate({ name: 'phone' }) }
+            : { label: 'Connect a phone', icon: <Smartphone />, onSelect: () => navigate({ name: 'phone' }) },
+        ]
+      : []),
     { label: 'Take the tour', icon: <Compass />, onSelect: startTour },
     {
       label: 'Export notebook (.zip)',
@@ -584,6 +614,7 @@ export function Sidebar() {
           <span>{vault.kind === 'folder' ? vault.name : 'Browser storage'}</span>
           {vault.kind === 'browser' && <CloudOff className="gc-storage-warn" />}
         </span>
+        <SyncIndicator />
         <SaveIndicator />
         <button className="icon-btn icon-btn-sm" title={`Theme: ${theme} (click for ${nextTheme})`} onClick={() => setTheme(nextTheme)}>
           {themeIcon}

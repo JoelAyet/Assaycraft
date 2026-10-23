@@ -20,7 +20,9 @@ import {
   TestTubes,
   Compass,
   Trash2,
+  Smartphone,
 } from 'lucide-react';
+import { syncSupported } from '../sync/manager';
 import { BUILTIN_EXPERIMENTS_BOARD, navigate, setState, useNotebook } from '../notebook/store';
 import { boardCards, cardNoun, type DocMeta } from '../notebook/model';
 import { startTour } from './Tour';
@@ -139,6 +141,17 @@ function Palette({ close }: { close: () => void }) {
       { key: 'a:lit', icon: <BookMarked />, title: 'Go to Literature', run: () => navigate({ name: 'literature' }) },
       { key: 'a:trash', icon: <Trash2 />, title: 'Go to Trash', sub: 'Restore deleted pages and folders', run: () => navigate({ name: 'trash' }) },
       { key: 'a:set', icon: <Settings />, title: 'Settings', run: () => navigate({ name: 'settings' }) },
+      ...(syncSupported()
+        ? [
+            {
+              key: 'a:phone',
+              icon: <Smartphone />,
+              title: 'Connect a phone',
+              sub: 'Use this notebook on your phone, in sync',
+              run: () => navigate({ name: 'phone' }),
+            },
+          ]
+        : []),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [boards.length],

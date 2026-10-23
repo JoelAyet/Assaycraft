@@ -22,12 +22,15 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 - [Version history](#version-history)
 - [Trash](#trash)
 - [Where the notebook is stored](#where-the-notebook-is-stored)
+- [Your phone at the bench (Connect a phone)](#your-phone-at-the-bench-connect-a-phone)
 - [Offline, installing and phones](#offline-installing-and-phones)
 - [Settings](#settings)
 
 ## What's new
 
 **23 October 2026**
+
+- **Your phone at the bench, in sync.** _Connect a phone_ in the notebook menu shows a QR code; on the phone, choose **Connect to a computer** and scan it. The phone gets a copy of the notebook, and while Assaycraft is open on both, what you write on one shows up on the other within a second or two. The phone keeps its copy (it works offline at the bench), and the two catch up when they reconnect. Nothing is stored online. [Your phone at the bench](#your-phone-at-the-bench-connect-a-phone).
 
 - **Safari and Firefox.** _Open folder…_ on the welcome screen now works in Safari and Firefox: they can read a notebook folder but not save into it, so its notebook is copied into the browser; export a .zip to take your changes back. Images and other attachments in browser notebooks now save in every browser, including Safari's private windows, and Assaycraft asks the browser to keep browser notebooks rather than clear them to free space. [Where the notebook is stored](#where-the-notebook-is-stored).
 
@@ -548,12 +551,37 @@ On disk, the trash is the notebook's `.trash/` folder. `.trash/trash.json` remem
 
 **Export and import.** The notebook menu has _Export notebook (.zip)_ (everything, including attachments and history) and _Import .zip into notebook…_. Importing adds new files, skips identical ones and, when a file differs, adds the incoming one next to it as a copy (“… (2).md”), so nothing is overwritten.
 
+## Your phone at the bench (Connect a phone)
+
+The same notebook on your computer and your phone, without storing it online.
+
+**Connecting a phone**
+
+1. On the computer, open the notebook and choose **Connect a phone** in the notebook menu. It shows a QR code.
+2. On the phone, open the site and choose **Connect to a computer** → _Scan the code_. (The phone's camera app works too: the code is a link that opens Assaycraft and connects.) No camera? Use _Copy link_ on the computer and _Paste the link…_ on the phone.
+3. The phone copies the notebook into its browser (entries, protocols, stocks, templates, boards and attachments) and opens it.
+
+**Then**
+
+- While Assaycraft is open on both devices, what you write on one appears on the other within a second or two, also in a page open on both.
+- The phone keeps its copy and opens it without a connection. When both are open again they catch up: a page changed on one side is copied to the other, and a page deleted on one side is deleted on the other, unless it was changed there since.
+- A page changed on both before they caught up is kept twice: the computer's version in its place, and the phone's next to it as “… (from iPhone).md”. Compare the two and delete the one you do not need. Nothing is overwritten without a trace: when a page is replaced by the other device's version, the version it replaces goes into its [version history](#version-history).
+- The phone reconnects by itself whenever the notebook is open on both. The icon at the foot of the sidebar shows how it is going (green: in sync); click it for the details. On the phone the menu item is _Computer connection_.
+- Files over 50 MB, such as long microscopy stacks, stay on the device they were added on.
+- The computer can connect several phones; each is listed on _Connect a phone_, with **Disconnect**. Disconnecting (from either device) stops the sync, and the phone keeps its copy as a notebook stored in its browser.
+
+**Networks and privacy**
+
+- The devices connect directly when their networks allow it (the same Wi-Fi, most home networks). When they do not, as with a phone on mobile data and a computer on an institute network, they go through Assaycraft's relay. Everything sent through the relay is end-to-end encrypted with a key that is only in the QR code and on your two devices: the relay passes along messages it cannot read, and stores nothing.
+- The QR code is a key to the notebook: show it only to your own phone. It stops working when you leave the page, once a phone has used it.
+- Connecting needs the website (not the single-file version).
+
 ## Offline, installing and phones
 
 - After the first visit the app works **without a connection**: it keeps a copy of itself on the device (_Settings → About_ says so). When a new version is published, open copies download it and offer a **Reload**.
 - **Install it as an app** from the browser's address bar (Chrome, Edge) or with _Add to Home Screen_ on a phone. It then opens in its own window.
 - On phones and tablets the sidebar becomes a menu, dialogs fill the screen, boards swipe by column and the calendar opens as an agenda: handy for following a protocol at the bench.
-- **Phones cannot open folders from a website.** To take a notebook to a phone, export a .zip on the computer and choose _Open a .zip…_ on the phone. Notes made on the phone come back the same way, with _Import .zip into notebook…_.
+- **Phones cannot open folders from a website.** To use a notebook on a phone, [connect the phone](#your-phone-at-the-bench-connect-a-phone) to the computer. Or carry a copy by hand: export a .zip on the computer and choose _Open a .zip…_ on the phone; notes made on the phone come back the same way, with _Import .zip into notebook…_.
 - There is also a **single-file version** (`assaycraft.html`): the whole app in one file that runs offline from your disk, without any website.
 
 ## Settings

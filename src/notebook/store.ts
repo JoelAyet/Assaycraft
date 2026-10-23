@@ -17,7 +17,9 @@ export type Route =
   | { name: 'trash' }
   /** A stock collection, optionally with one stock picked out (from a link). */
   | { name: 'stocks'; path?: string; id?: string }
-  | { name: 'settings' };
+  | { name: 'settings' }
+  /** Connect a phone (on a phone's copy: the connection to its computer). */
+  | { name: 'phone' };
 
 export interface Toast {
   id: number;
@@ -204,6 +206,7 @@ export function hashToRoute(hash: string): Route {
     case 'literature':
     case 'trash':
     case 'settings':
+    case 'phone':
       return { name: head };
     default:
       return { name: 'home' };

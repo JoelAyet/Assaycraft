@@ -51,6 +51,8 @@ import { citationKey, refExtra, refFromMeta, type RefInfo } from '../literature/
 import { TRASH_DIR, TRASH_INDEX, listTrash, parseTrashIndex, serializeTrashIndex, type TrashItem, type TrashRecord } from './trash';
 import { HISTORY_DIR, historyPathFor, moveHistory, recordVersion } from '../history/store';
 import { ACTIVITY_FILE, flushActivity, importActivity, loadActivity, recordEdit, reloadActivity } from './activity';
+import { SyncableVault } from '../sync/vault';
+import { setSyncHooks, startSync, stopSync } from '../sync/manager';
 
 // ───────────────────────────── helpers ─────────────────────────────
 
@@ -209,7 +211,9 @@ async function supportsUnicodeNames(v: Vault): Promise<boolean> {
 }
 
 /** Open a notebook, creating it first in an empty folder. Resolves true when it was just created. */
-export async function openNotebook(v: Vault, opts: { seed?: boolean } = {}): Promise<boolean> {
+export async function openNotebook(opened: Vault, opts: { seed?: boolean } = {}): Promise<boolean> {
+  // Every change goes through this wrapper, so a connected phone or computer can be sent it.
+  const v = opened instanceof SyncableVault ? opened : new SyncableVault(opened);
   setState({ loading: true });
   try {
     setAsciiFileNames(!(await supportsUnicodeNames(v)));
@@ -236,6 +240,7 @@ export async function openNotebook(v: Vault, opts: { seed?: boolean } = {}): Pro
     await loadActivity(v);
     const trash = await listTrash(v).catch(() => []);
     setState({ vault: v, config, docs, folders, trash, docKeys: {}, loading: false, route: hashToRoute(location.hash) });
+    void startSync(v).catch((err) => console.warn('Could not start syncing with paired devices', err));
     return created;
   } catch (err) {
     setState({ loading: false });
@@ -245,6 +250,7 @@ export async function openNotebook(v: Vault, opts: { seed?: boolean } = {}): Pro
 
 export async function closeNotebook() {
   await flushAllWrites();
+  stopSync();
   await loadActivity(null);
   setState({ vault: null, docs: {}, folders: [], route: { name: 'home' }, peek: null });
   history.replaceState(null, '', '#/');
@@ -1631,3 +1637,72 @@ async function openNotebookCopy(
     if (!(await v.exists(d))) await v.mkdir(d);
   return files.length;
 }
+
+// ───────────────────────────── connected devices ─────────────────────────────
+
+/** Paths changed by the other device, reloaded without the "changed outside" note. */
+let remoteRescan: ReturnType<typeof setTimeout> | undefined;
+function remoteChanged(paths: string[]) {
+  for (const p of paths) {
+    quietReloads.add(p);
+    setTimeout(() => quietReloads.delete(p), 3000);
+  }
+  clearTimeout(remoteRescan);
+  remoteRescan = setTimeout(
+    () =>
+      void rescan().then(async () => {
+        // The other device may have changed the notebook's settings (name, ID prefixes, statuses).
+        const v = getState().vault;
+        if (v && paths.some(isConfigFile)) {
+          const config = await loadConfig(v);
+          if (config) setState({ config });
+        }
+        warnDuplicateIds();
+      }),
+    100,
+  );
+}
+
+/**
+ * Each device numbers new entries after the highest ID it knows. Entries made on both while they
+ * were apart can share an ID: both are kept, and this says which ones, once.
+ */
+const warnedIds = new Set<string>();
+function warnDuplicateIds() {
+  const byId = new Map<string, DocMeta[]>();
+  for (const d of Object.values(getState().docs))
+    if (d.id && (d.kind === 'entry' || d.kind === 'protocol' || d.kind === 'card')) byId.set(d.id, [...(byId.get(d.id) ?? []), d]);
+  for (const [id, docs] of byId) {
+    const key =
+      id +
+      '|' +
+      docs
+        .map((d) => d.path)
+        .sort()
+        .join('|');
+    if (docs.length < 2 || warnedIds.has(key)) continue;
+    warnedIds.add(key);
+    toast(
+      `${id} is now the ID of ${docs.length} pages, made on different devices while they were apart: ${docs.map((d) => `“${d.title}”`).join(' and ')}. Both are kept.`,
+      'info',
+      undefined,
+      { sticky: true },
+    );
+  }
+}
+
+setSyncHooks({
+  isBusy: (path) => pending.has(path) || chains.has(path),
+  // Overwriting a page with the other device's version: the version it replaces goes into its history.
+  beforeOverwrite: async (path) => {
+    const meta = getState().docs[path];
+    const v = getState().vault;
+    if (meta && v) await versionBeforeWrite(v, path, meta);
+  },
+  applied: remoteChanged,
+  conflict: (path, copy, from) =>
+    toast(`“${basename(path)}” was changed here and on the ${from}: both versions are kept (${basename(copy)}).`, 'info', undefined, {
+      sticky: true,
+    }),
+  notice: (message, kind = 'info') => toast(message, kind),
+});

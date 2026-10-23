@@ -3,6 +3,28 @@ import { HandleVault, ensurePermission } from './handleVault';
 import { IdbVault } from './idbVault';
 import type { Vault, VaultKind } from './types';
 
+/** A phone connected to a notebook on this computer (Connect a phone). */
+export interface Pairing {
+  id: string;
+  /** The pairing's secret, shared through the QR code. */
+  secret: string;
+  device: string;
+  deviceId: string;
+  paired: number;
+  lastSync?: number;
+}
+
+/** On a phone: the computer whose notebook this is a copy of. */
+export interface ComputerLink {
+  secret: string;
+  /** "Mac · Chrome" */
+  computer: string;
+  /** The notebook's id on the computer. */
+  notebook: string;
+  paired: number;
+  lastSync?: number;
+}
+
 /** A notebook the user opened before, so it can be reopened with one click. */
 export interface KnownNotebook {
   id: string;
@@ -10,6 +32,8 @@ export interface KnownNotebook {
   name: string;
   lastOpened: number;
   handle?: FileSystemDirectoryHandle;
+  pairings?: Pairing[];
+  link?: ComputerLink;
 }
 
 // The app's former name (Genecraft): kept so the list of known notebooks survives the rename.
@@ -34,6 +58,23 @@ export async function saveKnownNotebook(nb: KnownNotebook): Promise<void> {
   const d = await db();
   const tx = d.transaction(STORE, 'readwrite');
   tx.objectStore(STORE).put(nb);
+  await txDone(tx);
+}
+
+export async function getKnownNotebook(id: string): Promise<KnownNotebook | undefined> {
+  const d = await db();
+  return reqToPromise(d.transaction(STORE).objectStore(STORE).get(id) as IDBRequest<KnownNotebook | undefined>);
+}
+
+/** Change a known notebook's record (read and written in one transaction). */
+export async function updateKnownNotebook(id: string, fn: (nb: KnownNotebook) => KnownNotebook): Promise<void> {
+  const d = await db();
+  const tx = d.transaction(STORE, 'readwrite');
+  const store = tx.objectStore(STORE);
+  const req = store.get(id) as IDBRequest<KnownNotebook | undefined>;
+  req.onsuccess = () => {
+    if (req.result) store.put(fn(req.result));
+  };
   await txDone(tx);
 }
 

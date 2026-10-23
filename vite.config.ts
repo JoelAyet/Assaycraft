@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
+import { devRelay } from './relay/dev-relay.ts';
 
 /**
  * `import text from 'some/file.js?gzip'`: the file, gzipped and base64-encoded. Used for pdf.js, which is
@@ -119,7 +120,7 @@ export default defineConfig(({ mode }) => {
     publicDir: single ? false : 'public',
     // pdf.js is only imported as compressed text (?gzip), never as a module.
     optimizeDeps: { entries: ['index.html'], exclude: ['pdfjs-dist'] },
-    plugins: [gzipText(), react(), ...(single ? [inlineIntoHtml()] : [offlineCache()])],
+    plugins: [gzipText(), react(), ...(single ? [inlineIntoHtml()] : [offlineCache(), devRelay()])],
     build: single
       ? {
           outDir: 'dist-single',

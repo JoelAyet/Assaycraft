@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, FileArchive, FolderOpen, Globe, HardDrive, ShieldCheck, Trash2, X } from 'lucide-react';
+import { ArrowRight, ClipboardPaste, FileArchive, FolderOpen, Globe, HardDrive, Laptop, ScanLine, ShieldCheck, Trash2, X } from 'lucide-react';
 import { Logo } from './Sidebar';
 import { confirmDialog, promptDialog } from './overlay';
 import { createBrowserVault, forgetNotebook, listKnownNotebooks, pickFolderVault, reopenNotebook, type KnownNotebook } from '../fs/registry';
@@ -12,6 +12,8 @@ import { formatRelative } from '../lib/dates';
 import { ABOUT } from '../lib/about';
 import { pickFiles } from '../lib/download';
 import { maybeStartTour } from './Tour';
+import { openConnectComputer } from './ConnectComputer';
+import { syncSupported } from '../sync/manager';
 
 /** Line drawing for the welcome page: a notebook page, a flask and a helix rising from it. */
 function WelcomeArt() {
@@ -182,9 +184,11 @@ export function Welcome() {
             {known.map((nb) => (
               <div key={nb.id} className="gc-recent-row">
                 <button className="gc-recent-open" disabled={loading} onClick={() => void reopen(nb)}>
-                  {nb.kind === 'folder' ? <HardDrive /> : <Globe />}
+                  {nb.kind === 'folder' ? <HardDrive /> : nb.link ? <Laptop /> : <Globe />}
                   <span className="gc-recent-name">{nb.name}</span>
-                  <span className="muted gc-recent-kind">{nb.kind === 'folder' ? 'Folder on this computer' : 'Browser storage'}</span>
+                  <span className="muted gc-recent-kind">
+                    {nb.kind === 'folder' ? 'Folder on this computer' : nb.link ? `In sync with ${nb.link.computer}` : 'Browser storage'}
+                  </span>
                   <span className="muted gc-recent-when">{formatRelative(nb.lastOpened)}</span>
                   <ArrowRight className="gc-recent-arrow" />
                 </button>
@@ -240,6 +244,24 @@ export function Welcome() {
               </button>
             </div>
           </div>
+          {syncSupported() && (
+            <div className="gc-option">
+              <Laptop className="gc-option-icon" />
+              <h3>Connect to a computer</h3>
+              <p>
+                Use a notebook that is open on your computer: there, choose <em>Connect a phone</em> in the notebook menu and scan the code it shows.
+                This device keeps a copy, in sync while both are open.
+              </p>
+              <div className="gc-option-actions">
+                <button className="btn btn-lg" disabled={loading} onClick={() => openConnectComputer()}>
+                  <ScanLine /> Scan the code
+                </button>
+                <button className="btn btn-ghost btn-lg" disabled={loading} onClick={() => openConnectComputer({ paste: true })}>
+                  <ClipboardPaste /> Paste the link…
+                </button>
+              </div>
+            </div>
+          )}
         </section>
 
         <label className="checkbox gc-welcome-seed">
