@@ -95,14 +95,7 @@ Upload the `dist/` folder to any static host (for example Cloudflare Pages, Netl
 
 On a static host (the options below, Netlify, GitHub Pages…) everything works except _Connect a phone_, which needs the relay.
 
-**Try changes before they go live**: a second Worker, `assaycraft-test`, serves a test copy of the site at its own address. People using the real site never see it, and its browser notebooks are separate from the real site's (to try a folder notebook there, use a copy of the folder).
-
-1. Push the changes to a branch other than `main`, for example `test`.
-2. In Cloudflare: Workers & Pages → Create → Import a repository → this repository. Name the Worker `assaycraft-test`; build command `npm run build`, deploy command `npx wrangler deploy --env test`. Then, under the Worker's Settings → Build → Branch control, make `test` its production branch.
-3. Open `https://assaycraft-test.<your-subdomain>.workers.dev` on the computer and on the phone.
-4. When everything works, merge the branch into `main`: the real site updates.
-
-Cloudflare's preview links for branches do not work for this Worker (they are not made for Workers with a Durable Object), hence the separate test Worker. A preview build of the branch on the main Worker, if one runs, does not change the real site.
+**Try changes before they go live**: push them to a branch other than `main`, for example `test`. Cloudflare builds the branch as a _Preview_: a test copy of the site at `https://<branch>-<worker>.<your-subdomain>.workers.dev` (for `test` on the `assaycraft` Worker, `https://test-assaycraft.<your-subdomain>.workers.dev`). People using the real site never see it, it has its own relay (the `previews` block in `wrangler.jsonc`), and its browser notebooks are separate from the real site's (to try a folder notebook there, use a copy of the folder). Open the Preview address on the computer and on the phone; when everything works, merge the branch into `main` and the real site updates. The build log of each branch push is under the Worker's Deployments tab.
 
 **Cloudflare Pages** (free, no bandwidth limit for static files):
 
