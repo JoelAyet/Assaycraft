@@ -27,6 +27,10 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 ## What's new
 
+**23 October 2026**
+
+- **Safari and Firefox.** _Open folder…_ on the welcome screen now works in Safari and Firefox: they can read a notebook folder but not save into it, so its notebook is copied into the browser; export a .zip to take your changes back. Images and other attachments in browser notebooks now save in every browser, including Safari's private windows, and Assaycraft asks the browser to keep browser notebooks rather than clear them to free space. [Where the notebook is stored](#where-the-notebook-is-stored).
+
 **21 October 2026**
 
 - **Go from one step of a flow to the next.** Inside a step, the flow bar now shows every step and offers _Next_, or _Start step 3_ when the next one has not been started, so you can work through a flow without going back to the plan. Flows also work with any entry ID prefix: with a prefix such as `EXP` or `LAB-26-`, steps used to lose their bar. [Flows](#flows-a-series-of-experiments).
@@ -68,7 +72,7 @@ The welcome screen offers two ways to keep a notebook:
 | **A folder on this computer** | Any folder you pick                                  | One computer, your own backups                      |
 | **Browser storage**           | Inside the browser (works in Firefox and Safari too) | Trying it out, or browsers that cannot open folders |
 
-Folders need a Chromium browser (Chrome, Edge, Brave, Arc). The first time you open a notebook you can fill it with examples: templates, sub-templates, protocols, stocks, a paper, a task board and an **example entry** (`Projects/Getting started/EXAMPLE-1`) that shows a flow, a buffer and a citation in use. Its ID is outside your numbering, so your first entry is still `EXP-0001`; delete it whenever you like.
+Saving into a folder needs a Chromium browser (Chrome, Edge, Brave, Arc). Safari and Firefox can open a notebook folder but not save into it, so they copy its notebook into browser storage. The first time you open a notebook you can fill it with examples: templates, sub-templates, protocols, stocks, a paper, a task board and an **example entry** (`Projects/Getting started/EXAMPLE-1`) that shows a flow, a buffer and a citation in use. Its ID is outside your numbering, so your first entry is still `EXP-0001`; delete it whenever you like.
 
 **The tour.** A new notebook starts a short tour. It first asks for **your name**, which signs your entries as their author (the same setting as in _Settings → Notebook_). Then it points at each part of the app: the New entry button, the library (protocols, stocks and literature), templates, notes, boards and the calendar, then opens the example entry to show its **flow** and its **buffer calculator**, the `/` menu, search and saving. Click _Next_ (or press →), _Back_ (←), or _Skip tour_ (Esc). It only starts once; take it again from _Settings → About_, the notebook menu or by searching “tour”.
 
@@ -536,7 +540,9 @@ On disk, the trash is the notebook's `.trash/` folder. `.trash/trash.json` remem
 
 **A folder.** Assaycraft reads and writes the folder directly. The browser remembers it, and after a restart it may ask once to allow access again. If you change a file in another program, Assaycraft picks the change up when you come back to the window.
 
-**Browser storage.** The notebook lives inside the browser's own storage. It works everywhere, but it is tied to that browser on that device: export a .zip regularly as a backup.
+**Browser storage.** The notebook lives inside the browser's own storage. It works everywhere, but it is tied to that browser on that device: export a .zip regularly as a backup. Assaycraft asks the browser to keep it rather than clear it when space runs low (Firefox asks you once; Chrome and Safari decide on their own, and Safari may still clear a site you have not visited for weeks, so keep those backups).
+
+**A folder in Safari or Firefox.** These browsers can read a folder but cannot save into it. _Open folder…_ copies the folder's notebook (Markdown files, attachments and settings; not `.git` or system files such as `.DS_Store`) into a new browser notebook named after it. Your changes stay in the browser: to bring them back to the folder, use _Export notebook (.zip)_ and unpack it there. To keep working directly in the folder, open it in Chrome, Edge, Brave or Arc.
 
 **Notebooks made with Labcraft** (this app's earlier name) open as they are: the first time, `labcraft.json` is renamed `assaycraft.json` and the `.labcraft` folder `.assaycraft`. Nothing else in the notebook changes. An exported .zip from Labcraft can be opened or imported the same way.
 

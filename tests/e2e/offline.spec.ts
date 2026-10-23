@@ -24,6 +24,11 @@ async function serveSite() {
   cpSync(dist, root, { recursive: true });
   const server = createServer((req, res) => {
     const path = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname);
+    // Like Cloudflare: the app page is only served at the site's address.
+    if (path === '/index.html') {
+      res.writeHead(307, { location: '/' }).end();
+      return;
+    }
     const file = join(root, path === '/' ? 'index.html' : path);
     if (!file.startsWith(root) || !existsSync(file) || !statSync(file).isFile()) {
       res.writeHead(404).end();
@@ -59,7 +64,9 @@ test.describe('offline copy of the hosted app', () => {
       const [name] = await cacheNames(page);
       expect(name).toMatch(/^assaycraft-[0-9a-f]{12}$/);
       const cached = await page.evaluate(async (n) => (await (await caches.open(n)).keys()).map((r) => new URL(r.url).pathname), name);
-      expect(cached).toContain('/index.html');
+      // The app page is kept under the app's own address: hosts such as Cloudflare redirect /index.html there.
+      expect(cached).toContain('/');
+      expect(cached).not.toContain('/index.html');
       expect(cached.some((p) => /\/assets\/pdfjs-.*\.js$/.test(p))).toBe(true);
 
       await page.getByRole('button', { name: /Create browser notebook/ }).click();

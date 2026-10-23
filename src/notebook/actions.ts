@@ -1570,15 +1570,53 @@ export async function importZip(file: Blob): Promise<{ added: number; copies: nu
 export async function openZipNotebook(file: File, create: (name: string) => Promise<Vault>): Promise<number> {
   const files = unpackZip(new Uint8Array(await file.arrayBuffer()));
   if (!files.some((f) => f.path.endsWith('.md'))) throw new Error('This .zip does not contain a notebook (no Markdown files in it).');
-  let name = stem(file.name).replace(/\s+\d{4}-\d{2}-\d{2}$/, '') || 'Lab notebook';
+  const name = stem(file.name).replace(/\s+\d{4}-\d{2}-\d{2}$/, '');
+  return openNotebookCopy(
+    files.map((f) => ({ path: f.path, read: () => f.data.slice() })),
+    name,
+    create,
+  );
+}
+
+// Files a computer adds to folders on its own, and a Git repository's internals: not part of the notebook.
+const FOLDER_JUNK = /(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini|\._[^/]*)$|(^|\/)\.git\//;
+
+/**
+ * Open a notebook folder in a browser that can read folders but not save into them (Safari,
+ * Firefox): its files are copied into a new notebook stored in this browser. `files` come from a
+ * folder picker, each with its path inside the chosen folder in `webkitRelativePath`.
+ */
+export async function openFolderCopyNotebook(files: File[], create: (name: string) => Promise<Vault>): Promise<number> {
+  const folder = files[0]?.webkitRelativePath.split('/')[0] || '';
+  const inFolder = (f: File) => f.webkitRelativePath.split('/').slice(1).join('/');
+  const kept = files.filter((f) => inFolder(f) && !FOLDER_JUNK.test(inFolder(f)));
+  if (!kept.some((f) => inFolder(f).endsWith('.md')))
+    throw new Error(
+      `${folder ? `“${folder}”` : 'This folder'} has no notebook in it (no Markdown files). To start a new notebook, use “Create browser notebook”.`,
+    );
+  return openNotebookCopy(
+    kept.map((f) => ({ path: inFolder(f), read: async () => new Uint8Array(await f.arrayBuffer()) })),
+    folder,
+    create,
+  );
+}
+
+/** Copy a notebook's files into a new browser notebook and open it. Named after its config, else `fallbackName`. */
+async function openNotebookCopy(
+  files: { path: string; read: () => Uint8Array<ArrayBuffer> | Promise<Uint8Array<ArrayBuffer>> }[],
+  fallbackName: string,
+  create: (name: string) => Promise<Vault>,
+): Promise<number> {
+  let name = fallbackName || 'Lab notebook';
   const config = files.find((f) => isConfigFile(f.path));
   try {
-    if (config) name = (JSON.parse(strFromU8(config.data)) as { name?: string }).name || name;
+    if (config) name = (JSON.parse(strFromU8(await config.read())) as { name?: string }).name || name;
   } catch {
-    // Keep the file name.
+    // Keep the file or folder name.
   }
   const v = await create(name);
-  for (const f of files) await v.write(f.path, f.data.slice());
+  // One file at a time, so a folder of large images is never all in memory at once.
+  for (const f of files) await v.write(f.path, await f.read());
   await openNotebook(v, { seed: false });
   for (const d of [
     LAYOUT.projects,

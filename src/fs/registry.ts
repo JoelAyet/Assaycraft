@@ -71,7 +71,20 @@ export async function pickFolderVault(): Promise<Vault> {
   return new HandleVault(handle, id, 'folder');
 }
 
+/**
+ * Ask the browser to keep this site's storage until the user deletes it. Without this, browsers may
+ * clear it to free space, and Safari clears it after a few weeks without a visit. Best effort:
+ * Firefox asks the user, Chrome and Safari decide on their own.
+ */
+export function keepBrowserStorage() {
+  void navigator.storage
+    ?.persisted?.()
+    .then((kept) => kept || navigator.storage.persist?.())
+    .catch(() => {});
+}
+
 export async function createBrowserVault(name: string): Promise<Vault> {
+  keepBrowserStorage();
   const id = newId();
   const vault = await IdbVault.open(id, name);
   await saveKnownNotebook({ id, kind: 'browser', name, lastOpened: Date.now() });
@@ -84,6 +97,7 @@ export async function createBrowserVault(name: string): Promise<Vault> {
  */
 export async function reopenNotebook(nb: KnownNotebook, request: boolean): Promise<Vault | null> {
   if (nb.kind === 'browser') {
+    keepBrowserStorage();
     const vault = await IdbVault.open(nb.id, nb.name);
     await saveKnownNotebook({ ...nb, lastOpened: Date.now() });
     return vault;

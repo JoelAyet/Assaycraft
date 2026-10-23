@@ -5,7 +5,7 @@ import { confirmDialog, promptDialog } from './overlay';
 import { createBrowserVault, forgetNotebook, listKnownNotebooks, pickFolderVault, reopenNotebook, type KnownNotebook } from '../fs/registry';
 import { supportsFolderAccess } from '../fs/handleVault';
 import { IdbVault } from '../fs/idbVault';
-import { openNotebook, openZipNotebook } from '../notebook/actions';
+import { openFolderCopyNotebook, openNotebook, openZipNotebook } from '../notebook/actions';
 import { LAYOUT } from '../notebook/model';
 import { toast, useNotebook } from '../notebook/store';
 import { formatRelative } from '../lib/dates';
@@ -68,9 +68,9 @@ export function Welcome() {
     try {
       await fn();
     } catch (err) {
-      const e = err as Error;
-      if (e.name === 'AbortError') return;
-      toast(e.message || String(err), 'error');
+      const e = err as Error | null;
+      if (e?.name === 'AbortError') return;
+      toast(e?.message || String(err), 'error');
     }
   };
 
@@ -116,6 +116,14 @@ export function Welcome() {
       if (!file) return;
       const n = await openZipNotebook(file, createBrowserVault);
       toast(`Opened “${file.name}” (${n} files) as a notebook in this browser.`, 'success');
+    });
+
+  const openFolderCopy = () =>
+    run(async () => {
+      const files = await pickFiles({ folder: true });
+      if (!files.length) return;
+      const n = await openFolderCopyNotebook(files, createBrowserVault);
+      toast(`Copied the notebook (${n} files) into this browser. To update the folder, export a .zip and unpack it there.`, 'success');
     });
 
   const reopen = (nb: KnownNotebook) =>
@@ -206,9 +214,15 @@ export function Welcome() {
                 <em>Export notebook</em>) and open the .zip here.
               </p>
             ) : (
-              <p className="gc-option-note">
-                Saving to a folder needs Chrome, Edge, Brave or Arc. In this browser, use browser storage and export .zip backups.
-              </p>
+              <>
+                <p className="gc-option-note">
+                  This browser can read a folder but not save into it (that needs Chrome, Edge, Brave or Arc). Opening one copies its notebook into
+                  this browser; export a .zip to take your changes back.
+                </p>
+                <button className="btn btn-lg" disabled={loading} onClick={() => void openFolderCopy()}>
+                  <FolderOpen /> Open folder…
+                </button>
+              </>
             )}
           </div>
           <div className="gc-option">

@@ -106,7 +106,7 @@ Keep the same address once people use it: notebooks in browser storage, the offl
 
 When you start, Assaycraft asks how to store the notebook:
 
-- **Open a notebook folder (recommended).** Pick an empty folder, or one you used before. Everything is saved there as Markdown, so you can back it up, put it in Git or read it with any editor (VS Code, Obsidian, GitHub). This needs a Chromium browser such as Chrome, Edge, Brave or Arc. The browser remembers the folder and may ask you to allow access again after a restart.
+- **Open a notebook folder (recommended).** Pick an empty folder, or one you used before. Everything is saved there as Markdown, so you can back it up, put it in Git or read it with any editor (VS Code, Obsidian, GitHub). Saving into the folder needs a Chromium browser such as Chrome, Edge, Brave or Arc; the browser remembers the folder and may ask you to allow access again after a restart. Safari and Firefox can open a notebook folder too, but cannot save into it: they copy its notebook into browser storage, and _Export notebook (.zip)_ takes your changes back.
 - **Browser storage.** Works in any browser (Firefox, Safari…). The notebook lives inside the browser; use _Export notebook (.zip)_ to back it up.
 
 Changes are saved automatically. If you edit a file in another program, Assaycraft picks the change up when you come back to the window.

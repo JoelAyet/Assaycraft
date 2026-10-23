@@ -1,0 +1,11 @@
+{
+  "app": "assaycraft",
+  "version": 1,
+  "name": "Smith lab",
+  "author": "",
+  "idPrefix": "EXP-",
+  "idDigits": 4,
+  "cardPrefix": "T-",
+  "protocolPrefix": "P-",
+  "created": "2026-10-20T10:00:00.000Z"
+}
