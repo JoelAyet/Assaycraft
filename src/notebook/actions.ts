@@ -257,9 +257,17 @@ export async function closeNotebook() {
 }
 
 let rescanning: Promise<void> | null = null;
+let rescanAgain: Promise<void> | null = null;
 /** Re-read files that changed on disk (e.g. edited in another app). */
 export function rescan(): Promise<void> {
-  if (rescanning) return rescanning;
+  // A file may have changed after the running scan read it: one more scan follows that one.
+  if (rescanning) {
+    const next = () => {
+      rescanAgain = null;
+      return rescan();
+    };
+    return (rescanAgain ??= rescanning.then(next, next));
+  }
   const v = getState().vault;
   if (!v) return Promise.resolve();
   setState({ scanning: true });
@@ -292,9 +300,10 @@ export function rescan(): Promise<void> {
 
 export async function readDoc(path: string): Promise<{ meta: DocMeta; body: string }> {
   const v = vault();
+  // The date first: a file written in between (by the other device) then reads as changed, and reloads.
+  const stat = await v.stat(path);
   const text = await v.readText(path);
   const { data, body } = splitFrontMatter(text);
-  const stat = await v.stat(path);
   const kind = kindForPath(path, data.kind) ?? 'entry';
   const fallback = kind === 'board' ? basename(dirname(path)) : stem(path).replace(/^[A-Z]{1,6}-\d+\s+/, '');
   const meta: DocMeta = { ...metaFromFrontMatter(path, kind, data, fallback), mtime: stat?.lastModified ?? 0, ...bodyFacts(body, kind) };
