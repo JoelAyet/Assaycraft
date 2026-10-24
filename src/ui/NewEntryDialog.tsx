@@ -27,6 +27,7 @@ interface Initial {
   folder?: string;
   templatePath?: string | null;
   date?: string;
+  time?: string;
   status?: string;
   /** Protocols to link to the new entry. */
   protocols?: string[];
@@ -56,6 +57,7 @@ function NewEntryDialog({ close, initial }: { close: () => void; initial: Initia
   const defaultFolder = initial.folder ?? (lastFolder() && folders.includes(lastFolder()!) ? lastFolder()! : (folders[0] ?? LAYOUT.projects));
   const [folder, setFolder] = useState(defaultFolder);
   const [date, setDate] = useState(initial.date ?? localDate());
+  const [time, setTime] = useState(initial.time ?? '');
   const [status, setStatus] = useState(initial.status ?? 'in-progress');
   const [vars, setVars] = useState<TemplateVariable[]>([]);
   const [pattern, setPattern] = useState('');
@@ -128,6 +130,7 @@ function NewEntryDialog({ close, initial }: { close: () => void; initial: Initia
         templatePath: tpl ?? undefined,
         values,
         date,
+        time,
         status,
         protocols,
         copyProtocolSteps: copySteps,
@@ -218,10 +221,6 @@ function NewEntryDialog({ close, initial }: { close: () => void; initial: Initia
               </select>
             </div>
             <div className="field">
-              <label htmlFor="ne-date">Experiment date</label>
-              <input id="ne-date" type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <div className="field">
               <label htmlFor="ne-status">Status</label>
               <select id="ne-status" className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
                 {statuses.map((s) => (
@@ -230,6 +229,14 @@ function NewEntryDialog({ close, initial }: { close: () => void; initial: Initia
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="field">
+              <label htmlFor="ne-date">Experiment date</label>
+              <input id="ne-date" type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor="ne-time">Time (optional)</label>
+              <input id="ne-time" type="time" className="input" value={time} step={300} onChange={(e) => setTime(e.target.value)} />
             </div>
           </div>
           <div className="field">

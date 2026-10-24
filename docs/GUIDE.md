@@ -30,7 +30,7 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 **24 October 2026**
 
-- **Times on experiments.** An entry's _Time_ (under its date) takes a start and an end time: pick one from the list or type it (“14:30”, “2pm”). The calendar shows it on the chip, in the week view and in the agenda, and Home lists the week with times. [Calendar](#calendar).
+- **Times on experiments.** An entry's _Time_ (under its date) takes a start and an end time: pick one from the list or type it (“14:30”, “2pm”). _New entry_ asks for a start time too, next to the date, so a planned experiment is made in one go. The calendar shows it on the chip, in the week view and in the agenda, and Home lists the week with times. [Calendar](#calendar).
 - **Other calendars in the calendar.** _Calendar → Calendars_ shows a calendar from Google, Apple or Outlook next to your experiments, read-only: the lab’s equipment bookings, seminars, your own calendar, with repeating events and time zones. [Calendar](#calendar).
 - **Your experiments in your calendar app.** In the same window, _Create a private calendar link_ gives an address that Apple, Google or Outlook Calendar subscribe to, kept up to date while the notebook is open. It is off unless you turn it on. [Calendar](#calendar).
 
@@ -504,7 +504,7 @@ Boards are Kanban columns, as in Notion or Trello.
 - **Today** and the **‹ ›** arrows stay in the same place whatever the month's name, so you can click through months quickly.
 - The week starts on **Monday or Sunday**, as set in _Settings → Appearance_. The activity graph on Home follows the same setting.
 
-**Times.** An entry has a _Time_ under its date: a start time and, once that is set, an end time. Click _Add time_ and pick a time in the list (half hours) or type one: “9:30”, “14:30”, “2pm”. The end time lists the times after the start with how long that is. On the calendar, the time comes before the title: short on a month’s chip (“9:30am”), on a line of its own in the week, as a range in the agenda. Items of a day are in order of time, those without one first. Drag an item to another day and it keeps its time.
+**Times.** An entry has a _Time_ under its date: a start time and, once that is set, an end time. Click _Add time_ and pick a time in the list (half hours) or type one: “9:30”, “14:30”, “2pm”. When you plan an experiment, _New entry_ has a _Time_ next to the date (leave it empty for none). The end time lists the times after the start with how long that is. On the calendar, the time comes before the title: short on a month’s chip (“9:30am”), on a line of its own in the week, as a range in the agenda. Items of a day are in order of time, those without one first. Drag an item to another day and it keeps its time.
 
 **Other calendars here.** _Calendars_ (top right of the calendar) shows the events of other calendars next to your entries and tasks: the lab’s Google Calendar for the confocal and the FACS, the seminar series, your own calendar.
 

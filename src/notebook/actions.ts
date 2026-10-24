@@ -8,7 +8,7 @@ import { strFromU8, strToU8, zipSync, unzipSync } from 'fflate';
 import type { Vault } from '../fs/types';
 import { copyFile, moveDir, moveFile, uniquePath, walk } from '../fs/ops';
 import { basename, dirname, extname, isInside, join, relative, sanitizeFileName, setAsciiFileNames, splitPath, stem } from '../lib/path';
-import { localDate, localIso } from '../lib/dates';
+import { localDate, localIso, timeOfDay } from '../lib/dates';
 import { docSchema } from '../editor/schema';
 import { parseMarkdown } from '../markdown/parse';
 import { serializeMarkdown, sheetToMarkdown } from '../markdown/serialize';
@@ -693,6 +693,8 @@ export interface NewEntryOptions {
   templatePath?: string;
   values?: Record<string, string>;
   date?: string;
+  /** Start time on `date` (HH:MM), for a planned experiment. */
+  time?: string;
   status?: string;
   /** Protocols to link, in addition to those of the template. */
   protocols?: string[];
@@ -739,6 +741,7 @@ export async function createEntry(opts: NewEntryOptions = {}): Promise<string> {
       created: now,
       modified: now,
       date: opts.date ?? localDate(),
+      time: timeOfDay(opts.time),
       template: templateName,
       protocols,
       extra: {},

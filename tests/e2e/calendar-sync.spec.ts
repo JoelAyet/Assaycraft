@@ -66,6 +66,25 @@ test('an experiment gets a time: on its page, in its file and on the calendar', 
   expect(errors).toEqual([]);
 });
 
+test('a new experiment is planned at a time from the New entry window', async ({ page }) => {
+  const errors = trackErrors(page);
+  await openFolderNotebook(page, { seed: false });
+  await page.locator('.gc-new-btn').click();
+  await page.locator('#ne-title').fill('qPCR run');
+  await page.getByLabel('Time (optional)').fill('09:15');
+  await page.getByRole('button', { name: 'Create entry' }).click();
+  await expect(page.locator('.gc-title-input')).toHaveValue('qPCR run');
+  await expect(page.getByRole('button', { name: /^9:15/ })).toBeVisible();
+  await waitForSave(page);
+  const path = decodeURIComponent(new URL(page.url()).hash.replace('#/doc/', ''));
+  expect(await readFile(page, path)).toContain('time: "09:15"');
+
+  // Left empty, the entry has a day and no time.
+  await newBlankEntry(page, 'Gel');
+  await expect(page.getByRole('button', { name: 'Add time' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('another calendar shows next to the experiments, read-only, and can be hidden', async ({ page }) => {
   const errors = trackErrors(page);
   // What the website would pass on from Google.
