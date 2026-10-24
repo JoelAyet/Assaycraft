@@ -53,6 +53,7 @@ import { HISTORY_DIR, historyPathFor, moveHistory, recordVersion } from '../hist
 import { ACTIVITY_FILE, flushActivity, importActivity, loadActivity, recordEdit, reloadActivity } from './activity';
 import { SyncableVault } from '../sync/vault';
 import { setSyncHooks, startSync, stopSync } from '../sync/manager';
+import { startFeed, stopFeed } from '../calendar/feed';
 
 // ───────────────────────────── helpers ─────────────────────────────
 
@@ -241,6 +242,7 @@ export async function openNotebook(opened: Vault, opts: { seed?: boolean } = {})
     const trash = await listTrash(v).catch(() => []);
     setState({ vault: v, config, docs, folders, trash, docKeys: {}, loading: false, route: hashToRoute(location.hash) });
     void startSync(v).catch((err) => console.warn('Could not start syncing with paired devices', err));
+    void startFeed(v.id);
     return created;
   } catch (err) {
     setState({ loading: false });
@@ -251,6 +253,7 @@ export async function openNotebook(opened: Vault, opts: { seed?: boolean } = {})
 export async function closeNotebook() {
   await flushAllWrites();
   stopSync();
+  stopFeed();
   await loadActivity(null);
   setState({ vault: null, docs: {}, folders: [], route: { name: 'home' }, peek: null });
   history.replaceState(null, '', '#/');

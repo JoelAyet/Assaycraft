@@ -475,5 +475,86 @@ for (const s of SETUPS) {
       }
       expect(problems).toEqual({});
     });
+
+    test('times, other calendars and the calendar link pass the design checks', async ({ page }) => {
+      test.setTimeout(120_000);
+      const problems: Record<string, unknown> = {};
+      const check = async (screen: string) => {
+        await page.waitForTimeout(250);
+        const r = await page.evaluate(audit, s.phone);
+        const found = { contrast: r.contrast, unnamed: r.unnamed, small: r.small, cut: r.cut, offscreen: r.offscreen, pageOverflow: r.pageOverflow };
+        if (found.contrast.length || found.unnamed.length || found.small.length || found.cut.length || found.offscreen.length || found.pageOverflow)
+          problems[screen] = found;
+      };
+      const nav = async (item: string) => {
+        if (s.phone) await page.locator('.gc-nav-toggle').first().click();
+        await page.locator('.gc-nav-item', { hasText: item }).click();
+      };
+      // The lab's calendar, as the website would pass it on: a weekly meeting, and a booking over two days.
+      const ymd = (days: number) => {
+        const d = new Date();
+        d.setDate(d.getDate() + days);
+        return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+      };
+      const lab = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'X-WR-CALNAME:Lab bookings',
+        'BEGIN:VEVENT',
+        'UID:a@lab',
+        `DTSTART;VALUE=DATE:${ymd(0)}`,
+        `DTEND;VALUE=DATE:${ymd(2)}`,
+        'SUMMARY:Confocal booked (Imaging core)',
+        'LOCATION:Imaging core, room B12',
+        'END:VEVENT',
+        'BEGIN:VEVENT',
+        'UID:b@lab',
+        `DTSTART:${ymd(0)}T160000`,
+        `DTEND:${ymd(0)}T170000`,
+        'RRULE:FREQ=WEEKLY',
+        'SUMMARY:Lab meeting',
+        'END:VEVENT',
+        'END:VCALENDAR',
+        '',
+      ].join('\r\n');
+      await page.route('**/ical?url=*', (route) => route.fulfill({ contentType: 'text/calendar', body: lab }));
+
+      await openFolderNotebook(page);
+      if (s.phone) await page.locator('.gc-nav-toggle').first().click();
+      await newBlankEntry(page, 'ELISA IL-6, plate 1');
+      await page.getByRole('button', { name: 'Add time' }).click();
+      await check('Time picker');
+      await page.getByLabel('Type a time').fill('9:30');
+      await page.getByLabel('Type a time').press('Enter');
+      await page.getByRole('button', { name: 'End time' }).click();
+      await check('End time picker');
+      await page.getByRole('option', { name: /^12:00/ }).click();
+      await waitForSave(page);
+      await check('Entry with a time');
+      await nav('Calendar');
+      await page.locator('.gc-segmented button', { hasText: 'Month' }).click();
+      await page.getByRole('button', { name: 'Calendars' }).click();
+      await check('Calendars');
+      await page.getByLabel('Calendar address (iCal)').fill('https://calendar.google.com/calendar/ical/lab%40group/private-0123456789/basic.ics');
+      await page.getByRole('button', { name: 'Add calendar' }).click();
+      await expect(page.getByLabel('Calendar name')).toHaveValue('Lab bookings');
+      await page.locator('.gc-calendars-help summary').click();
+      await page.getByRole('button', { name: 'Create a private calendar link' }).click();
+      await expect(page.getByRole('status').filter({ hasText: 'Up to date' })).toBeVisible();
+      await check('Calendars, with a calendar and the link');
+      await page.keyboard.press('Escape');
+      await check('Month with another calendar');
+      if (s.phone) await page.locator('.gc-segmented button', { hasText: 'Agenda' }).click();
+      await page.locator('.gc-cal-item.is-event:visible, .gc-agenda-item.is-event:visible', { hasText: 'Confocal' }).first().click();
+      await check('Event of another calendar');
+      await page.keyboard.press('Escape');
+      await page.locator('.gc-segmented button', { hasText: 'Week' }).click();
+      await check('Week with times');
+      await page.locator('.gc-segmented button', { hasText: 'Agenda' }).click();
+      await check('Agenda with times');
+      await nav('Home');
+      await check('Home with a time');
+      expect(problems).toEqual({});
+    });
   });
 }

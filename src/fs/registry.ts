@@ -34,6 +34,8 @@ export interface KnownNotebook {
   handle?: FileSystemDirectoryHandle;
   pairings?: Pairing[];
   link?: ComputerLink;
+  /** The private calendar link this device keeps up to date: its address and the key to change it. */
+  feed?: { id: string; key: string };
 }
 
 // The app's former name (Genecraft): kept so the list of known notebooks survives the rename.

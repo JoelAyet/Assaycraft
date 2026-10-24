@@ -64,7 +64,10 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const request = event.request;
-  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
+  const url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+  // Calendar files (a private calendar link opened in the browser, another calendar fetched) are never the app.
+  if (url.pathname.startsWith('/cal/') || url.pathname === '/ical') return;
   // Opening the app (any address in it) gets the app page; its files come from the cache; anything else from the network.
   const navigate = request.mode === 'navigate';
   const key = navigate ? APP : request;

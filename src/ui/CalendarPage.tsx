@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react';
-import { CalendarDays, CheckSquare, ChevronLeft, ChevronRight, FlaskConical, ListTodo, Plus } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react';
+import { create } from 'zustand';
+import { CalendarDays, CalendarSync, CheckSquare, ChevronLeft, ChevronRight, FlaskConical, ListTodo, MapPin, Plus } from 'lucide-react';
 import { navigate, setState, useNotebook, weekStartDay } from '../notebook/store';
 import { boardCards, docSpan, isTask, LAYOUT, toYmd, type ColorName, type DocMeta } from '../notebook/model';
 import { createCard, patchMeta, projectOf } from '../notebook/actions';
@@ -7,7 +8,9 @@ import { Popover } from './overlay';
 import { openNewEntryDialog } from './NewEntryDialog';
 import { statusOf } from './status';
 import { dirname, join } from '../lib/path';
-import { localDate } from '../lib/dates';
+import { formatTime, formatTimeRange, formatTimeShort, localDate, minutesOf } from '../lib/dates';
+import { eventsBetween, loadCalendar, type ExternalEvent } from '../calendar/external';
+import { openCalendarsDialog } from './CalendarsDialog';
 import { PHONE, useMediaQuery } from '../lib/useMedia';
 import { NavToggle } from './nav';
 
@@ -35,12 +38,52 @@ export function startOfWeek(day: string, weekStart: number): string {
   return addDays(day, -((parseYmd(day).getDay() - weekStart + 7) % 7));
 }
 
+/** Something on the calendar: an entry, a task, or an event of another calendar (read-only). */
 interface CalItem {
-  doc: DocMeta;
+  key: string;
+  kind: 'entry' | 'card' | 'event';
+  doc?: DocMeta;
+  event?: ExternalEvent;
+  /** The entry's ID. */
+  id?: string;
+  title: string;
   start: string;
   end: string;
+  /** Start and end time (HH:MM); none for a whole day. */
+  time?: string;
+  endTime?: string;
   color: ColorName;
   done: boolean;
+  /** Its project, or the calendar it comes from. */
+  where?: string;
+}
+
+/** By day; across several days first; a whole day before a time; then by time and title. */
+function byStart(a: CalItem, b: CalItem): number {
+  return (
+    a.start.localeCompare(b.start) ||
+    diffDays(b.start, b.end) - diffDays(a.start, a.end) ||
+    (a.time ? 1 : 0) - (b.time ? 1 : 0) ||
+    (a.time && b.time ? minutesOf(a.time) - minutesOf(b.time) : 0) ||
+    a.title.localeCompare(b.title)
+  );
+}
+
+function docItem(d: DocMeta, span: { start: string; end: string }, color: ColorName, done: boolean): CalItem {
+  const entry = d.kind === 'entry';
+  return {
+    key: d.path,
+    kind: entry ? 'entry' : 'card',
+    doc: d,
+    id: entry ? d.id || undefined : undefined,
+    title: d.title,
+    ...span,
+    time: entry ? d.time : undefined,
+    endTime: entry ? d.endTime : undefined,
+    color,
+    done,
+    where: projectOf(d.path) || undefined,
+  };
 }
 
 function useCalendarItems(showEntries: boolean, showTasks: boolean): CalItem[] {
@@ -56,23 +99,105 @@ function useCalendarItems(showEntries: boolean, showTasks: boolean): CalItem[] {
       if (!span) continue;
       if (d.kind === 'entry') {
         const st = statusOf(statuses, d.status);
-        out.push({ doc: d, ...span, color: st?.color ?? 'gray', done: d.status === 'completed' || d.status === 'failed' });
+        out.push(docItem(d, span, st?.color ?? 'gray', d.status === 'completed' || d.status === 'failed'));
       } else {
         const board = docs[join(dirname(d.path), LAYOUT.boardFile)];
         const cols = board?.columns ?? [];
         const col = cols.find((c) => c.id === d.status);
-        out.push({ doc: d, ...span, color: col?.color ?? 'gray', done: !!cols.length && cols[cols.length - 1].id === d.status });
+        out.push(docItem(d, span, col?.color ?? 'gray', !!cols.length && cols[cols.length - 1].id === d.status));
       }
     }
-    return out.sort(
-      (a, b) => a.start.localeCompare(b.start) || diffDays(b.start, b.end) - diffDays(a.start, a.end) || a.doc.title.localeCompare(b.doc.title),
-    );
+    return out;
   }, [docs, statuses, showEntries, showTasks]);
 }
 
-function open(item: CalItem) {
-  if (item.doc.kind === 'card') setState({ peek: item.doc.path });
-  else navigate({ name: 'doc', path: item.doc.path });
+/** The events of the other calendars (Calendars) on the days from `from` to `to`, fetched again every ten minutes. */
+function useOtherCalendars(from: string, to: string): CalItem[] {
+  const calendars = useNotebook((s) => s.config.calendars);
+  const [events, setEvents] = useState<CalItem[]>([]);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 10 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    const shown = (calendars ?? []).filter((c) => !c.hidden);
+    if (!shown.length) {
+      setEvents([]);
+      return;
+    }
+    let cancelled = false;
+    void Promise.all(
+      shown.map(async (cal) => {
+        const l = await loadCalendar(cal.url);
+        return l.parsed ? eventsBetween(cal, l.parsed, from, to) : [];
+      }),
+    ).then((lists) => {
+      if (cancelled) return;
+      setEvents(
+        lists.flat().map((e) => ({
+          key: e.key,
+          kind: 'event',
+          event: e,
+          title: e.title,
+          start: e.start,
+          end: e.end,
+          time: e.time,
+          endTime: e.endTime,
+          color: e.calendar.color,
+          done: false,
+          where: e.calendar.name,
+        })),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [calendars, from, to, tick]);
+  return events;
+}
+
+/** An event of another calendar, open: what, when and where. */
+const usePeekEvent = create<{ item: CalItem; anchor: DOMRect } | null>(() => null);
+
+function open(item: CalItem, anchor?: HTMLElement) {
+  if (item.kind === 'event') usePeekEvent.setState({ item, anchor: (anchor ?? document.body).getBoundingClientRect() }, true);
+  else if (item.kind === 'card') setState({ peek: item.doc!.path });
+  else navigate({ name: 'doc', path: item.doc!.path });
+}
+
+function EventPeek() {
+  const peek = usePeekEvent();
+  if (!peek) return null;
+  const { item, anchor } = peek;
+  const e = item.event!;
+  const day = (d: string) => parseYmd(d).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const when = item.start === item.end ? day(item.start) : `${day(item.start)} – ${day(item.end)}`;
+  return (
+    <Popover anchor={anchor} onClose={() => usePeekEvent.setState(null, true)} className="gc-event-peek">
+      <div className="gc-event-peek-body">
+        <h3>{e.title}</h3>
+        <p>
+          {when}
+          {item.time && (
+            <>
+              <br />
+              {formatTimeRange(item.time, item.endTime)}
+            </>
+          )}
+        </p>
+        {e.location && (
+          <p className="gc-event-peek-where">
+            <MapPin /> {e.location}
+          </p>
+        )}
+        {e.description && <p className="gc-event-peek-desc">{e.description}</p>}
+        <p className="muted gc-event-peek-cal">
+          <span className={`gc-status-dot tone-${item.color}`} /> {e.calendar.name} · read-only here
+        </p>
+      </div>
+    </Popover>
+  );
 }
 
 function reschedule(doc: DocMeta, delta: number) {
@@ -91,22 +216,28 @@ function dropOnDay(e: DragEvent, day: string, items: CalItem[]) {
   e.preventDefault();
   try {
     const { path, offset: grab } = JSON.parse(e.dataTransfer.getData(CAL_MIME)) as { path: string; offset: number };
-    const item = items.find((i) => i.doc.path === path);
-    if (item) reschedule(item.doc, diffDays(item.start, addDays(day, -grab)));
+    const item = items.find((i) => i.doc?.path === path);
+    if (item?.doc) reschedule(item.doc, diffDays(item.start, addDays(day, -grab)));
   } catch {
     /* not ours */
   }
 }
 
-function ItemLabel({ item }: { item: CalItem }) {
+/** An item's icon, time (in full, or short on a month's chip), ID and title. */
+function ItemLabel({ item, time = 'full' }: { item: CalItem; time?: 'full' | 'short' | false }) {
   return (
     <>
-      {item.doc.kind === 'card' ? <CheckSquare /> : <FlaskConical />}
-      {item.doc.kind === 'entry' && item.doc.id && <span className="gc-cal-id">{item.doc.id}</span>}
-      <span className="gc-cal-title">{item.doc.title}</span>
+      {item.kind === 'card' ? <CheckSquare /> : item.kind === 'event' ? <CalendarDays /> : <FlaskConical />}
+      {time && item.time && <span className="gc-cal-time">{time === 'short' ? formatTimeShort(item.time) : formatTime(item.time)}</span>}
+      {item.id && <span className="gc-cal-id">{item.id}</span>}
+      <span className="gc-cal-title">{item.title}</span>
     </>
   );
 }
+
+/** What a chip's tooltip says: ID, title, time, project or calendar. */
+const itemTitle = (item: CalItem) =>
+  [item.id, item.title, item.time && formatTimeRange(item.time, item.endTime), item.where].filter(Boolean).join(' · ');
 
 function NewOnDay({ day, anchor, onClose }: { day: string; anchor: DOMRect; onClose: () => void }) {
   const docs = useNotebook((s) => s.docs);
@@ -168,18 +299,34 @@ function placeWeek(items: CalItem[], ws: string): { we: string; placed: Placed[]
 }
 
 /** An event as a bar across its days; drag it to another day to reschedule. */
-function CalBar({ p, ws, we, phone, row }: { p: Placed; ws: string; we: string; phone: boolean; row: () => HTMLElement | null | undefined }) {
+function CalBar({
+  p,
+  ws,
+  we,
+  phone,
+  row,
+  week,
+}: {
+  p: Placed;
+  ws: string;
+  we: string;
+  phone: boolean;
+  row: () => HTMLElement | null | undefined;
+  /** In the week view, with room for the time in full. */
+  week?: boolean;
+}) {
   const { item, lane, sc, ec } = p;
   return (
     <button
-      className={`gc-cal-item tone-${item.color} ${item.done ? 'is-done' : ''} ${item.start < ws ? 'cont-left' : ''} ${item.end > we ? 'cont-right' : ''} ${item.doc.kind === 'card' ? 'is-task' : 'is-entry'}`}
+      className={`gc-cal-item tone-${item.color} ${item.done ? 'is-done' : ''} ${item.start < ws ? 'cont-left' : ''} ${item.end > we ? 'cont-right' : ''} is-${item.kind === 'card' ? 'task' : item.kind}`}
       style={{ gridColumn: `${sc + 1} / ${ec + 2}`, gridRow: lane + 1 }}
       // Phones show these as bars and list the tapped day's events below.
       tabIndex={phone ? -1 : undefined}
       aria-hidden={phone || undefined}
-      draggable
-      title={`${item.doc.id ? item.doc.id + ' · ' : ''}${item.doc.title}${projectOf(item.doc.path) ? ' · ' + projectOf(item.doc.path) : ''}`}
+      draggable={!!item.doc}
+      title={itemTitle(item)}
       onDragStart={(e) => {
+        if (!item.doc) return;
         const el = row();
         let grab = 0;
         if (el) {
@@ -192,10 +339,11 @@ function CalBar({ p, ws, we, phone, row }: { p: Placed; ws: string; we: string; 
       }}
       onClick={(e) => {
         e.stopPropagation();
-        open(item);
+        open(item, e.currentTarget);
       }}
     >
-      <ItemLabel item={item} />
+      {/* The time on the day it starts. */}
+      <ItemLabel item={item} time={item.start >= ws && (week ? 'full' : 'short')} />
     </button>
   );
 }
@@ -326,7 +474,7 @@ function MonthView({ month, items, weekStart }: { month: Date; items: CalItem[];
                 {placed
                   .filter((p) => p.lane < MAX_LANES)
                   .map((p) => (
-                    <CalBar key={p.item.doc.path} p={p} ws={ws} we={we} phone={phone} row={() => rowRefs.current.get(w)} />
+                    <CalBar key={p.item.key} p={p} ws={ws} we={we} phone={phone} row={() => rowRefs.current.get(w)} />
                   ))}
                 {hiddenPerDay.map((n, d) =>
                   n > 0 ? (
@@ -352,11 +500,11 @@ function MonthView({ month, items, weekStart }: { month: Date; items: CalItem[];
               .filter((i) => i.start <= more.day && i.end >= more.day)
               .map((i) => (
                 <button
-                  key={i.doc.path}
+                  key={i.key}
                   className={`menu-item gc-cal-menu-item ${i.done ? 'is-done' : ''}`}
-                  onClick={() => {
+                  onClick={(e) => {
                     setMore(null);
-                    open(i);
+                    open(i, e.currentTarget);
                   }}
                 >
                   <span className={`gc-status-dot tone-${i.color}`} />
@@ -375,7 +523,7 @@ function MonthView({ month, items, weekStart }: { month: Date; items: CalItem[];
             </button>
           </header>
           {pickedItems.length ? (
-            pickedItems.map((i) => <AgendaRow key={i.doc.path} item={i} />)
+            pickedItems.map((i) => <AgendaRow key={i.key} item={i} day={picked} />)
           ) : (
             <p className="muted gc-month-day-empty">Nothing planned for this day.</p>
           )}
@@ -420,7 +568,7 @@ function WeekView({ start, items }: { start: string; items: CalItem[] }) {
                 </button>
               </header>
               {list.length ? (
-                list.map((i) => <AgendaRow key={i.doc.path} item={i} day={day} />)
+                list.map((i) => <AgendaRow key={i.key} item={i} day={day} />)
               ) : (
                 <p className="muted gc-month-day-empty">Nothing planned.</p>
               )}
@@ -461,7 +609,7 @@ function WeekView({ start, items }: { start: string; items: CalItem[] }) {
         </div>
         <div className="gc-week-items">
           {placed.map((p) => (
-            <CalBar key={p.item.doc.path} p={p} ws={start} we={we} phone={false} row={() => rowRef.current} />
+            <CalBar key={p.item.key} p={p} ws={start} we={we} phone={false} row={() => rowRef.current} week />
           ))}
         </div>
         {placed.length === 0 && <p className="gc-weekview-empty muted">Nothing planned this week. Click a day to add an entry or a task.</p>}
@@ -472,14 +620,19 @@ function WeekView({ start, items }: { start: string; items: CalItem[] }) {
 }
 
 function AgendaRow({ item, day }: { item: CalItem; day?: string }) {
+  // Times on the day it starts (and the end time on its last day).
+  const time = !day || day === item.start ? formatTimeRange(item.time, item.end === item.start ? item.endTime : undefined) : '';
   return (
-    <button className={`gc-agenda-item ${item.done ? 'is-done' : ''}`} onClick={() => open(item)}>
+    <button className={`gc-agenda-item is-${item.kind} ${item.done ? 'is-done' : ''}`} onClick={(e) => open(item, e.currentTarget)}>
       <span className={`gc-status-dot tone-${item.color}`} />
-      <ItemLabel item={item} />
+      {time && <span className="gc-agenda-time">{time}</span>}
+      <ItemLabel item={item} time={false} />
       {day && item.start !== item.end && (
-        <span className="muted gc-agenda-span">{item.start === day ? 'starts' : item.end === day ? 'ends' : 'continues'}</span>
+        <span className="muted gc-agenda-span">
+          {item.start === day ? 'starts' : item.end === day ? (item.endTime ? `until ${formatTime(item.endTime)}` : 'ends') : 'continues'}
+        </span>
       )}
-      {projectOf(item.doc.path) && <span className="muted gc-agenda-proj">{projectOf(item.doc.path)}</span>}
+      {item.where && <span className="muted gc-agenda-proj">{item.where}</span>}
     </button>
   );
 }
@@ -488,7 +641,7 @@ function AgendaView({ items }: { items: CalItem[] }) {
   const today = localDate();
   const from = addDays(today, -7);
   const to = addDays(today, 60);
-  const overdue = items.filter((i) => i.doc.kind === 'card' && !i.done && i.end < today);
+  const overdue = items.filter((i) => i.kind === 'card' && !i.done && i.end < today);
   const days = new Map<string, CalItem[]>();
   for (const it of items) {
     if (it.end < from || it.start > to) continue;
@@ -506,7 +659,7 @@ function AgendaView({ items }: { items: CalItem[] }) {
         <section className="gc-agenda-day is-overdue">
           <h3>Overdue tasks</h3>
           {overdue.map((i) => (
-            <AgendaRow key={i.doc.path} item={i} />
+            <AgendaRow key={i.key} item={i} />
           ))}
         </section>
       )}
@@ -524,7 +677,7 @@ function AgendaView({ items }: { items: CalItem[] }) {
             {parseYmd(day).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
           </h3>
           {list.map((i) => (
-            <AgendaRow key={i.doc.path + day} item={i} day={day} />
+            <AgendaRow key={i.key + day} item={i} day={day} />
           ))}
         </section>
       ))}
@@ -564,12 +717,18 @@ export function CalendarPage() {
   });
   const [showEntries, setShowEntries] = useState(true);
   const [showTasks, setShowTasks] = useState(true);
-  const items = useCalendarItems(showEntries, showTasks);
   const weekStart = useNotebook((s) => weekStartDay(s.weekStart));
   const today = localDate();
   const c = parseYmd(cursor);
   const month = new Date(c.getFullYear(), c.getMonth(), 1);
   const ws = startOfWeek(cursor, weekStart);
+  // The days on screen, for the other calendars' repeating events.
+  const gridStart = startOfWeek(ymd(month), weekStart);
+  const [from, to] =
+    view === 'month' ? [gridStart, addDays(gridStart, 41)] : view === 'week' ? [ws, addDays(ws, 6)] : [addDays(today, -7), addDays(today, 60)];
+  const notebookItems = useCalendarItems(showEntries, showTasks);
+  const otherItems = useOtherCalendars(from, to);
+  const items = useMemo(() => [...notebookItems, ...otherItems].sort(byStart), [notebookItems, otherItems]);
 
   const shift = (n: number) =>
     setCursor((cur) => {
@@ -636,11 +795,21 @@ export function CalendarPage() {
               </button>
             ))}
           </div>
-          <button className="btn btn-primary btn-sm gc-cal-new" onClick={() => openNewEntryDialog({})}>
-            <Plus /> New entry
+          {/* On a laptop the bar has room for their icons only (the sidebar has its own New entry). */}
+          <button
+            className="btn btn-sm gc-cal-calendars"
+            aria-label="Calendars"
+            title="Calendars: show other calendars here, or this one in your calendar app"
+            onClick={() => openCalendarsDialog()}
+          >
+            <CalendarSync /> <span className="gc-cal-btn-label">Calendars</span>
+          </button>
+          <button className="btn btn-primary btn-sm gc-cal-new" aria-label="New entry" title="New entry" onClick={() => openNewEntryDialog({})}>
+            <Plus /> <span className="gc-cal-btn-label">New entry</span>
           </button>
         </div>
       </div>
+      <EventPeek />
       <div className="gc-calendar-body">
         {view === 'month' ? (
           <MonthView key={`${ymd(month)}-${weekStart}`} month={month} items={items} weekStart={weekStart} />

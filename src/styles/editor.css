@@ -385,6 +385,30 @@
   height: 12px;
 }
 
+/* A time: type it, or pick it from the day in half hours. */
+.gc-time-pop {
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+}
+.gc-time-type .input {
+  width: 100%;
+}
+.gc-time-list {
+  max-height: 240px;
+  overflow-y: auto;
+}
+.gc-time-list .menu-item[aria-selected='true'] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.gc-time-dur {
+  margin-left: auto;
+  font-size: 12.5px;
+}
+
 .gc-template-hint,
 .gc-locked-banner {
   display: flex;

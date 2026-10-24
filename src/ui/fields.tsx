@@ -11,6 +11,7 @@ import {
   CalendarDays,
   CheckCheck,
   CircleDot,
+  Clock,
   Clock3,
   FileText,
   Flag,
@@ -30,11 +31,14 @@ import {
 } from 'lucide-react';
 import { TagPill } from './status';
 import { useNotebook } from '../notebook/store';
+import { Popover, usePopover } from './overlay';
+import { formatTime, minutesOf, parseTypedTime } from '../lib/dates';
 
 const PROP_ICONS: Record<string, LucideIcon> = {
   Status: CircleDot,
   Date: CalendarDays,
   Dates: CalendarDays,
+  Time: Clock,
   Tags: Tag,
   Protocols: BookOpen,
   Template: LayoutTemplate,
@@ -200,6 +204,91 @@ export function DateField({
       />
       {value && !disabled && (
         <button className="gc-date-clear" title="Clear date" onClick={() => onChange(undefined)}>
+          <X />
+        </button>
+      )}
+    </span>
+  );
+}
+
+/** "1.5 h", "45 min": how long from one time to the next. */
+function duration(from: string, to: string): string {
+  const m = minutesOf(to) - minutesOf(from);
+  return m < 60 ? `${m} min` : `${Number((m / 60).toFixed(2))} h`;
+}
+
+/**
+ * A time of day: a button that opens the times of the day in half hours, and a box to type one
+ * ("14:30", "2pm"). For an end time, `after` is the start time: the list starts after it, with durations.
+ */
+export function TimeField({
+  value,
+  onChange,
+  disabled,
+  placeholder = 'Add time',
+  after,
+}: {
+  value?: string;
+  onChange: (v: string | undefined) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  after?: string;
+}) {
+  const p = usePopover();
+  const [typed, setTyped] = useState('');
+  const list = useRef<HTMLDivElement>(null);
+  const slots = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`).filter(
+    (t) => !after || minutesOf(t) > minutesOf(after),
+  );
+  // Open on the time set, else an hour after the start, else 9:00.
+  const focus = value ?? (after ? slots[1] : '09:00');
+  useEffect(() => {
+    if (!p.open) return;
+    setTyped('');
+    const el = list.current?.querySelector<HTMLElement>(`[data-time="${focus}"]`) ?? list.current?.querySelector<HTMLElement>('[data-time]');
+    if (el && list.current) list.current.scrollTop = el.offsetTop - list.current.offsetTop - 4;
+  }, [p.open, focus]);
+  const pick = (t: string | undefined) => {
+    onChange(t);
+    p.close();
+  };
+  const typedTime = parseTypedTime(typed);
+  return (
+    <span className={`gc-date gc-time ${value ? '' : 'is-empty'}`}>
+      <button ref={p.ref} className="gc-date-btn" disabled={disabled} onClick={p.toggle} aria-expanded={p.open}>
+        <Clock />
+        {value ? formatTime(value) : placeholder}
+      </button>
+      {p.open && (
+        <Popover anchor={p.ref.current} onClose={p.close} className="gc-time-pop">
+          <form
+            className="gc-time-type"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (typedTime) pick(typedTime);
+            }}
+          >
+            <input
+              className="input"
+              autoFocus
+              aria-label="Type a time"
+              placeholder="Type a time, e.g. 14:30"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+            />
+          </form>
+          <div ref={list} className="gc-time-list" role="listbox" aria-label="Times">
+            {slots.map((t) => (
+              <button key={t} type="button" role="option" aria-selected={t === value} data-time={t} className="menu-item" onClick={() => pick(t)}>
+                {formatTime(t)}
+                {after && <span className="muted gc-time-dur">{duration(after, t)}</span>}
+              </button>
+            ))}
+          </div>
+        </Popover>
+      )}
+      {value && !disabled && (
+        <button className="gc-date-clear" title="Clear time" onClick={() => onChange(undefined)}>
           <X />
         </button>
       )}

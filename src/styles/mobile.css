@@ -365,6 +365,11 @@
   .gc-cal-item.is-task {
     opacity: 0.55;
   }
+  .gc-cal-item.is-event {
+    border: none;
+    background: var(--tone) !important;
+    opacity: 0.35;
+  }
   .gc-cal-item > * {
     display: none;
   }

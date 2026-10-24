@@ -28,6 +28,12 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 ## What's new
 
+**24 October 2026**
+
+- **Times on experiments.** An entry's _Time_ (under its date) takes a start and an end time: pick one from the list or type it (“14:30”, “2pm”). The calendar shows it on the chip, in the week view and in the agenda, and Home lists the week with times. [Calendar](#calendar).
+- **Other calendars in the calendar.** _Calendar → Calendars_ shows a calendar from Google, Apple or Outlook next to your experiments, read-only: the lab’s equipment bookings, seminars, your own calendar, with repeating events and time zones. [Calendar](#calendar).
+- **Your experiments in your calendar app.** In the same window, _Create a private calendar link_ gives an address that Apple, Google or Outlook Calendar subscribe to, kept up to date while the notebook is open. It is off unless you turn it on. [Calendar](#calendar).
+
 **23 October 2026**
 
 - **Your phone at the bench, in sync.** _Connect a phone_ in the notebook menu shows a QR code; on the phone, choose **Connect to a computer** and scan it. The phone gets a copy of the notebook, and while Assaycraft is open on both, what you write on one shows up on the other within a second or two, empty lines included. The phone keeps its copy (it works offline at the bench), and the two catch up when they reconnect. Nothing is stored online. On a phone or tablet, the welcome page now offers just this; _No computer? Use this device on its own_ shows the other ways. [Your phone at the bench](#your-phone-at-the-bench-connect-a-phone).
@@ -497,6 +503,17 @@ Boards are Kanban columns, as in Notion or Trello.
 - Drag an item to reschedule it, or click a day to plan an entry or a task on it.
 - **Today** and the **‹ ›** arrows stay in the same place whatever the month's name, so you can click through months quickly.
 - The week starts on **Monday or Sunday**, as set in _Settings → Appearance_. The activity graph on Home follows the same setting.
+
+**Times.** An entry has a _Time_ under its date: a start time and, once that is set, an end time. Click _Add time_ and pick a time in the list (half hours) or type one: “9:30”, “14:30”, “2pm”. The end time lists the times after the start with how long that is. On the calendar, the time comes before the title: short on a month’s chip (“9:30am”), on a line of its own in the week, as a range in the agenda. Items of a day are in order of time, those without one first. Drag an item to another day and it keeps its time.
+
+**Other calendars here.** _Calendars_ (top right of the calendar) shows the events of other calendars next to your entries and tasks: the lab’s Google Calendar for the confocal and the FACS, the seminar series, your own calendar.
+
+1. Copy the calendar’s iCal address. In **Google Calendar**, on a computer: Settings → under _Settings for my calendars_, the calendar → _Integrate calendar_ → _Secret address in iCal format_ (or the _Public address_ of a public calendar). In **Apple Calendar** (iCloud): the calendar’s share button → _Public Calendar_ → copy the link. In **Outlook**: Settings → Calendar → Shared calendars → _Publish a calendar_ → the ICS link.
+2. In Assaycraft, _Calendar → Calendars_, paste it under _Calendar address_ and click _Add calendar_.
+
+Its events show with a dashed outline in their own colour; click one for its time, place and notes. They are read-only here: change them in their own app. Repeating events, events moved or cancelled in a series, and other time zones all show as in the calendar’s app, at this device’s time. The list in _Calendars_ renames a calendar, changes its colour, hides it for now (_Show_) or removes it. The calendar is fetched again every ten minutes while the calendar is open. The address is saved in the notebook’s settings (`assaycraft.json`), so a connected phone shows the calendar too; a browser cannot read another site’s calendar directly, so Assaycraft’s website fetches it for the app and keeps nothing.
+
+**Your experiments in your calendar app.** In _Calendars_, _Create a private calendar link_ gives an address to subscribe to in Apple, Google or Outlook Calendar (buttons for each), on your phone too. It holds the entries with a date (at their time, or all day) and the open tasks, with their ID, title, project and status; nothing else from the notebook. It is off unless you turn it on, because it is the one thing Assaycraft keeps online: a copy of those events at a long, random address on its website. Only the device that made the link can change it, and it brings it up to date a few seconds after the plan changes, while the notebook is open there. Calendar apps look for changes on their own: Apple Calendar as often as you set, Google Calendar every few hours. Keep the address private, as anyone with it can see these titles and times. _Turn off the link_ deletes the copy; calendars subscribed to it then show nothing.
 
 ## Home and search
 
