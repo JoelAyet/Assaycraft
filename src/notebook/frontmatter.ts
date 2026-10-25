@@ -35,6 +35,10 @@ export function joinFrontMatter(data: Record<string, unknown>, body: string): st
   }
   const doc = new YAML.Document(clean);
   YAML.visit(doc, {
+    // Times in quotes: YAML 1.1 readers (Python, some editors) take 09:30 for the number 570.
+    Scalar(_, node) {
+      if (typeof node.value === 'string' && /^\d{1,2}:\d{2}$/.test(node.value)) node.type = 'QUOTE_DOUBLE';
+    },
     Seq(_, node, path) {
       const parent = path[path.length - 1];
       // Authors are long and many: one per line reads better.

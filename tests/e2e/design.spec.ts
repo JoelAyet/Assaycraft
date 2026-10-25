@@ -6,7 +6,8 @@ const PHONE_UA = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (K
 /**
  * Design checks on the main screens, in light and dark and on a phone: text contrast (WCAG AA),
  * controls with no name, tap targets under 24 px on touch screens, pages that scroll sideways,
- * text cut off with no “…”, and text running off the side of the screen.
+ * text cut off with no “…”, text running off the side of the screen, buttons with underlined
+ * text, the field being typed in hidden under something (a toast), and wide side margins on a phone.
  */
 /** Runs in the page: contrast, clipped text, overlaps, small targets, unnamed controls. */
 function audit(phone: boolean) {
@@ -174,7 +175,45 @@ function audit(phone: boolean) {
       });
   }
   const pageOverflow = document.documentElement.scrollWidth > window.innerWidth + 1 ? document.documentElement.scrollWidth : 0;
-  return { contrast, clipped, cut, offscreen, overlaps, small, unnamed, pageOverflow };
+  // A link drawn as a button reads as a button: no underline.
+  const underlined = [...document.querySelectorAll('.btn, [role="button"]')]
+    .filter((el) => visible(el) && getComputedStyle(el).textDecorationLine.includes('underline'))
+    .map((el) => ({ el: name(el), text: (el.textContent ?? '').trim().slice(0, 25) }));
+  // The field being typed in must not be under something else, such as a toast. (An icon drawn in the
+  // field, a search glass, is part of it.)
+  const covered: unknown[] = [];
+  const active = document.activeElement;
+  if (active && active.matches('input, textarea, select, [contenteditable="true"]') && visible(active)) {
+    const r = active.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + Math.min(r.height / 2, 16);
+    const top = x > 0 && y > 0 && x < window.innerWidth && y < window.innerHeight ? document.elementFromPoint(x, y) : null;
+    if (top && !active.contains(top) && !top.contains(active) && !top.parentElement?.contains(active))
+      covered.push({ field: name(active), under: name(top), text: (top.textContent ?? '').trim().slice(0, 40) });
+  }
+  // A phone has no room to spare: a page's title starts near the edge, as on every other page.
+  const gutter = phone
+    ? [...document.querySelectorAll('.gc-page-title, .gc-home-title')]
+        .filter((el) => visible(el) && !el.closest('[role="dialog"]') && el.getBoundingClientRect().left > 24)
+        .map((el) => ({ el: name(el), text: (el.textContent ?? '').trim().slice(0, 25), left: Math.round(el.getBoundingClientRect().left) }))
+    : [];
+  return { contrast, clipped, cut, offscreen, overlaps, small, unnamed, pageOverflow, underlined, covered, gutter };
+}
+
+/** The faults to report from an audit, or null when there are none. (Clipped text with a “…” and overlaps are only for looking at.) */
+function faults(r: ReturnType<typeof audit>) {
+  const found = {
+    contrast: r.contrast,
+    unnamed: r.unnamed,
+    small: r.small,
+    cut: r.cut,
+    offscreen: r.offscreen,
+    pageOverflow: r.pageOverflow,
+    underlined: r.underlined,
+    covered: r.covered,
+    gutter: r.gutter,
+  };
+  return Object.values(found).some((v) => (Array.isArray(v) ? v.length : v)) ? found : null;
 }
 
 const SETUPS = [
@@ -193,10 +232,8 @@ for (const s of SETUPS) {
       const problems: Record<string, unknown> = {};
       const check = async (screen: string) => {
         await page.waitForTimeout(250);
-        const r = await page.evaluate(audit, s.phone);
-        const found = { contrast: r.contrast, unnamed: r.unnamed, small: r.small, cut: r.cut, offscreen: r.offscreen, pageOverflow: r.pageOverflow };
-        if (found.contrast.length || found.unnamed.length || found.small.length || found.cut.length || found.offscreen.length || found.pageOverflow)
-          problems[screen] = found;
+        const found = faults(await page.evaluate(audit, s.phone));
+        if (found) problems[screen] = found;
       };
       const nav = async (item: string) => {
         if (s.phone) await page.locator('.gc-nav-toggle').first().click();
@@ -412,10 +449,8 @@ for (const s of SETUPS) {
       const mine = s.phone ? phone.page : computer.page;
       const check = async (screen: string) => {
         await mine.waitForTimeout(250);
-        const r = await mine.evaluate(audit, s.phone);
-        const found = { contrast: r.contrast, unnamed: r.unnamed, small: r.small, cut: r.cut, offscreen: r.offscreen, pageOverflow: r.pageOverflow };
-        if (found.contrast.length || found.unnamed.length || found.small.length || found.cut.length || found.offscreen.length || found.pageOverflow)
-          problems[screen] = found;
+        const found = faults(await mine.evaluate(audit, s.phone));
+        if (found) problems[screen] = found;
       };
       try {
         if (s.phone) {
@@ -473,6 +508,85 @@ for (const s of SETUPS) {
         await computer.context.close().catch(() => {});
         await phone.context.close().catch(() => {});
       }
+      expect(problems).toEqual({});
+    });
+
+    test('times, other calendars and the calendar link pass the design checks', async ({ page }) => {
+      test.setTimeout(120_000);
+      const problems: Record<string, unknown> = {};
+      const check = async (screen: string) => {
+        await page.waitForTimeout(250);
+        const found = faults(await page.evaluate(audit, s.phone));
+        if (found) problems[screen] = found;
+      };
+      const nav = async (item: string) => {
+        if (s.phone) await page.locator('.gc-nav-toggle').first().click();
+        await page.locator('.gc-nav-item', { hasText: item }).click();
+      };
+      // The lab's calendar, as the website would pass it on: a weekly meeting, and a booking over two days.
+      const ymd = (days: number) => {
+        const d = new Date();
+        d.setDate(d.getDate() + days);
+        return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+      };
+      const lab = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'X-WR-CALNAME:Lab bookings',
+        'BEGIN:VEVENT',
+        'UID:a@lab',
+        `DTSTART;VALUE=DATE:${ymd(0)}`,
+        `DTEND;VALUE=DATE:${ymd(2)}`,
+        'SUMMARY:Confocal booked (Imaging core)',
+        'LOCATION:Imaging core, room B12',
+        'END:VEVENT',
+        'BEGIN:VEVENT',
+        'UID:b@lab',
+        `DTSTART:${ymd(0)}T160000`,
+        `DTEND:${ymd(0)}T170000`,
+        'RRULE:FREQ=WEEKLY',
+        'SUMMARY:Lab meeting',
+        'END:VEVENT',
+        'END:VCALENDAR',
+        '',
+      ].join('\r\n');
+      await page.route('**/ical?url=*', (route) => route.fulfill({ contentType: 'text/calendar', body: lab }));
+
+      await openFolderNotebook(page);
+      if (s.phone) await page.locator('.gc-nav-toggle').first().click();
+      await newBlankEntry(page, 'ELISA IL-6, plate 1');
+      await page.getByRole('button', { name: 'Add time' }).click();
+      await check('Time picker');
+      await page.getByLabel('Type a time').fill('9:30');
+      await page.getByLabel('Type a time').press('Enter');
+      await page.getByRole('button', { name: 'End time' }).click();
+      await check('End time picker');
+      await page.getByRole('option', { name: /^12:00/ }).click();
+      await waitForSave(page);
+      await check('Entry with a time');
+      await nav('Calendar');
+      await page.locator('.gc-segmented button', { hasText: 'Month' }).click();
+      await page.getByRole('button', { name: 'Calendars' }).click();
+      await check('Calendars');
+      await page.getByLabel('Calendar address (iCal)').fill('https://calendar.google.com/calendar/ical/lab%40group/private-0123456789/basic.ics');
+      await page.getByRole('button', { name: 'Add calendar' }).click();
+      await expect(page.getByLabel('Calendar name')).toHaveValue('Lab bookings');
+      await page.locator('.gc-calendars-help summary').click();
+      await page.getByRole('button', { name: 'Create a private calendar link' }).click();
+      await expect(page.getByRole('status').filter({ hasText: 'Up to date' })).toBeVisible();
+      await check('Calendars, with a calendar and the link');
+      await page.keyboard.press('Escape');
+      await check('Month with another calendar');
+      if (s.phone) await page.locator('.gc-segmented button', { hasText: 'Agenda' }).click();
+      await page.locator('.gc-cal-item.is-event:visible, .gc-agenda-item.is-event:visible', { hasText: 'Confocal' }).first().click();
+      await check('Event of another calendar');
+      await page.keyboard.press('Escape');
+      await page.locator('.gc-segmented button', { hasText: 'Week' }).click();
+      await check('Week with times');
+      await page.locator('.gc-segmented button', { hasText: 'Agenda' }).click();
+      await check('Agenda with times');
+      await nav('Home');
+      await check('Home with a time');
       expect(problems).toEqual({});
     });
   });

@@ -1,4 +1,5 @@
-import { parseDate } from '../lib/dates';
+import { parseDate, timeOfDay } from '../lib/dates';
+import type { CalendarLink } from '../calendar/external';
 import { dirname, join } from '../lib/path';
 import type { StockItem } from '../stocks/model';
 
@@ -78,6 +79,10 @@ export interface DocMeta {
   date?: string;
   /** Entries: last day of a multi-day experiment. */
   end?: string;
+  /** Entries: start time on `date` (HH:MM), for a planned experiment. */
+  time?: string;
+  /** Entries: end time (HH:MM), on `end` or else on `date`. */
+  endTime?: string;
   /** Cards: start date. */
   start?: string;
   /** Cards: due date. */
@@ -140,6 +145,8 @@ export interface NotebookConfig {
   protocolPrefix: string;
   entryStatuses: StatusOption[];
   created: string;
+  /** Other calendars shown in the calendar (read-only), by their iCal address. */
+  calendars?: CalendarLink[];
 }
 
 export const LAYOUT = {
@@ -170,6 +177,8 @@ const KNOWN_KEYS = new Set([
   'priority',
   'date',
   'end',
+  'time',
+  'end-time',
   'start',
   'due',
   'tags',
@@ -274,6 +283,8 @@ export function metaFromFrontMatter(
     modified: str(data.modified),
     date: dateOnly(data.date),
     end: dateOnly(data.end),
+    time: timeOfDay(data.time),
+    endTime: timeOfDay(data['end-time']),
     start: dateOnly(data.start),
     due: dateOnly(data.due),
     priority: priority && PRIORITIES.some((p) => p.id === priority) ? priority : undefined,
@@ -301,6 +312,8 @@ export function frontMatterFromMeta(meta: Omit<DocMeta, 'mtime' | 'text' | 'path
     priority: meta.priority,
     date: meta.date,
     end: meta.end,
+    time: meta.time,
+    'end-time': meta.endTime,
     start: meta.start,
     due: meta.due,
     tags: meta.tags,

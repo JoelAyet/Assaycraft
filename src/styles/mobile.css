@@ -127,6 +127,7 @@
 
   .gc-folder-inner,
   .gc-home-inner,
+  .gc-templates-inner,
   .gc-settings-inner {
     padding-left: 16px;
     padding-right: 16px;
@@ -189,12 +190,6 @@
   .gc-recent-cards,
   .gc-template-cards {
     grid-template-columns: 1fr;
-  }
-  .gc-form-row {
-    grid-template-columns: 1fr 1fr;
-  }
-  .gc-form-row > :first-child {
-    grid-column: 1 / -1;
   }
   .gc-table-tools {
     flex-wrap: wrap;
@@ -365,6 +360,11 @@
   .gc-cal-item.is-task {
     opacity: 0.55;
   }
+  .gc-cal-item.is-event {
+    border: none;
+    background: var(--tone) !important;
+    opacity: 0.35;
+  }
   .gc-cal-item > * {
     display: none;
   }
@@ -485,8 +485,9 @@
     right: 10px;
     bottom: max(10px, env(safe-area-inset-bottom));
   }
-  /* Dialogs open from the bottom of the screen: a toast then shows at the top, off their buttons. */
-  body:has(.dialog-backdrop) .toasts {
+  /* Dialogs open from the bottom of the screen: a toast then shows at the top, off their buttons.
+     Search opens at the top, so there it stays at the bottom. */
+  body:has(.dialog-backdrop:not(.gc-palette-backdrop)) .toasts {
     top: max(10px, env(safe-area-inset-top));
     bottom: auto;
   }

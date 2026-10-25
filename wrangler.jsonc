@@ -3,11 +3,31 @@
   "name": "assaycraft",
   "main": "worker/index.ts",
   "compatibility_date": "2026-10-01",
-  "assets": { "directory": "./dist", "binding": "ASSETS", "not_found_handling": "single-page-application", "run_worker_first": ["/connect/*"] },
-  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "PairingRoom" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PairingRoom"] }],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/connect/*", "/cal/*", "/ical"],
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOMS", "class_name": "PairingRoom" },
+      { "name": "FEEDS", "class_name": "CalendarFeed" },
+    ],
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["PairingRoom"] },
+    { "tag": "v2", "new_sqlite_classes": ["CalendarFeed"] },
+  ],
   // Previews (`npx wrangler preview`, run by Cloudflare for branches other than main) get their own
-  // relay, kept apart from the live site's.
-  "previews": { "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "PairingRoom" }] } },
+  // relay and calendar links, kept apart from the live site's.
+  "previews": {
+    "durable_objects": {
+      "bindings": [
+        { "name": "ROOMS", "class_name": "PairingRoom" },
+        { "name": "FEEDS", "class_name": "CalendarFeed" },
+      ],
+    },
+  },
   "observability": { "enabled": true },
 }

@@ -8,7 +8,7 @@ import { strFromU8, strToU8, zipSync, unzipSync } from 'fflate';
 import type { Vault } from '../fs/types';
 import { copyFile, moveDir, moveFile, uniquePath, walk } from '../fs/ops';
 import { basename, dirname, extname, isInside, join, relative, sanitizeFileName, setAsciiFileNames, splitPath, stem } from '../lib/path';
-import { localDate, localIso } from '../lib/dates';
+import { localDate, localIso, timeOfDay } from '../lib/dates';
 import { docSchema } from '../editor/schema';
 import { parseMarkdown } from '../markdown/parse';
 import { serializeMarkdown, sheetToMarkdown } from '../markdown/serialize';
@@ -53,6 +53,7 @@ import { HISTORY_DIR, historyPathFor, moveHistory, recordVersion } from '../hist
 import { ACTIVITY_FILE, flushActivity, importActivity, loadActivity, recordEdit, reloadActivity } from './activity';
 import { SyncableVault } from '../sync/vault';
 import { setSyncHooks, startSync, stopSync } from '../sync/manager';
+import { startFeed, stopFeed } from '../calendar/feed';
 
 // ───────────────────────────── helpers ─────────────────────────────
 
@@ -241,6 +242,7 @@ export async function openNotebook(opened: Vault, opts: { seed?: boolean } = {})
     const trash = await listTrash(v).catch(() => []);
     setState({ vault: v, config, docs, folders, trash, docKeys: {}, loading: false, route: hashToRoute(location.hash) });
     void startSync(v).catch((err) => console.warn('Could not start syncing with paired devices', err));
+    void startFeed(v.id);
     return created;
   } catch (err) {
     setState({ loading: false });
@@ -251,6 +253,7 @@ export async function openNotebook(opened: Vault, opts: { seed?: boolean } = {})
 export async function closeNotebook() {
   await flushAllWrites();
   stopSync();
+  stopFeed();
   await loadActivity(null);
   setState({ vault: null, docs: {}, folders: [], route: { name: 'home' }, peek: null });
   history.replaceState(null, '', '#/');
@@ -690,6 +693,8 @@ export interface NewEntryOptions {
   templatePath?: string;
   values?: Record<string, string>;
   date?: string;
+  /** Start time on `date` (HH:MM), for a planned experiment. */
+  time?: string;
   status?: string;
   /** Protocols to link, in addition to those of the template. */
   protocols?: string[];
@@ -736,6 +741,7 @@ export async function createEntry(opts: NewEntryOptions = {}): Promise<string> {
       created: now,
       modified: now,
       date: opts.date ?? localDate(),
+      time: timeOfDay(opts.time),
       template: templateName,
       protocols,
       extra: {},

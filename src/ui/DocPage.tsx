@@ -57,7 +57,7 @@ import { Backlinks, LinkedProtocols, ProtocolProps, newEntryWithProtocol, openRe
 import { SourcePane, closeSourcePane, openSourcePane, useSourcePane } from './PdfView';
 import { MenuButton, confirmDialog, openDialog, promptDialog, type MenuItemSpec } from './overlay';
 import { OptionSelect } from './status';
-import { AutoTextarea, DateField, Prop, TagInput, TitleInput } from './fields';
+import { AutoTextarea, DateField, Prop, TagInput, TimeField, TitleInput } from './fields';
 import { moveDocWithPrompt } from './Sidebar';
 import { openNewEntryDialog } from './NewEntryDialog';
 import { EntryPicker } from './pickers';
@@ -123,6 +123,22 @@ function EntryProps({ meta, readOnly }: { meta: DocMeta; readOnly: boolean }) {
         <DateField value={meta.date} onChange={(date) => patchMeta(p, { date })} disabled={readOnly} />
         <span className="gc-prop-sep">→</span>
         <DateField value={meta.end} min={meta.date} onChange={(end) => patchMeta(p, { end })} disabled={readOnly} placeholder="End date" />
+      </Prop>
+      <Prop label="Time">
+        <TimeField value={meta.time} onChange={(time) => patchMeta(p, { time })} disabled={readOnly} />
+        {(meta.time || meta.endTime) && (
+          <>
+            <span className="gc-prop-sep">→</span>
+            <TimeField
+              value={meta.endTime}
+              // On the same day the end comes after the start.
+              after={meta.end && meta.end !== meta.date ? undefined : meta.time}
+              onChange={(endTime) => patchMeta(p, { endTime })}
+              disabled={readOnly}
+              placeholder="End time"
+            />
+          </>
+        )}
       </Prop>
       {(inFlow || meta.result) && (
         <Prop label="Result">

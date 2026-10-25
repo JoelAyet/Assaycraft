@@ -42,6 +42,7 @@ A local-first electronic lab notebook (ELN) that runs in your browser. **Every e
 - **Search everything** with <kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd>, a home dashboard with a GitHub-style activity graph, a trash with undo, print to PDF, and export/import as a `.zip`.
 - **A clean, modern interface**: white and neutral greys with blue highlights, and page properties in the style of Notion. Choose light or dark, an accent colour (blue, violet, green or graphite) and a sans or serif font in _Settings → Appearance_.
 - **Works on phones and tablets**: the sidebar becomes a menu, pages and dialogs use the whole screen, boards swipe column by column and the calendar opens as an agenda. Handy for reading a protocol at the bench.
+- **Calendar with times, and your other calendars**: give an experiment a start and end time; show the lab’s Google, Apple or Outlook calendar next to your experiments (read-only); and, if you turn it on, a private calendar link that Apple, Google or Outlook Calendar subscribe to, holding the planned experiments and tasks. [How it works](docs/GUIDE.md#calendar).
 - **Your phone at the bench, in sync** (_Connect a phone_ in the notebook menu): scan a QR code and the phone gets a copy of the notebook. While Assaycraft is open on both, what you write on one shows up on the other within a second or two; the phone keeps its copy and works offline, and the two catch up when they reconnect. Nothing is stored online: the devices connect directly when the network allows, or else through a relay that only passes end-to-end encrypted messages. [How it works](docs/GUIDE.md#your-phone-at-the-bench-connect-a-phone).
 
 |                                                                   |                                                                                      |
@@ -91,11 +92,11 @@ npm run build        # → dist/
 
 Upload the `dist/` folder to any static host (for example Cloudflare Pages, Netlify or GitHub Pages). Only the app is online; notebooks stay on each device, so the host only ever serves the same few files.
 
-**Cloudflare Workers** (how assaycraftlab.com is hosted; free): the repository has a `wrangler.jsonc` and a small Worker in `worker/`. Connect the repository under Workers & Pages → Create → Import a repository, with `npm run build` as the build command and `npx wrangler deploy` as the deploy command. The Worker serves `dist/` and runs the relay that _Connect a phone_ uses (a Durable Object, included in the free plan). The `name` in `wrangler.jsonc` must be the Worker's name in the dashboard.
+**Cloudflare Workers** (how assaycraftlab.com is hosted; free): the repository has a `wrangler.jsonc` and a small Worker in `worker/`. Connect the repository under Workers & Pages → Create → Import a repository, with `npm run build` as the build command and `npx wrangler deploy` as the deploy command. The Worker serves `dist/` and runs the relay that _Connect a phone_ uses, the private calendar links (`/cal/<id>.ics`, off unless a user turns one on) and the pass-through that fetches other calendars for the app (`/ical`, which keeps nothing). The relay and the calendar links are Durable Objects, included in the free plan. The `name` in `wrangler.jsonc` must be the Worker's name in the dashboard.
 
-On a static host (the options below, Netlify, GitHub Pages…) everything works except _Connect a phone_, which needs the relay.
+On a static host (the options below, Netlify, GitHub Pages…) everything works except _Connect a phone_ and _Calendars_, which need the Worker.
 
-**Try changes before they go live**: push them to a branch other than `main`, for example `test`. Cloudflare builds the branch as a _Preview_: a test copy of the site at `https://<branch>-<worker>.<your-subdomain>.workers.dev` (for `test` on the `assaycraft` Worker, `https://test-assaycraft.<your-subdomain>.workers.dev`). People using the real site never see it, it has its own relay (the `previews` block in `wrangler.jsonc`), and its browser notebooks are separate from the real site's (to try a folder notebook there, use a copy of the folder). Open the Preview address on the computer and on the phone; when everything works, merge the branch into `main` and the real site updates. The build log of each branch push is under the Worker's Deployments tab.
+**Try changes before they go live**: push them to a branch other than `main`, for example `test`. Cloudflare builds the branch as a _Preview_: a test copy of the site at `https://<branch>-<worker>.<your-subdomain>.workers.dev` (for `test` on the `assaycraft` Worker, `https://test-assaycraft.<your-subdomain>.workers.dev`). People using the real site never see it, it has its own relay and calendar links (the `previews` block in `wrangler.jsonc`), and its browser notebooks are separate from the real site's (to try a folder notebook there, use a copy of the folder). Open the Preview address on the computer and on the phone; when everything works, merge the branch into `main` and the real site updates. The build log of each branch push is under the Worker's Deployments tab.
 
 **Cloudflare Pages** (free, no bandwidth limit for static files):
 
@@ -162,6 +163,8 @@ id: EXP-0012
 title: Cloning of pX330-GFP
 status: in-progress
 date: 2026-10-16
+time: '09:30'
+end-time: '12:00'
 tags: [cloning]
 protocols: [P-0001, P-0002]
 author: Joel
@@ -275,7 +278,7 @@ npm run format         # Prettier
 npx wrangler dev       # the real Cloudflare Worker and relay, serving dist/ (run `npm run build` first)
 ```
 
-The Serif font option uses [Newsreader](https://github.com/productiontype/Newsreader) by Production Type, bundled under the SIL Open Font License ([license](docs/licenses/Newsreader-OFL.txt)). PDFs are read with Mozilla's [PDF.js](https://mozilla.github.io/pdf.js/), bundled under the Apache License 2.0 ([license](docs/licenses/pdfjs-Apache-2.0.txt)); it is loaded only when you import or view a PDF. TIFF images are decoded with Photopea's [UTIF.js](https://github.com/photopea/UTIF.js) ([MIT license](docs/licenses/UTIF-MIT.txt)) and [pako](https://github.com/nodeca/pako) ([MIT license](docs/licenses/pako-MIT.txt)), loaded only when an entry has a TIFF. QR codes are drawn with Kazuhiko Arase's [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) ([MIT license](docs/licenses/qrcode-generator-MIT.txt)) and read with [jsQR](https://github.com/cozmo/jsQR) (Apache License 2.0, [license](docs/licenses/jsQR-Apache-2.0.txt)), both loaded only for _Connect a phone_.
+The Serif font option uses [Newsreader](https://github.com/productiontype/Newsreader) by Production Type, bundled under the SIL Open Font License ([license](docs/licenses/Newsreader-OFL.txt)). PDFs are read with Mozilla's [PDF.js](https://mozilla.github.io/pdf.js/), bundled under the Apache License 2.0 ([license](docs/licenses/pdfjs-Apache-2.0.txt)); it is loaded only when you import or view a PDF. TIFF images are decoded with Photopea's [UTIF.js](https://github.com/photopea/UTIF.js) ([MIT license](docs/licenses/UTIF-MIT.txt)) and [pako](https://github.com/nodeca/pako) ([MIT license](docs/licenses/pako-MIT.txt)), loaded only when an entry has a TIFF. QR codes are drawn with Kazuhiko Arase's [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) ([MIT license](docs/licenses/qrcode-generator-MIT.txt)) and read with [jsQR](https://github.com/cozmo/jsQR) (Apache License 2.0, [license](docs/licenses/jsQR-Apache-2.0.txt)), both loaded only for _Connect a phone_. Other calendars are read with Mozilla's [ical.js](https://github.com/kewisch/ical.js) (Mozilla Public License 2.0, [license](docs/licenses/ical.js-MPL-2.0.txt)), loaded only when a calendar is shown.
 
 The PDF tests use sample PDFs made with Word-style (LibreOffice), Chromium and ReportLab output: see [tests/fixtures/pdf](tests/fixtures/pdf/README.md).
 
@@ -293,5 +296,6 @@ Code layout:
 | `src/pdf/`       | PDF import: reading pages with PDF.js, rebuilding the layout     |
 | `src/offline/`   | Offline copy of the hosted app (service worker)                  |
 | `src/sync/`      | Connect a phone: pairing, WebRTC and relay links, file sync      |
+| `src/calendar/`  | Calendars: the private calendar link, other calendars (iCal)     |
 | `worker/`        | The Cloudflare Worker: serves the app, and the phone relay       |
 | `src/ui/`        | Pages: home, entries, protocols, boards, calendar, templates…    |

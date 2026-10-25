@@ -25,7 +25,7 @@ import { openNewEntryDialog } from './NewEntryDialog';
 import { openNewProtocolDialog, pickAndImportPdfs } from './protocols';
 import { StatusPill, statusOf } from './status';
 import { dirname, join } from '../lib/path';
-import { formatRelative, localDate, longDate } from '../lib/dates';
+import { formatRelative, formatTime, localDate, longDate } from '../lib/dates';
 
 function greeting(name: string) {
   const h = new Date().getHours();
@@ -78,7 +78,7 @@ export function HomePage() {
     .filter((d) => (d.kind === 'entry' || (isTask(d, docs) && !isDoneCard(d))) && docSpan(d))
     .map((d) => ({ d, span: docSpan(d)! }))
     .filter(({ span }) => span.end >= today && span.start <= weekEnd)
-    .sort((a, b) => a.span.start.localeCompare(b.span.start))
+    .sort((a, b) => a.span.start.localeCompare(b.span.start) || (a.d.time ?? '').localeCompare(b.d.time ?? ''))
     .slice(0, 8);
 
   const count = (status: string) => entries.filter((e) => e.status === status).length;
@@ -221,6 +221,7 @@ export function HomePage() {
                         {span.start <= today
                           ? 'Today'
                           : new Date(span.start + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}
+                        {d.kind === 'entry' && d.time && span.start >= today && ` · ${formatTime(d.time)}`}
                       </span>
                     </button>
                   </li>
