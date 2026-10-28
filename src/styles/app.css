@@ -889,58 +889,6 @@
   --cell: 9px;
 }
 
-/* At a glance: big serif figures separated by hairlines. */
-.gc-figures {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-bottom: 40px;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-.gc-figure {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  padding: 18px 20px 18px 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.12s;
-}
-.gc-figure + .gc-figure {
-  padding-left: 20px;
-  border-left: 1px solid var(--border);
-}
-.gc-figure:hover .gc-figure-value {
-  color: var(--accent);
-}
-.gc-figure-value {
-  font-family: var(--display);
-  font-size: 40px;
-  font-weight: var(--display-weight);
-  line-height: 1;
-  letter-spacing: -0.02em;
-  font-variant-numeric: lining-nums tabular-nums;
-  transition: color 0.12s;
-}
-.gc-figure-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 13px;
-  color: var(--text-3);
-}
-.gc-figure-label svg {
-  width: 13px;
-  height: 13px;
-}
-.gc-overdue {
-  color: var(--danger);
-  font-weight: 600;
-}
-
 .gc-home-section {
   margin-bottom: 40px;
 }
@@ -2315,13 +2263,8 @@
   .gc-form-grid {
     grid-template-columns: 1fr;
   }
-  .gc-figures,
   .gc-recent-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .gc-figure:nth-child(3) {
-    padding-left: 0;
-    border-left: none;
   }
   .gc-welcome-art {
     justify-self: start;
@@ -2988,4 +2931,156 @@
     justify-self: center;
     transform: rotate(90deg);
   }
+}
+
+/* ───────── Literature: papers by reading status ───────── */
+.gc-lit-view {
+  flex: none;
+}
+.gc-lit-view button svg {
+  width: 14px;
+  height: 14px;
+}
+.gc-reading-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.gc-reading-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 160px;
+  padding: 10px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-subtle);
+  border: 1px solid transparent;
+}
+.gc-reading-col.is-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.gc-reading-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 2px 4px;
+  font-size: 13px;
+}
+.gc-reading-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  cursor: grab;
+}
+.gc-reading-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.gc-reading-open strong {
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+.gc-reading-where {
+  font-size: 12.5px;
+}
+.gc-reading-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.gc-reading-foot .spacer {
+  flex: 1;
+}
+.gc-reading-empty {
+  margin: 8px 4px;
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .gc-reading-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ───────── A month to pick a day from (flow steps) ───────── */
+.gc-minical {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  width: 252px;
+}
+.gc-minical-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.gc-minical-title {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.gc-minical-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  text-align: center;
+}
+.gc-minical-dow {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  padding: 2px 0;
+}
+.gc-minical-day {
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.gc-minical-day:hover {
+  background: var(--bg-subtle);
+}
+.gc-minical-day.is-today {
+  color: var(--accent-text);
+  font-weight: 650;
+}
+.gc-minical-day.is-picked {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 650;
+}
+
+/* A flow's step entries, indented under the entry that plans them. */
+.gc-tree-steps {
+  position: relative;
+}
+.gc-tree-steps::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 6px;
+  left: var(--step-rail, 36px);
+  border-left: 1px solid var(--border);
 }

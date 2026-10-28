@@ -245,3 +245,70 @@
   width: 12px;
   height: 12px;
 }
+
+/* Cell colours (right-click a cell › Cell colour). */
+.gc-sheet-grid td[data-bg='yellow'],
+.gc-cell-swatch[data-bg='yellow'] {
+  background: var(--c-yellow-bg);
+}
+.gc-sheet-grid td[data-bg='green'],
+.gc-cell-swatch[data-bg='green'] {
+  background: var(--c-green-bg);
+}
+.gc-sheet-grid td[data-bg='teal'],
+.gc-cell-swatch[data-bg='teal'] {
+  background: var(--c-teal-bg);
+}
+.gc-sheet-grid td[data-bg='blue'],
+.gc-cell-swatch[data-bg='blue'] {
+  background: var(--c-blue-bg);
+}
+.gc-sheet-grid td[data-bg='purple'],
+.gc-cell-swatch[data-bg='purple'] {
+  background: var(--c-purple-bg);
+}
+.gc-sheet-grid td[data-bg='pink'],
+.gc-cell-swatch[data-bg='pink'] {
+  background: var(--c-pink-bg);
+}
+.gc-sheet-grid td[data-bg='red'],
+.gc-cell-swatch[data-bg='red'] {
+  background: var(--c-red-bg);
+}
+.gc-sheet-grid td[data-bg='orange'],
+.gc-cell-swatch[data-bg='orange'] {
+  background: var(--c-orange-bg);
+}
+.gc-sheet-grid td[data-bg='gray'],
+.gc-cell-swatch[data-bg='gray'] {
+  background: var(--c-gray-bg);
+}
+.gc-sheet-grid td[data-bg].in-sel {
+  background-image: linear-gradient(color-mix(in srgb, var(--accent) 14%, transparent), color-mix(in srgb, var(--accent) 14%, transparent));
+}
+.gc-cell-swatch {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
+}
+.gc-cell-swatch.is-none {
+  background: linear-gradient(135deg, transparent 45%, var(--danger) 45%, var(--danger) 55%, transparent 55%), var(--panel);
+}
+
+/* Frozen columns (right-click › Freeze columns): they and the row numbers stay put when the table scrolls sideways. */
+.gc-sheet-grid.has-frozen .gc-rowhead,
+.gc-sheet-grid.has-frozen .gc-corner {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+.gc-sheet-grid td.is-frozen,
+.gc-sheet-grid thead th.is-frozen {
+  position: sticky;
+  z-index: 1;
+}
+.gc-sheet-grid .is-frozen-edge {
+  border-right: 2px solid var(--border-strong);
+}

@@ -1,14 +1,28 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react';
 import { create } from 'zustand';
-import { CalendarDays, CalendarSync, CheckSquare, ChevronLeft, ChevronRight, FlaskConical, ListTodo, MapPin, Plus } from 'lucide-react';
-import { navigate, setState, useNotebook, weekStartDay } from '../notebook/store';
+import {
+  BellRing,
+  CalendarDays,
+  CalendarSync,
+  CheckSquare,
+  ChevronLeft,
+  ChevronRight,
+  FlaskConical,
+  ListTodo,
+  MapPin,
+  Palette,
+  Plus,
+  Workflow,
+} from 'lucide-react';
+import { getState, navigate, setState, toast, useNotebook, weekStartDay } from '../notebook/store';
 import { boardCards, docSpan, isTask, LAYOUT, toYmd, type ColorName, type DocMeta } from '../notebook/model';
-import { createCard, patchMeta, projectOf } from '../notebook/actions';
-import { Popover } from './overlay';
+import { createCard, patchMeta, projectOf, saveConfig, updateFlowStepDate, updateReminder } from '../notebook/actions';
+import type { Reminder } from '../reminders/model';
+import { Popover, usePopover } from './overlay';
 import { openNewEntryDialog } from './NewEntryDialog';
-import { statusOf } from './status';
+import { ColorPicker, projectColor, statusOf } from './status';
 import { dirname, join } from '../lib/path';
-import { formatTime, formatTimeRange, formatTimeShort, localDate, minutesOf } from '../lib/dates';
+import { formatTime, formatTimeRange, formatTimeShort, localDate, minutesOf, LOCALE } from '../lib/dates';
 import { eventsBetween, loadCalendar, type ExternalEvent } from '../calendar/external';
 import { openCalendarsDialog } from './CalendarsDialog';
 import { PHONE, useMediaQuery } from '../lib/useMedia';
@@ -38,12 +52,15 @@ export function startOfWeek(day: string, weekStart: number): string {
   return addDays(day, -((parseYmd(day).getDay() - weekStart + 7) % 7));
 }
 
-/** Something on the calendar: an entry, a task, or an event of another calendar (read-only). */
+/** Something on the calendar: an entry, a task, a reminder in a page, or an event of another calendar (read-only). */
 interface CalItem {
   key: string;
-  kind: 'entry' | 'card' | 'event';
+  kind: 'entry' | 'card' | 'event' | 'reminder' | 'step';
   doc?: DocMeta;
   event?: ExternalEvent;
+  reminder?: Reminder;
+  /** A flow step planned for a day but not started: its place in the flow kept in `doc`. */
+  step?: number;
   /** The entry's ID. */
   id?: string;
   title: string;
@@ -86,29 +103,76 @@ function docItem(d: DocMeta, span: { start: string; end: string }, color: ColorN
   };
 }
 
-function useCalendarItems(showEntries: boolean, showTasks: boolean): CalItem[] {
+type ColorBy = 'status' | 'project';
+
+function useCalendarItems(showEntries: boolean, showTasks: boolean, colorBy: ColorBy): CalItem[] {
   const docs = useNotebook((s) => s.docs);
   const statuses = useNotebook((s) => s.config.entryStatuses);
+  const projectColors = useNotebook((s) => s.config.projectColors);
   return useMemo(() => {
     const out: CalItem[] = [];
+    // By project, everything of a project shares its colour; things outside projects stay gray.
+    const tone = (item: CalItem, own: ColorName) => (colorBy === 'project' ? (item.where ? projectColor(item.where, projectColors) : 'gray') : own);
     for (const d of Object.values(docs)) {
+      // Reminders in pages show with the tasks.
+      if (showTasks && d.reminders?.length && (d.kind === 'entry' || d.kind === 'note' || d.kind === 'card')) {
+        const where = projectOf(d.path) || undefined;
+        for (const r of d.reminders) {
+          const item: CalItem = {
+            key: `${d.path}#reminder-${r.index}`,
+            kind: 'reminder',
+            doc: d,
+            reminder: r,
+            title: r.text,
+            start: r.date,
+            end: r.date,
+            time: r.time,
+            color: 'orange',
+            done: r.done,
+            where,
+          };
+          out.push({ ...item, color: tone(item, 'orange') });
+        }
+      }
+      // Flow steps planned for a day and not started yet show with the entries.
+      if (showEntries && d.flow?.some((st) => st.date && !st.ref)) {
+        const where = projectOf(d.path) || undefined;
+        d.flow.forEach((st, i) => {
+          if (!st.date || st.ref) return;
+          const item: CalItem = {
+            key: `${d.path}#step-${i}`,
+            kind: 'step',
+            doc: d,
+            step: i,
+            title: st.title || `Step ${i + 1}`,
+            start: st.date,
+            end: st.date,
+            color: 'gray',
+            done: false,
+            where,
+          };
+          out.push({ ...item, color: tone(item, 'gray') });
+        });
+      }
       if (d.kind === 'entry' && !showEntries) continue;
       // Only tasks have a place on the calendar; cards on a tracking board do not.
       if (d.kind === 'card' && (!showTasks || !isTask(d, docs))) continue;
       const span = docSpan(d);
       if (!span) continue;
+      let item: CalItem;
       if (d.kind === 'entry') {
         const st = statusOf(statuses, d.status);
-        out.push(docItem(d, span, st?.color ?? 'gray', d.status === 'completed' || d.status === 'failed'));
+        item = docItem(d, span, st?.color ?? 'gray', d.status === 'completed' || d.status === 'failed');
       } else {
         const board = docs[join(dirname(d.path), LAYOUT.boardFile)];
         const cols = board?.columns ?? [];
         const col = cols.find((c) => c.id === d.status);
-        out.push(docItem(d, span, col?.color ?? 'gray', !!cols.length && cols[cols.length - 1].id === d.status));
+        item = docItem(d, span, col?.color ?? 'gray', !!cols.length && cols[cols.length - 1].id === d.status);
       }
+      out.push({ ...item, color: tone(item, item.color) });
     }
     return out;
-  }, [docs, statuses, showEntries, showTasks]);
+  }, [docs, statuses, showEntries, showTasks, colorBy, projectColors]);
 }
 
 /** The events of the other calendars (Calendars) on the days from `from` to `to`, fetched again every ten minutes. */
@@ -161,7 +225,8 @@ function useOtherCalendars(from: string, to: string): CalItem[] {
 const usePeekEvent = create<{ item: CalItem; anchor: DOMRect } | null>(() => null);
 
 function open(item: CalItem, anchor?: HTMLElement) {
-  if (item.kind === 'event') usePeekEvent.setState({ item, anchor: (anchor ?? document.body).getBoundingClientRect() }, true);
+  if (item.kind === 'reminder' || item.kind === 'step') navigate({ name: 'doc', path: item.doc!.path });
+  else if (item.kind === 'event') usePeekEvent.setState({ item, anchor: (anchor ?? document.body).getBoundingClientRect() }, true);
   else if (item.kind === 'card') setState({ peek: item.doc!.path });
   else navigate({ name: 'doc', path: item.doc!.path });
 }
@@ -171,7 +236,7 @@ function EventPeek() {
   if (!peek) return null;
   const { item, anchor } = peek;
   const e = item.event!;
-  const day = (d: string) => parseYmd(d).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const day = (d: string) => parseYmd(d).toLocaleDateString(LOCALE, { weekday: 'long', month: 'long', day: 'numeric' });
   const when = item.start === item.end ? day(item.start) : `${day(item.start)} – ${day(item.end)}`;
   return (
     <Popover anchor={anchor} onClose={() => usePeekEvent.setState(null, true)} className="gc-event-peek">
@@ -200,9 +265,18 @@ function EventPeek() {
   );
 }
 
-function reschedule(doc: DocMeta, delta: number) {
-  if (!delta) return;
-  if (doc.kind === 'entry') {
+function reschedule(item: CalItem, delta: number) {
+  const doc = item.doc;
+  if (!delta || !doc) return;
+  if (item.kind === 'step') {
+    void updateFlowStepDate(doc.path, item.step!, addDays(item.start, delta)).catch((err: Error) =>
+      toast(`Could not move the step: ${err.message}`, 'error'),
+    );
+  } else if (item.kind === 'reminder') {
+    void updateReminder(doc.path, item.reminder!.index, { date: addDays(item.start, delta) }).catch((err: Error) =>
+      toast(`Could not move the reminder: ${err.message}`, 'error'),
+    );
+  } else if (doc.kind === 'entry') {
     const start = doc.date ?? (doc.created ? toYmd(doc.created) : undefined);
     if (!start) return;
     patchMeta(doc.path, { date: addDays(start, delta), end: doc.end ? addDays(doc.end, delta) : undefined }, 200);
@@ -211,13 +285,21 @@ function reschedule(doc: DocMeta, delta: number) {
   }
 }
 
+/** Tick a reminder off (or not), in its page's checklist. */
+function tick(item: CalItem, done: boolean) {
+  if (!item.doc || !item.reminder) return;
+  void updateReminder(item.doc.path, item.reminder.index, { done }).catch((err: Error) =>
+    toast(`Could not tick the reminder off: ${err.message}`, 'error'),
+  );
+}
+
 /** An event dropped on a day moves so that the day it was grabbed by lands there. */
 function dropOnDay(e: DragEvent, day: string, items: CalItem[]) {
   e.preventDefault();
   try {
-    const { path, offset: grab } = JSON.parse(e.dataTransfer.getData(CAL_MIME)) as { path: string; offset: number };
-    const item = items.find((i) => i.doc?.path === path);
-    if (item?.doc) reschedule(item.doc, diffDays(item.start, addDays(day, -grab)));
+    const { key, offset: grab } = JSON.parse(e.dataTransfer.getData(CAL_MIME)) as { key: string; offset: number };
+    const item = items.find((i) => i.key === key);
+    if (item?.doc) reschedule(item, diffDays(item.start, addDays(day, -grab)));
   } catch {
     /* not ours */
   }
@@ -227,7 +309,17 @@ function dropOnDay(e: DragEvent, day: string, items: CalItem[]) {
 function ItemLabel({ item, time = 'full' }: { item: CalItem; time?: 'full' | 'short' | false }) {
   return (
     <>
-      {item.kind === 'card' ? <CheckSquare /> : item.kind === 'event' ? <CalendarDays /> : <FlaskConical />}
+      {item.kind === 'card' ? (
+        <CheckSquare />
+      ) : item.kind === 'event' ? (
+        <CalendarDays />
+      ) : item.kind === 'reminder' ? (
+        <BellRing />
+      ) : item.kind === 'step' ? (
+        <Workflow />
+      ) : (
+        <FlaskConical />
+      )}
       {time && item.time && <span className="gc-cal-time">{time === 'short' ? formatTimeShort(item.time) : formatTime(item.time)}</span>}
       {item.id && <span className="gc-cal-id">{item.id}</span>}
       <span className="gc-cal-title">{item.title}</span>
@@ -237,12 +329,19 @@ function ItemLabel({ item, time = 'full' }: { item: CalItem; time?: 'full' | 'sh
 
 /** What a chip's tooltip says: ID, title, time, project or calendar. */
 const itemTitle = (item: CalItem) =>
-  [item.id, item.title, item.time && formatTimeRange(item.time, item.endTime), item.where].filter(Boolean).join(' · ');
+  [
+    item.id,
+    item.title,
+    item.time && formatTimeRange(item.time, item.endTime),
+    item.kind === 'step' ? `planned step of ${[item.doc?.id, item.doc?.title].filter(Boolean).join(' ')}` : item.where,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
 function NewOnDay({ day, anchor, onClose }: { day: string; anchor: DOMRect; onClose: () => void }) {
   const docs = useNotebook((s) => s.docs);
   const boards = Object.values(docs).filter((d) => d.kind === 'board' && boardCards(d) === 'tasks');
-  const label = parseYmd(day).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const label = parseYmd(day).toLocaleDateString(LOCALE, { weekday: 'short', month: 'short', day: 'numeric' });
   return (
     <Popover anchor={anchor} onClose={onClose}>
       <div className="menu-label">{label}</div>
@@ -316,27 +415,64 @@ function CalBar({
   week?: boolean;
 }) {
   const { item, lane, sc, ec } = p;
+  const className = `gc-cal-item tone-${item.color} ${item.done ? 'is-done' : ''} ${item.start < ws ? 'cont-left' : ''} ${item.end > we ? 'cont-right' : ''} is-${item.kind === 'card' ? 'task' : item.kind}`;
+  const style = { gridColumn: `${sc + 1} / ${ec + 2}`, gridRow: lane + 1 };
+  const onDragStart = (e: DragEvent) => {
+    if (!item.doc) return;
+    const el = row();
+    let grab = 0;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      const col = Math.max(0, Math.min(6, Math.floor(((e.clientX - r.left) / r.width) * 7)));
+      grab = diffDays(item.start, addDays(ws, col));
+    }
+    e.dataTransfer.setData(CAL_MIME, JSON.stringify({ key: item.key, offset: grab }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  // A reminder: a box to tick it off, and its words to open its page.
+  if (item.kind === 'reminder')
+    return (
+      <div
+        className={`${className} has-check`}
+        style={style}
+        aria-hidden={phone || undefined}
+        draggable
+        title={itemTitle(item)}
+        onDragStart={onDragStart}
+      >
+        {item.reminder?.checkable && (
+          <input
+            type="checkbox"
+            className="gc-cal-check"
+            checked={item.done}
+            tabIndex={phone ? -1 : undefined}
+            aria-label={`Done: ${item.title}`}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => tick(item, e.target.checked)}
+          />
+        )}
+        <button
+          className="gc-cal-open"
+          tabIndex={phone ? -1 : undefined}
+          onClick={(e) => {
+            e.stopPropagation();
+            open(item, e.currentTarget);
+          }}
+        >
+          <ItemLabel item={item} time={item.start >= ws && (week ? 'full' : 'short')} />
+        </button>
+      </div>
+    );
   return (
     <button
-      className={`gc-cal-item tone-${item.color} ${item.done ? 'is-done' : ''} ${item.start < ws ? 'cont-left' : ''} ${item.end > we ? 'cont-right' : ''} is-${item.kind === 'card' ? 'task' : item.kind}`}
-      style={{ gridColumn: `${sc + 1} / ${ec + 2}`, gridRow: lane + 1 }}
+      className={className}
+      style={style}
       // Phones show these as bars and list the tapped day's events below.
       tabIndex={phone ? -1 : undefined}
       aria-hidden={phone || undefined}
       draggable={!!item.doc}
       title={itemTitle(item)}
-      onDragStart={(e) => {
-        if (!item.doc) return;
-        const el = row();
-        let grab = 0;
-        if (el) {
-          const r = el.getBoundingClientRect();
-          const col = Math.max(0, Math.min(6, Math.floor(((e.clientX - r.left) / r.width) * 7)));
-          grab = diffDays(item.start, addDays(ws, col));
-        }
-        e.dataTransfer.setData(CAL_MIME, JSON.stringify({ path: item.doc.path, offset: grab }));
-        e.dataTransfer.effectAllowed = 'move';
-      }}
+      onDragStart={onDragStart}
       onClick={(e) => {
         e.stopPropagation();
         open(item, e.currentTarget);
@@ -419,7 +555,7 @@ function MonthView({ month, items, weekStart }: { month: Date; items: CalItem[];
   const weeks = Math.ceil((diffDays(gridStart, first) + daysInMonth) / 7);
   const monthIdx = month.getMonth();
 
-  const dayNames = Array.from({ length: 7 }, (_, i) => parseYmd(addDays(gridStart, i)).toLocaleDateString(undefined, { weekday: 'short' }));
+  const dayNames = Array.from({ length: 7 }, (_, i) => parseYmd(addDays(gridStart, i)).toLocaleDateString(LOCALE, { weekday: 'short' }));
   const pickedItems = items.filter((i) => i.start <= picked && i.end >= picked);
 
   return (
@@ -464,7 +600,7 @@ function MonthView({ month, items, weekStart }: { month: Date; items: CalItem[];
                       onNew={(rect) => setNewAt({ day, rect })}
                     >
                       <span className="gc-day-num">
-                        {date.getDate() === 1 ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : date.getDate()}
+                        {date.getDate() === 1 ? date.toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' }) : date.getDate()}
                       </span>
                     </DayCell>
                   );
@@ -495,7 +631,7 @@ function MonthView({ month, items, weekStart }: { month: Date; items: CalItem[];
         {newAt && <NewOnDay day={newAt.day} anchor={newAt.rect} onClose={() => setNewAt(null)} />}
         {more && (
           <Popover anchor={more.rect} onClose={() => setMore(null)}>
-            <div className="menu-label">{parseYmd(more.day).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+            <div className="menu-label">{parseYmd(more.day).toLocaleDateString(LOCALE, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
             {items
               .filter((i) => i.start <= more.day && i.end >= more.day)
               .map((i) => (
@@ -517,7 +653,7 @@ function MonthView({ month, items, weekStart }: { month: Date; items: CalItem[];
       {phone && (
         <section className="gc-month-day" aria-label="Selected day">
           <header className="gc-month-day-head">
-            <h3>{parseYmd(picked).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</h3>
+            <h3>{parseYmd(picked).toLocaleDateString(LOCALE, { weekday: 'long', month: 'long', day: 'numeric' })}</h3>
             <button className="btn btn-sm" onClick={(e) => setNewAt({ day: picked, rect: e.currentTarget.getBoundingClientRect() })}>
               <Plus /> New
             </button>
@@ -551,7 +687,7 @@ function WeekView({ start, items }: { start: string; items: CalItem[] }) {
       <div className="gc-weeklist">
         {days.map((day) => {
           const list = items.filter((i) => i.start <= day && i.end >= day);
-          const name = parseYmd(day).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+          const name = parseYmd(day).toLocaleDateString(LOCALE, { weekday: 'long', month: 'long', day: 'numeric' });
           return (
             <section key={day} className={`gc-agenda-day ${day === today ? 'is-today' : ''}`} data-day={day}>
               <header className="gc-month-day-head">
@@ -586,7 +722,7 @@ function WeekView({ start, items }: { start: string; items: CalItem[] }) {
           const date = parseYmd(day);
           return (
             <div key={day} className={day === today ? 'is-today' : ''}>
-              <span className="gc-weekview-dow">{date.toLocaleDateString(undefined, { weekday: 'short' })}</span>
+              <span className="gc-weekview-dow">{date.toLocaleDateString(LOCALE, { weekday: 'short' })}</span>
               <span className="gc-weekview-date">{date.getDate()}</span>
             </div>
           );
@@ -622,9 +758,9 @@ function WeekView({ start, items }: { start: string; items: CalItem[] }) {
 function AgendaRow({ item, day }: { item: CalItem; day?: string }) {
   // Times on the day it starts (and the end time on its last day).
   const time = !day || day === item.start ? formatTimeRange(item.time, item.end === item.start ? item.endTime : undefined) : '';
-  return (
-    <button className={`gc-agenda-item is-${item.kind} ${item.done ? 'is-done' : ''}`} onClick={(e) => open(item, e.currentTarget)}>
-      <span className={`gc-status-dot tone-${item.color}`} />
+  const inner = (
+    <>
+      {item.kind !== 'reminder' && <span className={`gc-status-dot tone-${item.color}`} />}
       {time && <span className="gc-agenda-time">{time}</span>}
       <ItemLabel item={item} time={false} />
       {day && item.start !== item.end && (
@@ -633,7 +769,69 @@ function AgendaRow({ item, day }: { item: CalItem; day?: string }) {
         </span>
       )}
       {item.where && <span className="muted gc-agenda-proj">{item.where}</span>}
+    </>
+  );
+  if (item.kind === 'reminder')
+    return (
+      <div className={`gc-agenda-item gc-agenda-reminder is-reminder ${item.done ? 'is-done' : ''}`}>
+        {item.reminder?.checkable ? (
+          <input
+            type="checkbox"
+            className="gc-cal-check"
+            checked={item.done}
+            aria-label={`Done: ${item.title}`}
+            onChange={(e) => tick(item, e.target.checked)}
+          />
+        ) : (
+          <span className={`gc-status-dot tone-${item.color}`} />
+        )}
+        <button className="gc-agenda-open" onClick={(e) => open(item, e.currentTarget)}>
+          {inner}
+        </button>
+      </div>
+    );
+  return (
+    <button className={`gc-agenda-item is-${item.kind} ${item.done ? 'is-done' : ''}`} onClick={(e) => open(item, e.currentTarget)}>
+      {inner}
     </button>
+  );
+}
+
+/** By project: each project's colour, which can be changed here. */
+function ProjectLegend({ items }: { items: CalItem[] }) {
+  const projectColors = useNotebook((s) => s.config.projectColors);
+  const projects = [...new Set(items.filter((i) => i.kind !== 'event' && i.where).map((i) => i.where!))].sort((a, b) => a.localeCompare(b));
+  if (!projects.length) return null;
+  return (
+    <div className="gc-cal-legend" aria-label="Project colours">
+      {projects.map((p) => (
+        <LegendItem key={p} project={p} color={projectColor(p, projectColors)} />
+      ))}
+    </div>
+  );
+}
+
+function LegendItem({ project, color }: { project: string; color: ColorName }) {
+  const pop = usePopover();
+  return (
+    <>
+      <button ref={pop.ref} className="gc-cal-legend-item" title={`Colour of ${project}`} onClick={pop.toggle}>
+        <span className={`gc-status-dot tone-${color}`} />
+        {project}
+      </button>
+      {pop.open && (
+        <Popover anchor={pop.ref.current} onClose={pop.close}>
+          <div className="menu-label">Colour of {project}</div>
+          <ColorPicker
+            value={color}
+            onChange={(c) => {
+              pop.close();
+              void saveConfig({ projectColors: { ...getState().config.projectColors, [project]: c } });
+            }}
+          />
+        </Popover>
+      )}
+    </>
   );
 }
 
@@ -674,7 +872,7 @@ function AgendaView({ items }: { items: CalItem[] }) {
         <section key={day} className={`gc-agenda-day ${day === today ? 'is-today' : ''} ${day < today ? 'is-past' : ''}`}>
           <h3>
             {day === today ? 'Today · ' : ''}
-            {parseYmd(day).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+            {parseYmd(day).toLocaleDateString(LOCALE, { weekday: 'long', month: 'long', day: 'numeric' })}
           </h3>
           {list.map((i) => (
             <AgendaRow key={i.key + day} item={i} day={day} />
@@ -692,13 +890,14 @@ const VIEWS: { id: View; name: string }[] = [
   { id: 'agenda', name: 'Agenda' },
 ];
 const VIEW_KEY = 'assaycraft:calendarView';
+const COLOR_KEY = 'assaycraft:calendarColor';
 
 /** The month of a week ("October 2026"), or both ("Sep – Oct 2026"); its days head the columns. */
 function weekTitle(ws: string): string {
   const a = parseYmd(ws);
   const b = parseYmd(addDays(ws, 6));
-  if (a.getMonth() === b.getMonth()) return a.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-  const f = new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' });
+  if (a.getMonth() === b.getMonth()) return a.toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' });
+  const f = new Intl.DateTimeFormat(LOCALE, { month: 'short', year: 'numeric' });
   return typeof f.formatRange === 'function' ? f.formatRange(a, b) : `${f.format(a)} – ${f.format(b)}`;
 }
 
@@ -717,6 +916,13 @@ export function CalendarPage() {
   });
   const [showEntries, setShowEntries] = useState(true);
   const [showTasks, setShowTasks] = useState(true);
+  const [colorBy, setColorBy] = useState<ColorBy>(() => {
+    try {
+      return localStorage.getItem(COLOR_KEY) === 'project' ? 'project' : 'status';
+    } catch {
+      return 'status';
+    }
+  });
   const weekStart = useNotebook((s) => weekStartDay(s.weekStart));
   const today = localDate();
   const c = parseYmd(cursor);
@@ -726,7 +932,7 @@ export function CalendarPage() {
   const gridStart = startOfWeek(ymd(month), weekStart);
   const [from, to] =
     view === 'month' ? [gridStart, addDays(gridStart, 41)] : view === 'week' ? [ws, addDays(ws, 6)] : [addDays(today, -7), addDays(today, 60)];
-  const notebookItems = useCalendarItems(showEntries, showTasks);
+  const notebookItems = useCalendarItems(showEntries, showTasks, colorBy);
   const otherItems = useOtherCalendars(from, to);
   const items = useMemo(() => [...notebookItems, ...otherItems].sort(byStart), [notebookItems, otherItems]);
 
@@ -748,8 +954,7 @@ export function CalendarPage() {
   };
   const unit = view === 'week' ? 'week' : 'month';
   const atToday = view === 'week' ? ws === startOfWeek(today, weekStart) : cursor.slice(0, 7) === today.slice(0, 7);
-  const title =
-    view === 'month' ? month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : view === 'week' ? weekTitle(ws) : 'Agenda';
+  const title = view === 'month' ? month.toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' }) : view === 'week' ? weekTitle(ws) : 'Agenda';
 
   return (
     <div className="gc-page gc-calendar-page">
@@ -795,6 +1000,23 @@ export function CalendarPage() {
               </button>
             ))}
           </div>
+          <button
+            className="btn btn-sm gc-cal-colorby"
+            aria-pressed={colorBy === 'project'}
+            aria-label="Colour by project"
+            title={colorBy === 'project' ? 'Coloured by project: click to colour by status again' : 'Colour by project instead of by status'}
+            onClick={() => {
+              const v: ColorBy = colorBy === 'project' ? 'status' : 'project';
+              setColorBy(v);
+              try {
+                localStorage.setItem(COLOR_KEY, v);
+              } catch {
+                /* ignore */
+              }
+            }}
+          >
+            <Palette /> <span className="gc-cal-btn-label">By project</span>
+          </button>
           {/* On a laptop the bar has room for their icons only (the sidebar has its own New entry). */}
           <button
             className="btn btn-sm gc-cal-calendars"
@@ -810,6 +1032,7 @@ export function CalendarPage() {
         </div>
       </div>
       <EventPeek />
+      {colorBy === 'project' && <ProjectLegend items={notebookItems} />}
       <div className="gc-calendar-body">
         {view === 'month' ? (
           <MonthView key={`${ymd(month)}-${weekStart}`} month={month} items={items} weekStart={weekStart} />

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } 
 import {
   AlignLeft,
   BookOpen,
+  BookOpenCheck,
   Globe,
   Newspaper,
   Quote,
@@ -32,10 +33,11 @@ import {
 import { TagPill } from './status';
 import { useNotebook } from '../notebook/store';
 import { Popover, usePopover } from './overlay';
-import { formatTime, minutesOf, parseTypedTime } from '../lib/dates';
+import { formatTime, minutesOf, parseTypedTime, LOCALE } from '../lib/dates';
 
 const PROP_ICONS: Record<string, LucideIcon> = {
   Status: CircleDot,
+  Reading: BookOpenCheck,
   Date: CalendarDays,
   Dates: CalendarDays,
   Time: Clock,
@@ -170,7 +172,7 @@ export function DateField({
   const [local, setLocal] = useState(value ?? '');
   useEffect(() => setLocal(value ?? ''), [value]);
   const label = value
-    ? new Date(value + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
+    ? new Date(value + 'T00:00:00').toLocaleDateString(LOCALE, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
     : placeholder;
   return (
     <span className={`gc-date ${value ? '' : 'is-empty'}`}>

@@ -178,7 +178,6 @@ export function TrashPage() {
       </div>
       <div className="gc-folder-inner gc-notes-inner">
         <header className="gc-page-head">
-          <div className="gc-eyebrow">Notebook</div>
           <h1 className="gc-page-title">Trash</h1>
           <p className="gc-lede">
             Pages, boards and folders you deleted. <strong>Restore</strong> puts one back where it was, with its attachments and version history. They

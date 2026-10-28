@@ -9,12 +9,13 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from 'react';
-import { ArrowDownAZ, ArrowUpAZ, Columns3, Download, FileUp, MoreHorizontal, Plus, Rows3, Table2, Trash2 } from 'lucide-react';
+import { ArrowDownAZ, ArrowUpAZ, Columns3, Download, FileUp, MoreHorizontal, Plus, Rows3, Snowflake, Table2, Trash2 } from 'lucide-react';
 import { useDocContext } from '../editor/context';
 import { MenuButton, openContextMenu, type MenuItemSpec } from '../ui/overlay';
 import { canInsertRefAt, evaluateSheet, findRefs, isFormula, parseLiteral, shiftFormula } from './formula';
 import { cellName, colName, inRect, rectOf, type Rect } from './refs';
 import {
+  CELL_COLORS,
   DEFAULT_COL_WIDTH,
   deleteCols,
   deleteRows,
@@ -22,7 +23,9 @@ import {
   insertCols,
   insertRows,
   normalizeSheet,
+  setCellColor,
   setCells,
+  setFreeze,
   sortByColumn,
   type SheetData,
 } from './model';
@@ -634,6 +637,31 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
         { label: 'Fill right', hint: 'Ctrl+R', onSelect: fillRight },
         { label: 'Clear cells', hint: 'Del', onSelect: () => rect && clearRect(rect) },
         'sep',
+        { heading: 'Cell colour' },
+        {
+          row: [
+            {
+              label: 'No colour',
+              icon: <span className="gc-cell-swatch is-none" />,
+              onSelect: () => withData((d) => setCellColor(d, r, null)),
+            },
+            ...CELL_COLORS.map((color) => ({
+              label: `Fill ${color}`,
+              icon: <span className="gc-cell-swatch" data-bg={color} />,
+              checked: data.colors?.[cellName(r.r1, r.c1)] === color,
+              onSelect: () => withData((d) => setCellColor(d, r, color)),
+            })),
+          ],
+        },
+        'sep',
+        data.freeze === r.c2 + 1
+          ? { label: 'Unfreeze columns', icon: <Snowflake />, onSelect: () => withData((d) => setFreeze(d, 0)) }
+          : {
+              label: r.c2 === 0 ? 'Freeze column A' : `Freeze columns A–${colName(r.c2)}`,
+              icon: <Snowflake />,
+              onSelect: () => withData((d) => setFreeze(d, r.c2 + 1)),
+            },
+        'sep',
       );
     }
     items.push({ label: 'Export as CSV', icon: <Download />, onSelect: exportCsv });
@@ -646,6 +674,9 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
           { label: 'Add row', icon: <Rows3 />, onSelect: () => withData((d) => insertRows(d, d.rows.length)) } as MenuItemSpec,
           { label: 'Add column', icon: <Columns3 />, onSelect: () => withData((d) => insertCols(d, d.rows[0].length)) } as MenuItemSpec,
           { label: 'Import CSV / TSV…', icon: <FileUp />, onSelect: importCsv } as MenuItemSpec,
+          (data.freeze
+            ? { label: 'Unfreeze columns', icon: <Snowflake />, onSelect: () => withData((d) => setFreeze(d, 0)) }
+            : { label: 'Freeze column A', icon: <Snowflake />, onSelect: () => withData((d) => setFreeze(d, 1)) }) as MenuItemSpec,
         ]
       : []),
     { label: 'Export as CSV', icon: <Download />, onSelect: exportCsv },
@@ -695,6 +726,9 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
       : `${cellName(rect.r1, rect.c1)}:${cellName(rect.r2, rect.c2)}`
     : '';
   const totalWidth = ROW_HEAD + Array.from({ length: nCols }, (_, c) => widthOf(c)).reduce((a, b) => a + b, 0);
+  // Frozen columns stay in view when the table scrolls sideways: each sticks where the ones before it end.
+  const frozen = Math.min(data.freeze ?? 0, nCols);
+  const stickLeft = (c: number) => ROW_HEAD + Array.from({ length: c }, (_, i) => widthOf(i)).reduce((a, b) => a + b, 0);
   const showSel = active || !!editing;
 
   return (
@@ -753,7 +787,7 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
         onPaste={onPaste}
         onContextMenu={(e) => openContextMenu(e, contextItems())}
       >
-        <table className="gc-sheet-grid" style={{ width: totalWidth }}>
+        <table className={`gc-sheet-grid ${frozen ? 'has-frozen' : ''}`} style={{ width: totalWidth }}>
           <colgroup>
             <col style={{ width: ROW_HEAD }} />
             {Array.from({ length: nCols }, (_, c) => (
@@ -773,7 +807,8 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
               {Array.from({ length: nCols }, (_, c) => (
                 <th
                   key={c}
-                  className={`gc-colhead ${showSel && rect && c >= rect.c1 && c <= rect.c2 ? 'is-hl' : ''}`}
+                  className={`gc-colhead ${showSel && rect && c >= rect.c1 && c <= rect.c2 ? 'is-hl' : ''} ${c < frozen ? 'is-frozen' : ''} ${c === frozen - 1 ? 'is-frozen-edge' : ''}`}
+                  style={c < frozen ? { left: stickLeft(c) } : undefined}
                   onMouseDown={(e) => selectColumn(e, c)}
                 >
                   {colName(c)}
@@ -804,6 +839,8 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
                     num ? 'is-num' : '',
                     err ? 'is-err' : '',
                     isEditing ? 'is-editing' : '',
+                    c < frozen ? 'is-frozen' : '',
+                    c === frozen - 1 ? 'is-frozen-edge' : '',
                   ]
                     .filter(Boolean)
                     .join(' ');
@@ -813,7 +850,11 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
                       data-r={r}
                       data-c={c}
                       className={cls}
-                      style={rc ? { boxShadow: `inset 0 0 0 2px ${rc}` } : undefined}
+                      data-bg={data.colors?.[cellName(r, c)]}
+                      style={{
+                        ...(rc ? { boxShadow: `inset 0 0 0 2px ${rc}` } : {}),
+                        ...(c < frozen ? { left: stickLeft(c) } : {}),
+                      }}
                       title={isFormula(raw) ? raw : undefined}
                       onMouseDown={(e) => onCellMouseDown(e, r, c)}
                       onMouseEnter={() => onCellEnter(r, c)}
@@ -823,6 +864,7 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
                         <textarea
                           ref={inputRef}
                           className="gc-cell-input"
+                          aria-label={`Cell ${cellName(r, c)}`}
                           value={editing.value}
                           rows={Math.max(1, editing.value.split('\n').length)}
                           spellCheck={false}

@@ -141,7 +141,6 @@ export function SettingsPage() {
       </div>
       <div className="gc-settings-inner">
         <header className="gc-page-head">
-          <div className="gc-eyebrow">{config.name || vault.name}</div>
           <h1 className="gc-page-title">Settings</h1>
           <p className="gc-lede">How this notebook names, sorts and stores your work, and how Assaycraft looks in this browser.</p>
         </header>

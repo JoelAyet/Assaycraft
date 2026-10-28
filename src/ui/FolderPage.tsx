@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Folder, FolderOpen, FolderPlus, MoreHorizontal, Pencil, Plus, Search, Trash2, ChevronRight } from 'lucide-react';
+import { ArrowDown, ArrowUp, Folder, FolderPlus, MoreHorizontal, Pencil, Plus, Search, Trash2, ChevronRight } from 'lucide-react';
 import { navigate, toast, useNotebook } from '../notebook/store';
 import { LAYOUT, type DocMeta } from '../notebook/model';
 import { createFolder, renameFolder, trashFolder } from '../notebook/actions';
@@ -8,7 +8,7 @@ import { MenuButton, confirmDialog, openContextMenu, promptDialog, type MenuItem
 import { StatusPill, TagPill, statusOf } from './status';
 import { entryMenu } from './Sidebar';
 import { basename, dirname, isInside } from '../lib/path';
-import { formatRelative } from '../lib/dates';
+import { formatRelative, LOCALE } from '../lib/dates';
 import { NavToggle } from './nav';
 
 type SortKey = 'id' | 'title' | 'status' | 'date' | 'modified' | 'folder';
@@ -138,9 +138,6 @@ export function FolderPage({ path }: { path: string }) {
       </div>
       <div className="gc-folder-inner">
         <header className="gc-page-head">
-          <div className="gc-eyebrow">
-            <FolderOpen /> {isRoot ? 'Projects' : dirname(path) === LAYOUT.projects ? 'Project' : basename(dirname(path))}
-          </div>
           <h1 className="gc-page-title">{isRoot ? 'All entries' : basename(path)}</h1>
           <p className="gc-lede">
             {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
@@ -215,7 +212,7 @@ export function FolderPage({ path }: { path: string }) {
                     <StatusPill status={statusOf(statuses, d.status)} />
                   </td>
                   <td className="col-date muted">
-                    {d.date ? new Date(d.date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                    {d.date ? new Date(d.date + 'T00:00:00').toLocaleDateString(LOCALE, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
                   </td>
                   <td className="col-tags">
                     <span className="gc-tags">

@@ -28,6 +28,20 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 ## What's new
 
+**28 October 2026**
+
+- **Reminders.** Type `/reminder` in an entry, note or task: a checklist line with a date and time (“Take the plates out, Fri 2:30 PM”). Reminders show on the calendar, where you drag them to another day and tick them off, and in the private calendar link. [Reminders](#reminders).
+- **Colours and sizes in text.** The toolbar’s _Colour and size_ button (the **A**) highlights in nine colours, colours text, and makes it small, large or huge. [Entries](#entries-the-notebook-itself).
+- **Colour a tag.** Click a tag on an entry to choose its colour, for the whole notebook.
+- **Tables:** right-click a cell for _Cell colour_, and _Freeze columns_ to keep the first columns in view while the table scrolls sideways. [Dynamic tables](#dynamic-tables).
+- **Draw on images.** _Annotate_ on an image adds lines, arrows, boxes and text, to label a gel’s lanes or point at a band. The photo itself is not changed. **HEIC photos** from an iPhone are converted to JPEG when added. [Files and images](#files-images-and-snapgene-maps).
+- **A reading board.** Papers have a reading status (_To read_, _Reading_, _Read_), and _Literature_ has a _Board_ view to drag them along. [Literature](#literature).
+- **Calendar by project.** _By project_ colours everything on the calendar by its project, with a colour you can change for each. [Calendar](#calendar).
+- **Flows:** _Set date_ on a step picks the day it is planned for on a small calendar; planned steps show on the calendar, and _Start_ uses that day. A started step’s entry sits under its plan in the sidebar. [Flows](#flows-a-series-of-experiments).
+- **/day** inserts today, or another day you pick. Dates and day names are now always in English, whatever your computer’s language (the clock stays 12- or 24-hour as on your computer).
+- **On a computer:** drag in the page’s margin to draw a box and select whole blocks (paragraphs, tables, images) to delete, copy or cut; hover the page’s right edge for its index (headings and days, and recent entries). <kbd>Tab</kbd> in a list now always nests the item.
+- **Tidier pages.** The small blue labels above page titles are gone (except Home’s date), and so are Home’s counters of entries and tasks; Home only mentions tasks that are overdue.
+
 **24 October 2026**
 
 - **Times on experiments.** An entry's _Time_ (under its date) takes a start and an end time: pick one from the list or type it (“14:30”, “2pm”). _New entry_ asks for a start time too, next to the date, so a planned experiment is made in one go. The calendar shows it on the chip, in the week view and in the agenda, and Home lists the week with times. [Calendar](#calendar).
@@ -97,7 +111,12 @@ An **entry** is one experiment or one day's work. Click **New entry** (or press 
 - **Projects and folders** keep entries organised in the sidebar, and on disk (`Projects/CRISPR screen/…`).
 - **Lock** an entry when it is finished and signed off: it becomes read-only (and is marked _Completed_) until you unlock it.
 - **The editor** has headings, lists, checklists, quotes, code, sub- and superscript (H₂O, 10⁶), highlights and links, all in the toolbar above the page. **Hover over a toolbar button** to see its name, what it does and its shortcut.
-- **Type `/`** anywhere for blocks: _Table_, _Buffer_, _Flow_, _Stock_, _File or image_, _Sequence (SnapGene)_, _Protocol_, _Sub-template_, _Today's date_, _Link to entry_, _Cite a paper_, _Plate layout_, _Checklist_ and more. The **+** button in the toolbar lists the same blocks.
+- **Colour and size**: the **A** in the toolbar highlights the selected text in one of nine colours, colours the text itself, or makes it _Small_, _Large_ or _Huge_. The highlighter next to it is the quick yellow highlight (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>). In the file these are small HTML tags (`<mark data-color="green">`, `<span class="gc-ink" data-color="red">`), with a style so other Markdown viewers show the colours too.
+- **Tags** have a colour from their name; click a tag on an entry to choose another, for every page.
+- **Type `/`** anywhere for blocks: _Table_, _Buffer_, _Flow_, _Stock_, _File or image_, _Sequence (SnapGene)_, _Protocol_, _Sub-template_, _Day_, _Reminder_, _Link to entry_, _Cite a paper_, _Plate layout_, _Checklist_ and more. The **+** button in the toolbar lists the same blocks.
+- **/day** adds a heading for a day of work, “2026-10-28 · Wednesday”: today, or pick yesterday, tomorrow or any day.
+- **Lists:** <kbd>Tab</kbd> nests the item you are in under the one above, <kbd>Shift</kbd>+<kbd>Tab</kbd> takes it out again, in bulleted, numbered and checklists.
+- **On a computer**, drag in the page’s margin (left or right of the text) to draw a light-blue box: the blocks it touches are selected, to delete (<kbd>Delete</kbd>), copy or cut together. Hover the page’s **right edge** for its index: recent entries to jump to, then the page’s headings and days.
 
 ![Hovering over a toolbar button shows what it does and its shortcut](screenshots/tooltip.png)
 
@@ -114,6 +133,8 @@ Type `/table` (or paste a table from Excel or Google Sheets) to get a spreadshee
 - **Results update live**: change a volume and every cell that depends on it follows.
 - **Fill**: <kbd>Ctrl</kbd>+<kbd>D</kbd> fills down, <kbd>Ctrl</kbd>+<kbd>R</kbd> right, or drag the square handle at the corner of the selection. A sequence such as `1, 2` continues as `3, 4…`; formulas shift as they are filled.
 - **Copy and paste** with Excel and Google Sheets in both directions. Right-click for inserting, deleting and sorting rows and columns; drag the column edges to resize. Import or export CSV.
+- **Cell colours:** right-click a cell (or a selection) → _Cell colour_. Colours move with their cells when rows and columns are added, deleted or sorted.
+- **Freeze columns:** right-click a cell → _Freeze columns A–C_ keeps the columns up to it in view, with the row numbers, while a wide table scrolls sideways. _Unfreeze columns_ in the same menu, or in the table’s **⋯**.
 - **Variables** from a template (`{{Reactions}}`) work in cells and formulas, so a master-mix table scales itself when the entry is created.
 
 In the file, the table is a normal Markdown table showing the computed values, so it reads well anywhere; the formulas are kept in a comment just above it.
@@ -429,6 +450,10 @@ In any entry or note, type `/` → **Cite a paper** (or use **+** in the toolbar
 
 ![Citing a paper from an entry](screenshots/cite.png)
 
+### Reading status and the board
+
+Each paper has a **Reading** status: _To read_ (new papers), _Reading_ or _Read_. Change it on the paper’s page, from the list, or switch the Literature page to **Board** and drag papers from column to column. The list or board you chose is remembered.
+
 ### A paper's page
 
 - The reference (authors, journal, volume, pages), links to the DOI and PubMed, tags, and **Cited in**: every entry and note that cites it.
@@ -473,7 +498,9 @@ Drag and drop or paste anything into an entry. Files are stored next to it, in `
 
 - **Images** get a caption and a size. **PDFs** preview inline (also on phones). A **CSV** can be turned into a table.
 - **TIFF images** (microscopes, gel imagers, scanners) are shown in any browser, with their size and bit depth under them. A 16- or 32-bit image is stretched from its darkest to its brightest values for display, as Fiji does when it opens one; the pixel values in the file are not changed. A stack or time series shows one page at a time, with arrows to step through. Images over 50 million pixels are not previewed; download them instead.
-- **Formats a browser can't draw**, such as HEIC photos from an iPhone, show as a card with the file name and a _Download_ button, instead of a blank space.
+- **HEIC photos** (iPhones save these) are converted to JPEG when you add them, so every browser and Markdown viewer shows them. HEIC files already in a page are shown by converting them on the fly; the file stays as it is. (On the website; the single-file version cannot convert them.)
+- **Draw on an image:** hover it and click _Annotate_. Pick _Line_, _Arrow_, _Box_ or _Text_ and a colour, and drag on the image (or click, for text). _Select_ picks a mark to delete or recolour; _Undo_ and _Done_ are there too. Text gets a halo so it reads on a dark gel and a light blot alike. The photo is not changed: the marks are saved in the page, in a comment just above the image, as positions relative to its size.
+- **Formats a browser can't draw** show as a card with the file name and a _Download_ button, instead of a blank space.
 - **SnapGene `.dna`, GenBank and FASTA** files show a plasmid map with SnapGene's feature colours, a feature table, GC % and the sequence. The original stays in the folder, ready to open in SnapGene.
 
 ## Notes
@@ -494,13 +521,14 @@ Boards are Kanban columns, as in Notion or Trello.
 - **Experiments** is built in: every entry by status. Drag a card to another column to change the entry's status.
 - **Your own boards** come in two kinds, chosen when you create one (and switchable later from the board's **⋯** menu):
   - **Things to track** (the default): constructs, samples, orders, mice… moving through stages you name, e.g. _Designed → PCR → Assembled → Sequenced_. Cards have tags, links to entries and protocols, and full notes, but no due date, so they stay off the calendar.
-  - **Tasks**: to-dos with a due date and a priority, e.g. _Lab tasks_. They show on the calendar and in Home's open tasks.
+  - **Tasks**: to-dos with a due date and a priority, e.g. _Lab tasks_. They show on the calendar and in Home's next 7 days, and Home warns when one is overdue.
 - On a phone, boards scroll one column at a time.
 
 ## Calendar
 
 - **Month**, **Week** and **Agenda** views. Entries appear on their experiment dates (including spans over several days) and tasks on their due dates.
 - Drag an item to reschedule it, or click a day to plan an entry or a task on it.
+- **By status or by project.** Entries are coloured by their status and tasks by their column. The _By project_ button (the palette, after Month · Week · Agenda) colours everything of a project alike instead, with each project listed above the calendar: click one to change its colour. Click _By project_ again to go back. Things outside projects stay gray.
 - **Today** and the **‹ ›** arrows stay in the same place whatever the month's name, so you can click through months quickly.
 - The week starts on **Monday or Sunday**, as set in _Settings → Appearance_. The activity graph on Home follows the same setting.
 
@@ -515,9 +543,21 @@ Its events show with a dashed outline in their own colour; click one for its tim
 
 **Your experiments in your calendar app.** In _Calendars_, _Create a private calendar link_ gives an address to subscribe to in Apple, Google or Outlook Calendar (buttons for each), on your phone too. It holds the entries with a date (at their time, or all day) and the open tasks, with their ID, title, project and status; nothing else from the notebook. It is off unless you turn it on, because it is the one thing Assaycraft keeps online: a copy of those events at a long, random address on its website. Only the device that made the link can change it, and it brings it up to date a few seconds after the plan changes, while the notebook is open there. Calendar apps look for changes on their own: Apple Calendar as often as you set, Google Calendar every few hours. Keep the address private, as anyone with it can see these titles and times. _Turn off the link_ deletes the copy; calendars subscribed to it then show nothing.
 
+### Reminders
+
+Type `/reminder` in an entry, a note or a task and fill in what to remember, the day and (if you like) a time. It becomes a checklist line ending in a chip with the date: click the chip to change the day or time, or remove it. Typed at the end of a line that already has words, `/reminder` adds the date to that line.
+
+On the calendar, reminders are rounded chips with a box: tick the box to mark it done (the checklist line in the page is ticked too), drag the chip to another day in the month or week to move it (its time stays), click its words to open the page. With the tasks hidden (_Tasks_ unticked), reminders are hidden too. Reminders still to do are in the private calendar link, at their time, so your phone’s calendar can remind you.
+
+In the file, a reminder is plain text at the end of its line, `- [ ] Take the plates out (@2026-10-30 14:30)`: the same syntax as Obsidian’s Reminder plugin.
+
+### Planned flow steps
+
+A flow step not started yet can be planned for a day (_Set date_ on its card, or just the calendar icon beside _Start_ when the card is narrow). It shows on the calendar with a dotted outline under the entries; drag it to move it, click it to open the plan. Started, it becomes an entry with that day.
+
 ## Home and search
 
-- **Home** shows how many entries are planned, in progress and completed this month, your open tasks, the pages you edited last (_Jump back in_), the next 7 days, and a GitHub-style **activity graph**: one square per day for the last year, darker on the days you edited more.
+- **Home** shows the pages you edited last (_Jump back in_), the next 7 days (entries and tasks), any overdue tasks, and a GitHub-style **activity graph**: one square per day for the last 6 months, darker on the days you edited more.
 - **Search** with <kbd>Ctrl</kbd> <kbd>K</kbd> (<kbd>⌘</kbd> <kbd>K</kbd> on a Mac) finds entries, protocols, templates, cards, papers (also by author) and single stocks by their title, ID or text, and runs commands such as _New task_, _Add a paper_, _Import PDF_ or _Take the tour_.
 
 ## Version history

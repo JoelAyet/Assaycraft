@@ -75,6 +75,19 @@ export function notebookCalendar(docs: Record<string, DocMeta>, opts: FeedOption
   const events: string[][] = [];
   const all = Object.values(docs).sort((a, b) => a.path.localeCompare(b.path));
   for (const d of all) {
+    // Reminders still to do, in entries, notes and cards: at their time (15 minutes), or all day.
+    for (const r of d.reminders ?? []) {
+      if (r.done) continue;
+      const lines = ['BEGIN:VEVENT', `UID:${d.id || hash(d.path)}-r${r.index}-${hash(r.text).slice(0, 6)}-${opts.feedId.slice(0, 8)}@assaycraft`];
+      const changed = Date.parse(d.modified ?? d.created ?? '');
+      lines.push(`DTSTAMP:${utcOf(new Date(Number.isFinite(changed) ? changed : 0))}`);
+      if (r.time) lines.push(`DTSTART:${utcStamp(r.date, r.time)}`, 'DURATION:PT15M');
+      else lines.push(`DTSTART;VALUE=DATE:${ymdCompact(r.date)}`, `DTEND;VALUE=DATE:${ymdCompact(nextDay(r.date))}`);
+      lines.push(`SUMMARY:${icsText(r.text)}`);
+      const where = [d.kind === 'entry' ? d.id : '', d.title].filter(Boolean).join(' ');
+      lines.push(`DESCRIPTION:${icsText(`Reminder in ${where}`)}`, 'TRANSP:TRANSPARENT', 'END:VEVENT');
+      events.push(lines);
+    }
     const task = d.kind === 'card' && isTask(d, docs);
     if (d.kind !== 'entry' && !task) continue;
     const span = docSpan(d);

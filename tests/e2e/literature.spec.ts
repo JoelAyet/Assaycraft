@@ -118,7 +118,7 @@ test('literature: add a paper by DOI, keep notes on it, and see where it is cite
   await expect(page.locator('.gc-doc-kicker')).toContainText('Cong2013');
   await expect(page.locator('.gc-doc-kicker')).toContainText('Paper');
   await expect(page.locator('.gc-crumbs')).toContainText('Literature');
-  await expect(page.locator('.gc-props .gc-prop-label')).toHaveText(['Authors', 'Journal', 'DOI', 'Tags', 'Cited in']);
+  await expect(page.locator('.gc-props .gc-prop-label')).toHaveText(['Reading', 'Authors', 'Journal', 'DOI', 'Tags', 'Cited in']);
   await expect(page.locator('.gc-paper-authors')).toHaveText('Le Cong, F. Ann Ran, David Cox, Feng Zhang');
   await expect(page.locator('.gc-props')).toContainText('Science, 2013; 339(6121): 819–823');
   await expect(page.getByRole('link', { name: /10\.1126\/science\.1231143/ })).toHaveAttribute('href', 'https://doi.org/10.1126/science.1231143');
@@ -265,6 +265,6 @@ test('a web page as a reference shows its year and link, not a journal', async (
     .fill('@misc{addgene2020, title = {Addgene CRISPR guide}, author = {Addgene}, year = {2020}, url = {https://www.addgene.org/guides/crispr/}}');
   await page.getByRole('button', { name: 'Import paper' }).click();
   await page.locator('.gc-paper-row .gc-note-open').click();
-  await expect(page.locator('.gc-props .gc-prop-label')).toHaveText(['Authors', 'Year', 'Link', 'Tags', 'Cited in']);
+  await expect(page.locator('.gc-props .gc-prop-label')).toHaveText(['Reading', 'Authors', 'Year', 'Link', 'Tags', 'Cited in']);
   await expect(page.getByRole('link', { name: /addgene\.org/ })).toHaveAttribute('href', 'https://www.addgene.org/guides/crispr/');
 });

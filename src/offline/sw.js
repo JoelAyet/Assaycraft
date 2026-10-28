@@ -27,6 +27,10 @@ const brokenCopy = () =>
     .then((old) => Promise.all(old.map((cache) => cache.match('index.html').then((hit) => !!hit && hit.redirected))))
     .then((found) => found.some(Boolean));
 
+// A built file's name carries a hash of its contents, so one an older version kept is the same file:
+// an update downloads only what changed (the PDF and HEIC readers are large and rarely change).
+const keptBefore = (file) => (file.startsWith('assets/') ? caches.match(file) : Promise.resolve(undefined));
+
 self.addEventListener('install', (event) => {
   // Download this version. It is used once the open pages agree to reload (see src/lib/offline.ts).
   event.waitUntil(
@@ -35,10 +39,14 @@ self.addEventListener('install', (event) => {
       .then((cache) =>
         Promise.all(
           FILES.map((file) =>
-            fetch(new Request(keyOf(file), { cache: 'reload' })).then((response) => {
-              if (!response.ok) throw new Error(`Could not keep ${file} for offline use`);
-              return Promise.resolve(plain(response)).then((copy) => cache.put(keyOf(file), copy));
-            }),
+            keptBefore(file).then((kept) =>
+              kept
+                ? cache.put(file, kept)
+                : fetch(new Request(keyOf(file), { cache: 'reload' })).then((response) => {
+                    if (!response.ok) throw new Error(`Could not keep ${file} for offline use`);
+                    return Promise.resolve(plain(response)).then((copy) => cache.put(keyOf(file), copy));
+                  }),
+            ),
           ),
         ),
       )

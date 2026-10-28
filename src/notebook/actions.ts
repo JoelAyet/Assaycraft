@@ -9,6 +9,8 @@ import type { Vault } from '../fs/types';
 import { copyFile, moveDir, moveFile, uniquePath, walk } from '../fs/ops';
 import { basename, dirname, extname, isInside, join, relative, sanitizeFileName, setAsciiFileNames, splitPath, stem } from '../lib/path';
 import { localDate, localIso, timeOfDay } from '../lib/dates';
+import { moveReminder, setReminderDone } from '../reminders/model';
+
 import { docSchema } from '../editor/schema';
 import { parseMarkdown } from '../markdown/parse';
 import { serializeMarkdown, sheetToMarkdown } from '../markdown/serialize';
@@ -44,7 +46,7 @@ import { defaultConfig, getState, hashToRoute, navigate, setState, toast, type S
 import { FIGURE_SRC } from '../pdf/layout';
 import type { ConvertedPdf } from '../pdf/convert';
 import { bodyFacts } from './text';
-import { replaceFlowStep } from '../flow/model';
+import { replaceFlowStep, setFlowStepDate } from '../flow/model';
 import { seedNotebook } from './seed';
 import { stockType, writeStockTable, type StockTable } from '../stocks/model';
 import { citationKey, refExtra, refFromMeta, type RefInfo } from '../literature/model';
@@ -524,6 +526,36 @@ export async function linkFlowStep(parentPath: string, index: number, entry: Doc
   const next = replaceFlowStep(body, index, { title: entry.title, ref: entry.id, href: relative(dirname(path), entry.path) });
   if (next === undefined) throw new Error('The flow no longer has that step');
   await runWrite(path, next);
+}
+
+/** Rewrite a page's body (from its open editor, or its file) and save it, reloading an open editor quietly. */
+async function rewriteBody(stalePath: string, edit: (body: string) => string | undefined, missing: string) {
+  const path = currentPath(stalePath);
+  await flushWrite(path);
+  const open = openBodies.get(path);
+  const body = open ? open() : (await readDoc(path)).body;
+  const next = edit(body);
+  if (next === undefined) throw new Error(missing);
+  await runWrite(path, next);
+  const reload = externalListeners.get(path);
+  if (reload) {
+    quietReloads.add(path);
+    reload();
+  }
+}
+
+/** Plan step `index` of the flow in a page for another day (from the calendar). */
+export function updateFlowStepDate(stalePath: string, index: number, date: string) {
+  return rewriteBody(stalePath, (body) => setFlowStepDate(body, index, date), 'That step is no longer in its flow');
+}
+
+/** Move a reminder in a page to another day (keeping its time), or tick it off, writing the page's file. */
+export async function updateReminder(stalePath: string, index: number, change: { date: string } | { done: boolean }) {
+  return rewriteBody(
+    stalePath,
+    (body) => ('date' in change ? moveReminder(body, index, change.date) : setReminderDone(body, index, change.done)),
+    'That reminder is no longer in its page',
+  );
 }
 
 /** Update metadata in the store immediately and save it shortly after. */

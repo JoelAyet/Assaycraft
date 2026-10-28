@@ -8,7 +8,8 @@
  *  - a plate layout is a table of wells (rows A, B…, columns 1, 2…) under <!-- gc:plate {"format":96,"samples":[…]} -->
  *  - a flow is a numbered list of steps (titles, or links to their entries) under <!-- gc:flow -->
  *  - a paragraph that is just a link to a local file is a file attachment
- *  - <sub>, <sup>, <mark>, <u> are used for sub/superscript, highlight and underline
+ *  - <sub>, <sup>, <mark>, <u> are used for sub/superscript, highlight and underline;
+ *    <mark data-color=…> for other highlight colours, <span class="gc-ink"> for coloured text, <span class="gc-size"> for sizes
  *  - sub-template references (templates only): <!-- gc:include {"id":"…","name":"…"} -->
  *  - anything else that is raw HTML is preserved verbatim
  */
@@ -17,11 +18,14 @@ import { MarkdownParser } from 'prosemirror-markdown';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { docSchema } from '../editor/schema';
 import { parseRef } from '../sheet/refs';
-import { normalizeSheet, type SheetData } from '../sheet/model';
+import { CELL_COLORS, normalizeSheet, type SheetData } from '../sheet/model';
 import { extname, isRelativeFileLink, safeDecode } from '../lib/path';
 import { bufferFromTable } from '../buffer/calc';
 import { normalizePlate, plateFromTable } from '../plate/model';
 import { flowFromItems } from '../flow/model';
+import { REMINDER_RE } from '../reminders/model';
+import { normalizeAnnotations } from '../editor/annotations';
+import { timeOfDay } from '../lib/dates';
 
 const GC_COMMENT_RE = /^<!--\s*gc:([a-z][a-z0-9-]*)\s*([\s\S]*?)\s*-->\s*$/i;
 const TASK_RE = /^\[([ xX])\](?:[ \t]+|$)/;
@@ -103,7 +107,12 @@ function sheetFromRows(rows: string[][], meta: Record<string, unknown> | null): 
   }
   const w = meta?.w;
   const widths = Array.isArray(w) ? w.map((x) => (typeof x === 'number' && x > 0 ? x : null)) : undefined;
-  return normalizeSheet({ rows, ...(widths ? { widths } : {}) });
+  const bg = meta?.bg && typeof meta.bg === 'object' ? (meta.bg as Record<string, unknown>) : undefined;
+  const colors: Record<string, string> = {};
+  for (const [key, color] of Object.entries(bg ?? {}))
+    if (parseRef(key) && (CELL_COLORS as readonly string[]).includes(String(color))) colors[key.toUpperCase()] = String(color);
+  const freeze = typeof meta?.freeze === 'number' && meta.freeze > 0 ? Math.floor(meta.freeze) : undefined;
+  return normalizeSheet({ rows, ...(widths ? { widths } : {}), ...(Object.keys(colors).length ? { colors } : {}), ...(freeze ? { freeze } : {}) });
 }
 
 function collectTable(tokens: Token[], start: number): { rows: string[][]; end: number } {
@@ -195,25 +204,45 @@ function imagesFromHtml(b: Builder, html: string): Token[] | null {
 
 /** Map inline HTML to marks where possible, keep the rest verbatim. */
 function transformInline(state: StateCore, children: Token[]): Token[] {
-  const tagOf = (t: Token): { name: string; close: boolean } | null => {
+  type Tag = { name: string; group: string; close: boolean; attrs: [string, string][] };
+  const tagOf = (t: Token): Tag | null => {
     if (t.type !== 'html_inline') return null;
-    const m = /^<(\/?)([a-z]+)\s*>$/i.exec(t.content.trim());
+    const m = /^<(\/?)([a-z]+)((?:\s+[^<>]*?)?)\s*>$/i.exec(t.content.trim());
     if (!m) return null;
-    const name = INLINE_TAGS[m[2].toLowerCase()];
-    return name ? { name, close: m[1] === '/' } : null;
+    const tag = m[2].toLowerCase();
+    const close = m[1] === '/';
+    if (close)
+      return tag === 'span'
+        ? { name: '', group: 'span', close, attrs: [] }
+        : INLINE_TAGS[tag]
+          ? { name: INLINE_TAGS[tag], group: INLINE_TAGS[tag], close, attrs: [] }
+          : null;
+    const attrs = htmlAttrs(m[3] ?? '');
+    // Coloured text and sizes: <span class="gc-ink" data-color="red">, <span class="gc-size" data-size="large">.
+    if (tag === 'span') {
+      const cls = (attrs.class ?? '').split(/\s+/);
+      if (cls.includes('gc-ink') && attrs['data-color']) return { name: 'text_color', group: 'span', close, attrs: [['color', attrs['data-color']]] };
+      if (cls.includes('gc-size') && attrs['data-size']) return { name: 'text_size', group: 'span', close, attrs: [['size', attrs['data-size']]] };
+      return null;
+    }
+    const name = INLINE_TAGS[tag];
+    if (!name) return null;
+    // Other attributes are only kept on <mark data-color>; a tag with anything else stays raw HTML.
+    if (name === 'mark' && attrs['data-color']) return { name, group: name, close, attrs: [['color', attrs['data-color']]] };
+    return m[3]?.trim() ? null : { name, group: name, close, attrs: [] };
   };
-  // Pair up open/close tags so unbalanced HTML stays as text.
-  const paired = new Set<number>();
-  const stack: { name: string; i: number }[] = [];
+  // Pair up open/close tags so unbalanced HTML stays as text. A closing tag takes the name of the tag it closes.
+  const paired = new Map<number, Tag>();
+  const stack: { tag: Tag; i: number }[] = [];
   children.forEach((t, i) => {
     const tag = tagOf(t);
     if (!tag) return;
-    if (!tag.close) stack.push({ name: tag.name, i });
+    if (!tag.close) stack.push({ tag, i });
     else {
       for (let k = stack.length - 1; k >= 0; k--) {
-        if (stack[k].name === tag.name) {
-          paired.add(stack[k].i);
-          paired.add(i);
+        if (stack[k].tag.group === tag.group) {
+          paired.set(stack[k].i, stack[k].tag);
+          paired.set(i, { ...tag, name: stack[k].tag.name });
           stack.splice(k);
           break;
         }
@@ -228,9 +257,11 @@ function transformInline(state: StateCore, children: Token[]): Token[] {
         out.push(new state.Token('hardbreak', 'br', 0));
         return;
       }
-      const tag = tagOf(t);
-      if (tag && paired.has(i)) {
-        out.push(new state.Token(`${tag.name}_${tag.close ? 'close' : 'open'}`, tag.name, tag.close ? -1 : 1));
+      const tag = paired.get(i);
+      if (tag) {
+        const tok = new state.Token(`${tag.name}_${tag.close ? 'close' : 'open'}`, tag.name, tag.close ? -1 : 1);
+        if (tag.attrs.length) tok.attrs = tag.attrs;
+        out.push(tok);
         return;
       }
       const raw = new state.Token('raw_inline', '', 0);
@@ -245,6 +276,28 @@ function transformInline(state: StateCore, children: Token[]): Token[] {
       const text = new state.Token('text', '', 0);
       text.content = t.content || 'image';
       out.push(open, text, new state.Token('link_close', 'a', -1));
+      return;
+    }
+    // Reminders, "(@2026-10-30 14:00)", become chips.
+    if (t.type === 'text' && t.content.includes('(@')) {
+      let last = 0;
+      for (const m of t.content.matchAll(REMINDER_RE)) {
+        if (m.index > last) {
+          const txt = new state.Token('text', '', 0);
+          txt.content = t.content.slice(last, m.index);
+          out.push(txt);
+        }
+        const r = new state.Token('reminder', '', 0);
+        r.meta = { date: m[1], time: m[2] ? (timeOfDay(m[2]) ?? null) : null };
+        out.push(r);
+        last = m.index + m[0].length;
+      }
+      if (last === 0) out.push(t);
+      else if (last < t.content.length) {
+        const txt = new state.Token('text', '', 0);
+        txt.content = t.content.slice(last);
+        out.push(txt);
+      }
       return;
     }
     out.push(t);
@@ -313,11 +366,23 @@ function assaycraftRule(state: StateCore) {
   let tableMeta: Record<string, unknown> | null = null;
   let bufferMeta: Record<string, unknown> | null = null;
   let plateMeta: Record<string, unknown> | null = null;
+  // Notes drawn on the image that follows.
+  let imageMarks: unknown = null;
+  const withMarks = (blocks: Token[]): Token[] => {
+    const img = blocks.find((tok) => tok.type === 'image_block');
+    if (img && imageMarks) img.meta = { ...(img.meta as object), marks: normalizeAnnotations(imageMarks) };
+    imageMarks = null;
+    return blocks;
+  };
 
   for (let i = 0; i < src.length; i++) {
     const t = src[i];
     if (t.type === 'html_block') {
       const gc = parseGcComment(t.content);
+      if (gc?.type === 'image') {
+        imageMarks = gc.data.marks ?? null;
+        continue;
+      }
       if (gc?.type === 'table') {
         tableMeta = gc.data;
         continue;
@@ -356,7 +421,7 @@ function assaycraftRule(state: StateCore) {
         continue;
       }
       const imgs = imagesFromHtml(b, t.content);
-      if (imgs) out.push(...imgs);
+      if (imgs) out.push(...withMarks(imgs));
       else out.push(b.token('raw_block', null, t.content.replace(/\s+$/, '')));
       tableMeta = null;
       bufferMeta = null;
@@ -382,7 +447,7 @@ function assaycraftRule(state: StateCore) {
     if (t.type === 'paragraph_open' && !t.hidden && src[i + 1]?.type === 'inline' && src[i + 2]?.type === 'paragraph_close') {
       const blocks = paragraphBlocks(b, src[i + 1]);
       if (blocks) {
-        out.push(...blocks);
+        out.push(...withMarks(blocks));
         i += 2;
         continue;
       }
@@ -427,12 +492,15 @@ function getParser(): MarkdownParser {
     include: { node: 'include', getAttrs: (tok) => tok.meta as Record<string, unknown> },
     raw_block: { node: 'rawBlock', getAttrs: (tok) => ({ content: tok.content }) },
     raw_inline: { node: 'rawInline', getAttrs: (tok) => ({ content: tok.content }) },
+    reminder: { node: 'reminder', getAttrs: (tok) => tok.meta as Record<string, unknown> },
     em: { mark: 'italic' },
     strong: { mark: 'bold' },
     s: { mark: 'strike' },
     sub: { mark: 'subscript' },
     sup: { mark: 'superscript' },
-    mark: { mark: 'highlight' },
+    mark: { mark: 'highlight', getAttrs: (tok) => ({ color: tok.attrGet('color') }) },
+    text_color: { mark: 'textColor', getAttrs: (tok) => ({ color: tok.attrGet('color') }) },
+    text_size: { mark: 'textSize', getAttrs: (tok) => ({ size: tok.attrGet('size') }) },
     u: { mark: 'underline' },
     // Notebook-relative hrefs are kept decoded (like image sources); the serializer encodes them again.
     link: { mark: 'link', getAttrs: (tok) => ({ href: localHref(tok.attrGet('href') ?? ''), title: tok.attrGet('title') || null }) },

@@ -2,6 +2,7 @@
 import type { Editor } from '@tiptap/core';
 import type { ReactNode } from 'react';
 import {
+  BellRing,
   Beaker,
   Grid3x3,
   BookMarked,
@@ -33,7 +34,7 @@ import { newBuffer } from '../buffer/calc';
 import { focusNextInsertedFlow } from '../flow/FlowView';
 import { focusNextInsertedPlate } from '../plate/PlateView';
 import { newPlate } from '../plate/model';
-import { longDate, localDate } from '../lib/dates';
+import { openDayDialog, openReminderDialog } from './datePrompts';
 import { SEQUENCE_EXTENSIONS } from '../bio/detect';
 import { insertBlocks } from './insertion';
 
@@ -80,14 +81,6 @@ export function insertPlate(editor: Editor) {
 export function insertFlow(editor: Editor) {
   focusNextInsertedFlow();
   insertBlocks(editor, { type: 'flow', attrs: { data: { steps: [] } } });
-}
-
-export function insertDateHeading(editor: Editor) {
-  const now = new Date();
-  insertBlocks(editor, [
-    { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: `${localDate(now)} · ${longDate(now).split(',')[0]}` }] },
-    { type: 'paragraph' },
-  ]);
 }
 
 export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }): BlockCommand[] {
@@ -274,12 +267,21 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
     },
     {
       id: 'date',
-      title: 'Today’s date',
-      description: 'Date heading for a new day of work',
+      title: 'Day',
+      description: 'Date heading for a day of work: today, or pick another day',
       icon: <CalendarDays />,
-      keywords: 'today day date timestamp',
+      keywords: 'today day date timestamp heading',
       group: 'Lab',
-      run: (e) => insertDateHeading(e),
+      run: (e) => openDayDialog(e),
+    },
+    {
+      id: 'reminder',
+      title: 'Reminder',
+      description: 'A date and time that shows on the calendar, to tick off there',
+      icon: <BellRing />,
+      keywords: 'reminder remind alarm due deadline todo calendar time',
+      group: 'Lab',
+      run: (e) => openReminderDialog(e),
     },
     {
       id: 'link',

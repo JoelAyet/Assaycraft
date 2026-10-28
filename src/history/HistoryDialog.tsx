@@ -6,6 +6,7 @@ import { flushWrite, restoreVersion } from '../notebook/actions';
 import { diffLines, type DiffLine, type Segment } from './diff';
 import { flushHistory, historyPathFor, readHistory } from './store';
 import { dayLabel, historyItems, propChanges, timeLabel, type HistoryItem } from './view';
+import { LOCALE, clock } from '../lib/dates';
 
 export function openVersionHistory(path: string) {
   openDialog((close) => <HistoryDialog path={path} close={close} />);
@@ -14,7 +15,7 @@ export function openVersionHistory(path: string) {
 type Mode = 'changes' | 'current';
 
 const fullDate = (t: number) =>
-  new Date(t).toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  new Date(t).toLocaleString(LOCALE, clock({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit' }));
 
 /** "today at 14:03", "yesterday at 09:10" or the full date. */
 function whenLabel(t: number) {

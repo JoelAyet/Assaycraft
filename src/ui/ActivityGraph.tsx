@@ -1,11 +1,11 @@
 import { useMemo, type CSSProperties } from 'react';
 import { activityByDay, useActivity } from '../notebook/activity';
 import { useNotebook, weekStartDay } from '../notebook/store';
-import { localDate } from '../lib/dates';
+import { localDate, LOCALE } from '../lib/dates';
 
 const WEEKS = 26;
 
-const dayLabel = (d: Date) => d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+const dayLabel = (d: Date) => d.toLocaleDateString(LOCALE, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
 /** A GitHub-style contributions graph: one square per day, darker the more documents were edited. */
 export function ActivityGraph() {
@@ -30,12 +30,12 @@ export function ActivityGraph() {
       if (day > todayYmd) break;
       const week = Math.floor(i / 7);
       cells.push({ day, date, count: counts.get(day) ?? 0, week, row: i % 7 });
-      if (date.getDate() === 1 && week < WEEKS - 1) months.push({ week, label: date.toLocaleDateString(undefined, { month: 'short' }) });
+      if (date.getDate() === 1 && week < WEEKS - 1) months.push({ week, label: date.toLocaleDateString(LOCALE, { month: 'short' }) });
     }
     // Monday, Wednesday and Friday are labelled, whichever day the week starts on.
     const weekdays = [0, 1, 2, 3, 4, 5, 6]
       .filter((row) => [1, 3, 5].includes((weekStart + row) % 7))
-      .map((row) => ({ row, label: cells[row]?.date.toLocaleDateString(undefined, { weekday: 'short' }) ?? '' }));
+      .map((row) => ({ row, label: cells[row]?.date.toLocaleDateString(LOCALE, { weekday: 'short' }) ?? '' }));
     const max = Math.max(0, ...cells.map((c) => c.count));
     return { cells, months, weekdays, max, active: cells.filter((c) => c.count > 0).length };
   }, [counts, weekStart, todayYmd]);

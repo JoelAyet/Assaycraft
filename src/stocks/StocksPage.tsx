@@ -869,7 +869,6 @@ export function StocksPage({ path, id }: { path?: string; id?: string }) {
       </div>
       <div className="gc-folder-inner gc-stocks-inner">
         <header className="gc-page-head">
-          <div className="gc-eyebrow">Inventory</div>
           <h1 className="gc-page-title">Stocks</h1>
           <p className="gc-lede">Primers, plasmids, glycerol stocks, seeds… one table per collection, linked from the entries that use them.</p>
         </header>

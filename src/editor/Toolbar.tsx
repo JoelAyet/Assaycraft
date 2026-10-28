@@ -1,6 +1,7 @@
 import { useEditorState, type Editor } from '@tiptap/react';
 import { useEffect, useRef, useState } from 'react';
 import {
+  Baseline,
   Bold,
   CheckSquare,
   Code,
@@ -27,6 +28,103 @@ import { blockCommands, insertTable, type InsertHandlers } from './commands';
 import { SEQUENCE_EXTENSIONS } from '../bio/detect';
 import { tip } from '../ui/Tooltip';
 import { isRelativeFileLink, safeDecode } from '../lib/path';
+import { HIGHLIGHT_COLORS, TEXT_COLORS, type TextSize } from './schema';
+
+const SIZE_LABEL: Record<TextSize | 'normal', string> = { small: 'Small', normal: 'Normal', large: 'Large', huge: 'Huge' };
+
+/** Highlight colour, text colour and text size, for the selected text (or what is typed next). */
+function ColorButton({ editor }: { editor: Editor }) {
+  const p = usePopover();
+  const cur = useEditorState({
+    editor,
+    selector: ({ editor: e }) => ({
+      highlight: e.isActive('highlight') ? ((e.getAttributes('highlight').color as string | null) ?? 'yellow') : null,
+      color: e.isActive('textColor') ? (e.getAttributes('textColor').color as string) : null,
+      size: e.isActive('textSize') ? (e.getAttributes('textSize').size as TextSize) : 'normal',
+    }),
+  });
+  const run = (fn: (c: ReturnType<Editor['chain']>) => ReturnType<Editor['chain']>) => fn(editor.chain().focus()).run();
+  return (
+    <>
+      <button
+        ref={p.ref}
+        className={`icon-btn gc-ink-btn ${cur.color || cur.highlight || cur.size !== 'normal' ? 'active' : ''}`}
+        {...tip('Colour and size', 'Highlight colour, text colour and text size')}
+        aria-haspopup="dialog"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={p.toggle}
+      >
+        <Baseline />
+        <span className="gc-ink-bar" data-color={cur.color ?? undefined} />
+      </button>
+      {p.open && (
+        <Popover anchor={p.ref.current} onClose={p.close}>
+          <div className="gc-ink-menu" onMouseDown={(e) => e.target instanceof HTMLButtonElement && e.preventDefault()}>
+            <div className="gc-ink-label">Highlight</div>
+            <div className="gc-ink-row">
+              <button
+                className={`gc-ink-swatch is-none ${!cur.highlight ? 'active' : ''}`}
+                aria-label="No highlight"
+                title="No highlight"
+                onClick={() => run((c) => c.unsetMark('highlight'))}
+              >
+                ab
+              </button>
+              {HIGHLIGHT_COLORS.map((h) => (
+                <button
+                  key={h}
+                  className={`gc-ink-swatch ${cur.highlight === h ? 'active' : ''}`}
+                  aria-label={`Highlight ${h}`}
+                  title={`Highlight ${h}`}
+                  onClick={() => run((c) => c.setMark('highlight', { color: h === 'yellow' ? null : h }))}
+                >
+                  <mark data-color={h === 'yellow' ? undefined : h}>ab</mark>
+                </button>
+              ))}
+            </div>
+            <div className="gc-ink-label">Text colour</div>
+            <div className="gc-ink-row">
+              <button
+                className={`gc-ink-swatch is-none ${!cur.color ? 'active' : ''}`}
+                aria-label="Default text colour"
+                title="Default"
+                onClick={() => run((c) => c.unsetMark('textColor'))}
+              >
+                A
+              </button>
+              {TEXT_COLORS.map((t) => (
+                <button
+                  key={t}
+                  className={`gc-ink-swatch ${cur.color === t ? 'active' : ''}`}
+                  aria-label={`Text ${t}`}
+                  title={`Text ${t}`}
+                  onClick={() => run((c) => c.setMark('textColor', { color: t }))}
+                >
+                  <span className="gc-ink" data-color={t}>
+                    A
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="gc-ink-label">Size</div>
+            <div className="gc-segmented gc-ink-sizes" role="group" aria-label="Text size">
+              {(['small', 'normal', 'large', 'huge'] as const).map((z) => (
+                <button
+                  key={z}
+                  className={cur.size === z ? 'active' : ''}
+                  aria-pressed={cur.size === z}
+                  onClick={() => run((c) => (z === 'normal' ? c.unsetMark('textSize') : c.setMark('textSize', { size: z })))}
+                >
+                  {SIZE_LABEL[z]}
+                </button>
+              ))}
+            </div>
+          </div>
+        </Popover>
+      )}
+    </>
+  );
+}
 
 function LinkButton({ editor, active }: { editor: Editor; active: boolean }) {
   const p = usePopover();
@@ -117,6 +215,7 @@ const INSERT_MENU = [
   'sequence',
   'subtemplate',
   'date',
+  'reminder',
   'quote',
   'code',
   'divider',
@@ -211,7 +310,8 @@ export function Toolbar({ editor, handlers, inTemplate }: { editor: Editor; hand
       {btn(s.strike, ['Strikethrough', 'Cross text out', 'Mod+Shift+S'], <Strikethrough />, () => c().toggleStrike().run(), true)}
       {btn(s.sub, ['Subscript', 'Lowered text, as in H₂O', 'Mod+,'], <Subscript />, () => c().toggleSubscript().run())}
       {btn(s.sup, ['Superscript', 'Raised text, as in 10⁶ or µm²', 'Mod+.'], <Superscript />, () => c().toggleSuperscript().run())}
-      {btn(s.highlight, ['Highlight', 'Mark text in colour', 'Mod+Shift+H'], <Highlighter />, () => c().toggleHighlight().run(), true)}
+      {btn(s.highlight, ['Highlight', 'Mark text in colour', 'Mod+Shift+H'], <Highlighter />, () => c().toggleMark('highlight').run(), true)}
+      <ColorButton editor={editor} />
       {btn(s.code, ['Inline code', 'Monospace text, for sequences and commands', 'Mod+E'], <Code />, () => c().toggleCode().run(), true)}
       <LinkButton editor={editor} active={s.link} />
       <span className="gc-tb-sep" />

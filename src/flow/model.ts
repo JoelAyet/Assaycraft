@@ -3,11 +3,12 @@
  * a title and, once started, the entry that carries it out. In Markdown it is a numbered list under a
  * comment, so the file reads well anywhere:
  *
- *   <!-- gc:flow {"templates":{"4":"protein-expression"}} -->
+ *   <!-- gc:flow {"templates":{"4":"protein-expression"},"dates":{"2":"2026-11-03"}} -->
  *   1. [EXP-0041 Transformation of E. coli](EXP-0041%20Transformation%20of%20E.%20coli.md)
  *   2. Lab-scale production
  *
- * Status, dates and results are not stored here: each step shows those of its entry.
+ * A step not started yet can have the day it is planned for ("dates"); once started, its entry's own
+ * status, date and result are shown instead.
  */
 import { basename, encodeLinkPath, safeDecode, stem } from '../lib/path';
 import type { DocMeta, FlowStepRef } from '../notebook/model';
@@ -20,6 +21,8 @@ export interface FlowStep {
   href?: string;
   /** ID of the template a new entry for this step starts from. */
   template?: string;
+  /** The day it is planned for, while it is not started (YYYY-MM-DD). */
+  date?: string;
 }
 
 export interface FlowData {
@@ -38,6 +41,7 @@ export function normalizeFlow(input: Partial<FlowData> | null | undefined): Flow
         if (str(s.ref)) step.ref = str(s.ref);
         if (str(s.href)) step.href = str(s.href);
         if (str(s.template)) step.template = str(s.template);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str(s.date))) step.date = str(s.date);
         return step;
       }),
   };
@@ -67,16 +71,18 @@ export function stepFromItem(text: string, href: string | undefined): FlowStep {
   return { title, ref, href: safeDecode(href) };
 }
 
-/** Templates by step number (from 1), as kept in the comment. */
+/** Templates and planned days by step number (from 1), as kept in the comment. */
 export function flowFromItems(items: { text: string; href?: string }[], meta: Record<string, unknown>): FlowData {
   const templates = (meta.templates && typeof meta.templates === 'object' ? meta.templates : {}) as Record<string, unknown>;
-  return {
+  const dates = (meta.dates && typeof meta.dates === 'object' ? meta.dates : {}) as Record<string, unknown>;
+  return normalizeFlow({
     steps: items.map((item, i) => {
       const step = stepFromItem(item.text, item.href);
       const t = str(templates[String(i + 1)]);
-      return t ? { ...step, template: t } : step;
+      const d = str(dates[String(i + 1)]);
+      return { ...step, ...(t ? { template: t } : {}), ...(d && !step.ref ? { date: d } : {}) };
     }),
-  };
+  });
 }
 
 /** Plain text that stays plain inside a list item. */
@@ -93,10 +99,14 @@ const commentJson = (value: unknown) => JSON.stringify(value).replace(/--/g, '-\
 export function flowToMarkdown(input: FlowData): string {
   const d = normalizeFlow(input);
   const templates: Record<string, string> = {};
+  const dates: Record<string, string> = {};
   d.steps.forEach((s, i) => {
     if (s.template) templates[String(i + 1)] = s.template;
+    // Once started, the step's day is its entry's.
+    if (s.date && !s.ref) dates[String(i + 1)] = s.date;
   });
-  const lines = [`<!-- gc:flow${Object.keys(templates).length ? ' ' + commentJson({ templates }) : ''} -->`];
+  const meta = { ...(Object.keys(templates).length ? { templates } : {}), ...(Object.keys(dates).length ? { dates } : {}) };
+  const lines = [`<!-- gc:flow${Object.keys(meta).length ? ' ' + commentJson(meta) : ''} -->`];
   d.steps.forEach((s, i) => {
     const title = s.title.replace(/\s+/g, ' ').trim();
     const text =
@@ -140,7 +150,16 @@ export function flowStepRefs(body: string): FlowStepRef[] | undefined {
     title: s.title,
     ...(s.ref ? { ref: s.ref } : {}),
     ...(s.template ? { template: s.template } : {}),
+    ...(s.date && !s.ref ? { date: s.date } : {}),
   }));
+}
+
+/** A body whose first flow has step `index` planned for another day (undefined if there is no such step). */
+export function setFlowStepDate(body: string, index: number, date: string | undefined): string | undefined {
+  const flow = findFlow(body);
+  if (!flow || !flow.data.steps[index]) return undefined;
+  const steps = flow.data.steps.map((s, i) => (i === index ? { ...s, date } : s));
+  return body.slice(0, flow.start) + flowToMarkdown({ steps }) + body.slice(flow.end);
 }
 
 /** A body whose first flow has step `index` replaced (keeping its template), or undefined if there is no such step. */

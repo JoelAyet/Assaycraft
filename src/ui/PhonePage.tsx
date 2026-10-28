@@ -245,7 +245,6 @@ export function PhonePage() {
       </div>
       <div className="gc-settings-inner">
         <header className="gc-page-head">
-          <div className="gc-eyebrow">{notebook}</div>
           <h1 className="gc-page-title">{phone ? 'Computer connection' : 'Connect a phone'}</h1>
           <p className="gc-lede">
             {phone

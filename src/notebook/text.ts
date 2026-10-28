@@ -3,6 +3,7 @@ import { stockItems, type StockItem } from '../stocks/model';
 import type { DocKind, FlowStepRef } from './model';
 import { flowStepRefs } from '../flow/model';
 import { plateFromTable, plateRefs } from '../plate/model';
+import { REMINDER_RE, remindersIn, type Reminder } from '../reminders/model';
 
 /**
  * Headings end with a colon and list items are kept apart with " · ", so that a preview reads
@@ -53,6 +54,7 @@ function summarizePlates(markdown: string): string {
 export function toPlainText(markdown: string, limit = 20000): string {
   return separateBlocks(summarizePlates(markdown))
     .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(REMINDER_RE, (_, d: string, t?: string) => ` ${d}${t ? ` ${t}` : ''} `)
     .replace(/```[\s\S]*?```/g, (m) => m.replace(/```\w*/g, ' '))
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
@@ -118,6 +120,7 @@ export function bodyFacts(
   refs: string[];
   stockItems?: StockItem[];
   flow: FlowStepRef[] | undefined;
+  reminders: Reminder[] | undefined;
 } {
   const includes: string[] = [];
   for (const m of body.matchAll(INCLUDE_RE)) {
@@ -142,6 +145,7 @@ export function bodyFacts(
     // Links in the text, and the stocks and entries plate layouts are linked to.
     refs: [...new Set([...linkedIds(body), ...plateRefs(body)])],
     flow: flowStepRefs(body),
+    reminders: (kind === undefined || kind === 'entry' || kind === 'note' || kind === 'card') && body.includes('(@') ? remindersIn(body) : undefined,
     ...(kind === 'stocks' ? { stockItems: stockItems(body) } : {}),
   };
 }

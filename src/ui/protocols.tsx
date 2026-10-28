@@ -798,7 +798,6 @@ export function ProtocolsPage() {
       </div>
       <div className="gc-folder-inner">
         <header className="gc-page-head">
-          <div className="gc-eyebrow">Library</div>
           <h1 className="gc-page-title">Protocols</h1>
           <p className="gc-lede">Your lab’s reference methods, versioned, and linked from every entry that follows them.</p>
         </header>

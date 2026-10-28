@@ -33,7 +33,7 @@ function SequenceText({ seq }: { seq: string }) {
       <pre>{lines.join('\n')}</pre>
       {seq.length > limit && !all && (
         <button className="btn btn-sm" onClick={() => setAll(true)}>
-          Show all {seq.length.toLocaleString()} bases
+          Show all {seq.length.toLocaleString('en-US')} bases
         </button>
       )}
     </div>
@@ -69,7 +69,7 @@ export function SequenceCard({ blob, fileName, url, vaultPath, storage, actions 
         {record ? (
           <span className="gc-seq-sub">
             <span className="pill pill-sq tone-purple">{record.format}</span>
-            {record.length.toLocaleString()} {record.molecule === 'protein' ? 'aa' : 'bp'} · {record.circular ? 'circular' : 'linear'}
+            {record.length.toLocaleString('en-US')} {record.molecule === 'protein' ? 'aa' : 'bp'} · {record.circular ? 'circular' : 'linear'}
             {record.molecule !== 'protein' && stats ? ` · GC ${(stats.gc * 100).toFixed(1)}%` : ''} · {record.features.length} features
             {record.primers.length ? ` · ${record.primers.length} primers` : ''}
           </span>
@@ -149,7 +149,7 @@ export function SequenceCard({ blob, fileName, url, vaultPath, storage, actions 
                     <td className="mono">
                       {f.start + 1}..{f.end} {strandArrow(f.strand)}
                     </td>
-                    <td className="num mono">{spanLength(f.start, f.end, record.length).toLocaleString()}</td>
+                    <td className="num mono">{spanLength(f.start, f.end, record.length).toLocaleString('en-US')}</td>
                   </tr>
                 ))}
               </tbody>

@@ -100,7 +100,6 @@ export function TemplatesPage() {
       </div>
       <div className="gc-templates-inner">
         <header className="gc-page-head">
-          <div className="gc-eyebrow">Library</div>
           <h1 className="gc-page-title">Templates</h1>
           <p className="gc-lede">Ready-made entries for the experiments you repeat, so each new one starts filled in.</p>
         </header>

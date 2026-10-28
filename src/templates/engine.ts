@@ -8,6 +8,7 @@
  */
 import type { JSONContent } from '@tiptap/core';
 import { basename, extname, isRelativeFileLink, join, relative, splitFragment } from '../lib/path';
+import { LOCALE } from '../lib/dates';
 
 export const BUILTIN_VARIABLES = ['date', 'time', 'datetime', 'weekday', 'id', 'title', 'author', 'project'] as const;
 const VAR_RE = /\{\{\s*([^{}|]+?)\s*(?:\|\s*([^{}]*?)\s*)?\}\}/g;
@@ -357,7 +358,7 @@ export function builtinValues(ctx: { id: string; title: string; author: string; 
     date,
     time,
     datetime: `${date} ${time}`,
-    weekday: now.toLocaleDateString(undefined, { weekday: 'long' }),
+    weekday: now.toLocaleDateString(LOCALE, { weekday: 'long' }),
     id: ctx.id,
     title: ctx.title,
     author: ctx.author,

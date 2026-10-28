@@ -36,6 +36,8 @@ import {
   Workflow,
 } from 'lucide-react';
 import { DocEditor } from '../editor/DocEditor';
+import { useMarqueeSelect } from '../editor/blockSelect';
+import { DocIndex } from './DocIndex';
 import { openVersionHistory } from '../history/HistoryDialog';
 import { navigate, toast, useNotebook, BUILTIN_EXPERIMENTS_BOARD } from '../notebook/store';
 import {
@@ -68,7 +70,7 @@ import type { TemplateIssue, TemplateVariable } from '../templates/engine';
 import { TemplateCheck, TemplateGuide } from './templateHelp';
 import { entriesById, flowOfStep } from '../flow/model';
 import { NavToggle } from './nav';
-import { fullCitation, refFromMeta, toBibtex } from '../literature/model';
+import { READING_STATUSES, fullCitation, readingStatus, refFromMeta, toBibtex } from '../literature/model';
 import { openPaperDialog } from '../literature/PaperDialog';
 
 function useTitle(meta: DocMeta) {
@@ -345,6 +347,14 @@ function ReferenceProps({ meta, readOnly }: { meta: DocMeta; readOnly: boolean }
   if (info.pages) where += `${where ? ': ' : ''}${info.pages}`;
   return (
     <div className="gc-props">
+      <Prop label="Reading">
+        <OptionSelect
+          options={READING_STATUSES}
+          value={readingStatus(meta)}
+          disabled={readOnly}
+          onChange={(status) => patchMeta(p, { status: status ?? 'to-read' })}
+        />
+      </Prop>
       <Prop label="Authors">
         <span className="gc-prop-text gc-paper-authors">
           {authors.length ? authors.map(givenFirst).join(', ') : <span className="muted">None given</span>}
@@ -894,6 +904,9 @@ function ImportedBanner({ meta, sourceOpen }: { meta: DocMeta; sourceOpen: boole
 
 function DocView({ meta, body }: { meta: DocMeta; body: string }) {
   const [editor, setEditor] = useState<Editor | null>(null);
+  // Drag in the page's margins to select whole blocks.
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+  useMarqueeSelect(meta.locked ? null : editor, scrollEl);
   const sourceOpen = useSourcePane((s) => s.path === meta.path) && !!meta.source;
   useEffect(() => () => closeSourcePane(), []);
   // Tips start open on an empty template, where they help most.
@@ -986,7 +999,7 @@ function DocView({ meta, body }: { meta: DocMeta; body: string }) {
         </MenuButton>
       </div>
       <div className={`gc-doc-body ${sourceOpen ? 'has-source' : ''}`}>
-        <div className="gc-doc-scroll">
+        <div className="gc-doc-scroll" ref={setScrollEl}>
           <article className={`gc-doc ${isTpl ? 'is-template' : ''}`}>
             <DocHeader meta={meta} readOnly={readOnly} />
             {meta.kind === 'entry' && <FlowBar meta={meta} />}
@@ -1024,6 +1037,7 @@ function DocView({ meta, body }: { meta: DocMeta; body: string }) {
           </article>
         </div>
         {sourceOpen && <SourcePane meta={meta} />}
+        {!sourceOpen && <DocIndex editor={editor} meta={meta} />}
       </div>
     </div>
   );

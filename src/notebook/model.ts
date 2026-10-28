@@ -1,4 +1,5 @@
 import { parseDate, timeOfDay } from '../lib/dates';
+import type { Reminder } from '../reminders/model';
 import type { CalendarLink } from '../calendar/external';
 import { dirname, join } from '../lib/path';
 import type { StockItem } from '../stocks/model';
@@ -124,6 +125,8 @@ export interface DocMeta {
   refs?: string[];
   /** Computed: the steps of the flow block in the body, if there is one. */
   flow?: FlowStepRef[];
+  /** Computed: reminders in the body, "(@2026-10-30 14:00)". */
+  reminders?: Reminder[];
 }
 
 /** One step of a flow, as far as other pages need to know: its title and, once started, its entry's id. */
@@ -132,6 +135,8 @@ export interface FlowStepRef {
   ref?: string;
   /** ID or title of the template a new entry for the step starts from. */
   template?: string;
+  /** The day it is planned for, while it is not started. */
+  date?: string;
 }
 
 export interface NotebookConfig {
@@ -147,6 +152,10 @@ export interface NotebookConfig {
   created: string;
   /** Other calendars shown in the calendar (read-only), by their iCal address. */
   calendars?: CalendarLink[];
+  /** Colours chosen for tags (others get one from their name). */
+  tagColors?: Record<string, ColorName>;
+  /** Colours chosen for projects on the calendar (others get one from their name). */
+  projectColors?: Record<string, ColorName>;
 }
 
 export const LAYOUT = {

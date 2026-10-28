@@ -26,6 +26,9 @@ import { openProtocolPicker } from '../ui/protocols';
 import { openStockPicker, stockLinkTarget } from '../stocks/StockPicker';
 import { trackEditorFocus } from './insertion';
 import { VariableHighlight } from './variables';
+import { ReminderView } from '../reminders/ReminderView';
+import { ListIndent } from './keys';
+import { BlockSelect } from './blockSelect';
 
 const stopAllButDrag = ({ event }: { event: Event }) => !event.type.startsWith('drag') && event.type !== 'drop';
 
@@ -40,6 +43,7 @@ function buildExtensions(placeholder: string, commands: () => ReturnType<typeof 
       image: () => ReactNodeViewRenderer(ImageView),
       include: () => ReactNodeViewRenderer(IncludeView),
       rawBlock: () => ReactNodeViewRenderer(RawView),
+      reminder: () => ReactNodeViewRenderer(ReminderView, { as: 'span' }),
     }),
     Placeholder.configure({
       placeholder: ({ node }) => (node.type.name === 'heading' ? `Heading ${node.attrs.level}` : placeholder),
@@ -47,6 +51,8 @@ function buildExtensions(placeholder: string, commands: () => ReturnType<typeof 
     }),
     SlashCommands.configure({ commands }),
     VariableHighlight,
+    ListIndent,
+    BlockSelect,
   ];
 }
 

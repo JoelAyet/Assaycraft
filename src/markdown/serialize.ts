@@ -8,6 +8,9 @@ import { encodeLinkPath, isRelativeFileLink, splitFragment } from '../lib/path';
 import { bufferMeta, bufferTable, normalizeBuffer, type BufferData } from '../buffer/calc';
 import { normalizePlate, plateMeta, plateTable, type PlateData } from '../plate/model';
 import { flowToMarkdown, type FlowData } from '../flow/model';
+import { reminderMark } from '../reminders/model';
+import { normalizeAnnotations } from '../editor/annotations';
+import { HIGHLIGHT_HEX, INK_HEX, SIZE_EM, type TextColor, type TextSize } from '../editor/schema';
 
 /** JSON that is safe inside an HTML comment (no "--"). */
 export function commentJson(value: unknown): string {
@@ -49,6 +52,8 @@ export function sheetToMarkdown(input: SheetData): string {
   const meta: Record<string, unknown> = {};
   if (Object.keys(formulas).length) meta.f = formulas;
   if (data.widths?.some((w) => w != null)) meta.w = data.widths.map((w) => w ?? null);
+  if (data.colors && Object.keys(data.colors).length) meta.bg = data.colors;
+  if (data.freeze) meta.freeze = data.freeze;
 
   const cols = data.rows[0].length;
   const numeric = Array.from({ length: cols }, (_, c) => {
@@ -159,6 +164,12 @@ const nodes: Record<string, NodeFn> = {
   },
   image(state, node) {
     const { src, alt, title, width } = node.attrs as { src: string; alt: string; title: string | null; width: string | null };
+    // Notes drawn on it, just above it.
+    const drawn = normalizeAnnotations(node.attrs.marks);
+    if (drawn.length) {
+      state.write(`<!-- gc:image ${commentJson({ marks: drawn })} -->`);
+      state.ensureNewLine();
+    }
     if (width) {
       const href = isRelativeFileLink(src) ? encodeLinkPath(src) : src;
       state.write(
@@ -202,6 +213,9 @@ const nodes: Record<string, NodeFn> = {
   rawInline(state, node) {
     state.text(String(node.attrs.content ?? ''), false);
   },
+  reminder(state, node) {
+    state.text(reminderMark(String(node.attrs.date), (node.attrs.time as string | null) ?? undefined), false);
+  },
 };
 
 const linkSpec = defaultMarkdownSerializer.marks.link;
@@ -213,7 +227,34 @@ const marks = {
   underline: { open: '<u>', close: '</u>', mixable: true, expelEnclosingWhitespace: true },
   subscript: { open: '<sub>', close: '</sub>', mixable: true },
   superscript: { open: '<sup>', close: '</sup>', mixable: true },
-  highlight: { open: '<mark>', close: '</mark>', mixable: true, expelEnclosingWhitespace: true },
+  // Colours and sizes go by name for Assaycraft, with a style for other Markdown viewers.
+  highlight: {
+    open: (_s: MarkdownSerializerState, mark: Mark) => {
+      const c = mark.attrs.color as keyof typeof HIGHLIGHT_HEX | null;
+      return c && c !== 'yellow' && HIGHLIGHT_HEX[c] ? `<mark data-color="${c}" style="background:${HIGHLIGHT_HEX[c]}">` : '<mark>';
+    },
+    close: '</mark>',
+    mixable: true,
+    expelEnclosingWhitespace: true,
+  },
+  textColor: {
+    open: (_s: MarkdownSerializerState, mark: Mark) => {
+      const c = (INK_HEX[mark.attrs.color as TextColor] ? mark.attrs.color : 'red') as TextColor;
+      return `<span class="gc-ink" data-color="${c}" style="color:${INK_HEX[c]}">`;
+    },
+    close: '</span>',
+    mixable: true,
+    expelEnclosingWhitespace: true,
+  },
+  textSize: {
+    open: (_s: MarkdownSerializerState, mark: Mark) => {
+      const z = (SIZE_EM[mark.attrs.size as TextSize] ? mark.attrs.size : 'large') as TextSize;
+      return `<span class="gc-size" data-size="${z}" style="font-size:${SIZE_EM[z]}">`;
+    },
+    close: '</span>',
+    mixable: true,
+    expelEnclosingWhitespace: true,
+  },
   code: defaultMarkdownSerializer.marks.code,
   link: {
     open: linkSpec.open,

@@ -17,7 +17,7 @@ import { NavToggle } from './nav';
 import { Logo } from './Sidebar';
 import { ActivityGraph } from './ActivityGraph';
 import { ABOUT } from '../lib/about';
-import { BUILTIN_EXPERIMENTS_BOARD, navigate, setState, useNotebook } from '../notebook/store';
+import { navigate, setState, useNotebook } from '../notebook/store';
 import { backlinksOf, boardCards, docSpan, isTask, LAYOUT, type DocMeta } from '../notebook/model';
 import { createCard } from '../notebook/actions';
 import { excerpt } from '../notebook/text';
@@ -25,7 +25,7 @@ import { openNewEntryDialog } from './NewEntryDialog';
 import { openNewProtocolDialog, pickAndImportPdfs } from './protocols';
 import { StatusPill, statusOf } from './status';
 import { dirname, join } from '../lib/path';
-import { formatRelative, formatTime, localDate, longDate } from '../lib/dates';
+import { formatRelative, formatTime, localDate, longDate, LOCALE } from '../lib/dates';
 
 function greeting(name: string) {
   const h = new Date().getHours();
@@ -34,19 +34,6 @@ function greeting(name: string) {
 }
 
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`;
-
-function Figure({ value, label, tone, note, onClick }: { value: number; label: string; tone?: string; note?: string; onClick: () => void }) {
-  return (
-    <button className="gc-figure" onClick={onClick}>
-      <span className="gc-figure-value">{value}</span>
-      <span className="gc-figure-label">
-        {tone ? <span className={`gc-status-dot tone-${tone}`} /> : <CheckSquare />}
-        {label}
-        {note && <span className="gc-overdue"> · {note}</span>}
-      </span>
-    </button>
-  );
-}
 
 export function HomePage() {
   const docs = useNotebook((s) => s.docs);
@@ -81,14 +68,12 @@ export function HomePage() {
     .sort((a, b) => a.span.start.localeCompare(b.span.start) || (a.d.time ?? '').localeCompare(b.d.time ?? ''))
     .slice(0, 8);
 
-  const count = (status: string) => entries.filter((e) => e.status === status).length;
-  const monthStart = today.slice(0, 7);
-  const completedThisMonth = entries.filter((e) => e.status === 'completed' && (e.modified ?? '').startsWith(monthStart)).length;
-  const inProgress = count('in-progress');
-  const lede = entries.length
-    ? `${plural(inProgress, 'experiment')} in progress and ${plural(openCards.length, 'open task')}${overdue.length ? `, ${overdue.length} overdue` : ''}.`
-    : 'A fresh notebook. Start with an entry, or set up the protocols and templates you use most.';
-  const toBoard = () => navigate({ name: 'board', path: BUILTIN_EXPERIMENTS_BOARD });
+  // No counts: only what needs doing. Overdue tasks are not in the next 7 days, so they are named here.
+  const lede = !entries.length
+    ? 'A fresh notebook. Start with an entry, or set up the protocols and templates you use most.'
+    : overdue.length
+      ? `${plural(overdue.length, 'task')} overdue.`
+      : null;
 
   return (
     <div className="gc-page gc-home">
@@ -105,7 +90,7 @@ export function HomePage() {
           <div>
             <div className="gc-eyebrow">{longDate()}</div>
             <h1 className="gc-home-title">{greeting(config.author)}</h1>
-            <p className="gc-lede">{lede}</p>
+            {lede && <p className="gc-lede">{lede}</p>}
             <div className="gc-home-actions">
               <button className="btn btn-primary" onClick={() => openNewEntryDialog({})}>
                 <FilePlus2 /> New entry
@@ -119,18 +104,6 @@ export function HomePage() {
           </div>
           <ActivityGraph />
         </header>
-
-        <section className="gc-figures" aria-label="At a glance">
-          <Figure value={inProgress} label="In progress" tone="blue" onClick={toBoard} />
-          <Figure value={count('planned')} label="Planned" tone="gray" onClick={toBoard} />
-          <Figure value={completedThisMonth} label="Done this month" tone="green" onClick={toBoard} />
-          <Figure
-            value={openCards.length}
-            label="Open tasks"
-            note={overdue.length ? `${overdue.length} overdue` : undefined}
-            onClick={() => boards[0] && navigate({ name: 'board', path: dirname(boards[0].path) })}
-          />
-        </section>
 
         <section className="gc-home-section">
           <header className="gc-section-title">
@@ -220,7 +193,7 @@ export function HomePage() {
                       <span className="gc-list-when">
                         {span.start <= today
                           ? 'Today'
-                          : new Date(span.start + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}
+                          : new Date(span.start + 'T00:00:00').toLocaleDateString(LOCALE, { weekday: 'short', day: 'numeric' })}
                         {d.kind === 'entry' && d.time && span.start >= today && ` · ${formatTime(d.time)}`}
                       </span>
                     </button>

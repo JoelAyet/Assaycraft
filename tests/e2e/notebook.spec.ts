@@ -250,9 +250,9 @@ test('TIFF images from microscopes and gel imagers are shown, a page at a time, 
   await expect(stack.locator('.gc-image-meta')).toContainText('Page 1 of 3');
   await stack.getByTitle('Next page').click();
   await expect(stack.locator('.gc-image-meta')).toContainText('Page 2 of 3');
-  // A format the browser can't draw says so, with the file to download.
-  await expect(heic.locator('.gc-image-fallback')).toContainText('IMG_0042.heic');
-  await expect(heic.locator('.gc-image-fallback')).toContainText('can’t show this kind of image');
+  // A photo that can't be read (not a real HEIC) is kept as it is, and says so, with the file to download.
+  await expect(heic.locator('.gc-image-fallback')).toContainText('IMG_0042.heic', { timeout: 20_000 });
+  await expect(heic.locator('.gc-image-fallback')).toContainText('Can’t show this HEIC photo');
   await expect(heic.locator('.gc-image-fallback').getByRole('link', { name: 'Download' })).toHaveAttribute('download', 'IMG_0042.heic');
   await waitForSave(page);
   expect(await readFile(page, 'Projects/EXP-0001 Imaging.md')).toContain('![](attachments/EXP-0001/cells%2016-bit.tif)');

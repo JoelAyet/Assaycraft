@@ -2,13 +2,12 @@
  * Document schema shared by the editor and the Markdown converter.
  * Node views (React UI) are attached separately in editor/extensions.ts.
  */
-import { Node, getSchema, type Extensions, type NodeViewRenderer } from '@tiptap/core';
+import { Mark, Node, getSchema, type Extensions, type NodeViewRenderer } from '@tiptap/core';
 import type { DOMOutputSpec } from '@tiptap/pm/model';
 import { StarterKit } from '@tiptap/starter-kit';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Subscript } from '@tiptap/extension-subscript';
 import { Superscript } from '@tiptap/extension-superscript';
-import { Highlight } from '@tiptap/extension-highlight';
 import { evaluateSheet } from '../sheet/formula';
 import { normalizeSheet, type SheetData } from '../sheet/model';
 import { toDelimited } from '../sheet/tsv';
@@ -236,6 +235,8 @@ export const ImageBlock = Node.create({
       alt: { default: '' },
       title: { default: null },
       width: { default: null },
+      /** Lines, arrows, boxes and text drawn on the image (see editor/annotate). */
+      marks: { default: null },
     };
   },
   parseHTML() {
@@ -245,7 +246,13 @@ export const ImageBlock = Node.create({
         getAttrs: (el) => {
           const img = el as HTMLImageElement;
           const src = img.getAttribute('data-src') || img.getAttribute('src') || '';
-          return { src, alt: img.getAttribute('alt') ?? '', title: img.getAttribute('title'), width: img.getAttribute('width') };
+          let marks: unknown = null;
+          try {
+            marks = JSON.parse(img.getAttribute('data-marks') || 'null');
+          } catch {
+            /* none */
+          }
+          return { src, alt: img.getAttribute('alt') ?? '', title: img.getAttribute('title'), width: img.getAttribute('width'), marks };
         },
       },
     ];
@@ -255,6 +262,7 @@ export const ImageBlock = Node.create({
     const attrs: Record<string, string> = { src: src ?? '', 'data-src': src ?? '', alt: alt ?? '' };
     if (title) attrs.title = title;
     if (width) attrs.width = width;
+    if (Array.isArray(node.attrs.marks) && node.attrs.marks.length) attrs['data-marks'] = JSON.stringify(node.attrs.marks);
     return ['img', attrs];
   },
   renderText({ node }) {
@@ -336,7 +344,137 @@ export const RawInline = Node.create({
   },
 });
 
-export type NodeViewKey = 'spreadsheet' | 'buffer' | 'plate' | 'flow' | 'attachment' | 'image' | 'include' | 'rawBlock';
+// ───────────── Text colour, highlight colour and text size ─────────────
+
+/** Colours a text or a highlight can take: the notebook's palette, by name, so they suit both themes. */
+export const TEXT_COLORS = ['red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', 'gray'] as const;
+export const HIGHLIGHT_COLORS = ['yellow', 'green', 'teal', 'blue', 'purple', 'pink', 'red', 'orange', 'gray'] as const;
+export const TEXT_SIZES = ['small', 'large', 'huge'] as const;
+export type TextColor = (typeof TEXT_COLORS)[number];
+export type TextSize = (typeof TEXT_SIZES)[number];
+/** What other Markdown viewers show for each colour and size (Assaycraft styles them by name, for both themes). */
+export const INK_HEX: Record<TextColor, string> = {
+  red: '#c62828',
+  orange: '#b4530f',
+  yellow: '#8a5a00',
+  green: '#1e7d47',
+  teal: '#0f7a6f',
+  blue: '#1f5fd1',
+  purple: '#6d3fd6',
+  pink: '#c0306f',
+  gray: '#5f5f68',
+};
+export const HIGHLIGHT_HEX: Record<(typeof HIGHLIGHT_COLORS)[number], string> = {
+  yellow: '#fbefb3',
+  green: '#dcf1e3',
+  teal: '#d6f0ec',
+  blue: '#dfeaff',
+  purple: '#ece4fb',
+  pink: '#fbe2ee',
+  red: '#fde3e1',
+  orange: '#fde6d3',
+  gray: '#ededef',
+};
+export const SIZE_EM: Record<TextSize, string> = { small: '0.85em', large: '1.25em', huge: '1.6em' };
+
+const oneOf = <T extends string>(list: readonly T[], v: unknown): T | null => ((list as readonly string[]).includes(String(v)) ? (v as T) : null);
+
+/** A highlight in any palette colour; plain <mark> is yellow. */
+export const ColorHighlight = Mark.create({
+  name: 'highlight',
+  excludes: 'highlight',
+  addAttributes() {
+    return {
+      color: {
+        default: null,
+        parseHTML: (el) => oneOf(HIGHLIGHT_COLORS, el.getAttribute('data-color')),
+        renderHTML: (attrs) => (attrs.color && attrs.color !== 'yellow' ? { 'data-color': attrs.color } : {}),
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: 'mark' }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['mark', HTMLAttributes, 0];
+  },
+  addKeyboardShortcuts() {
+    return { 'Mod-Shift-h': () => this.editor.commands.toggleMark(this.name) };
+  },
+});
+
+export const TextColorMark = Mark.create({
+  name: 'textColor',
+  excludes: 'textColor',
+  addAttributes() {
+    return {
+      color: {
+        default: 'red',
+        parseHTML: (el) => oneOf(TEXT_COLORS, el.getAttribute('data-color')) ?? 'red',
+        renderHTML: (attrs) => ({ 'data-color': attrs.color, class: 'gc-ink' }),
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: 'span.gc-ink[data-color]' }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['span', HTMLAttributes, 0];
+  },
+});
+
+export const TextSizeMark = Mark.create({
+  name: 'textSize',
+  excludes: 'textSize',
+  addAttributes() {
+    return {
+      size: {
+        default: 'large',
+        parseHTML: (el) => oneOf(TEXT_SIZES, el.getAttribute('data-size')) ?? 'large',
+        renderHTML: (attrs) => ({ 'data-size': attrs.size, class: 'gc-size' }),
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: 'span.gc-size[data-size]' }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['span', HTMLAttributes, 0];
+  },
+});
+
+// ───────────── Reminder: "(@2026-10-30 14:00)" in the text, shown as a chip and on the calendar ─────────────
+
+export const Reminder = Node.create({
+  name: 'reminder',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return {
+      date: { default: '' },
+      time: { default: null },
+    };
+  },
+  parseHTML() {
+    return [
+      {
+        tag: 'span[data-reminder]',
+        getAttrs: (el) => ({ date: el.getAttribute('data-reminder') ?? '', time: el.getAttribute('data-time') || null }),
+      },
+    ];
+  },
+  renderHTML({ node }) {
+    const mark = `(@${node.attrs.date}${node.attrs.time ? ` ${node.attrs.time}` : ''})`;
+    return ['span', { 'data-reminder': node.attrs.date, 'data-time': node.attrs.time ?? undefined, class: 'gc-reminder' }, mark];
+  },
+  renderText({ node }) {
+    return `(@${node.attrs.date}${node.attrs.time ? ` ${node.attrs.time}` : ''})`;
+  },
+});
+
+export type NodeViewKey = 'spreadsheet' | 'buffer' | 'plate' | 'flow' | 'attachment' | 'image' | 'include' | 'rawBlock' | 'reminder';
 export type NodeViews = Partial<Record<NodeViewKey, () => NodeViewRenderer>>;
 
 /** Extensions that define the document schema. Node views (UI) can be attached by the editor. */
@@ -361,7 +499,9 @@ export function schemaExtensions(views: NodeViews = {}): Extensions {
     TaskItem.configure({ nested: true }),
     Subscript,
     Superscript,
-    Highlight,
+    ColorHighlight,
+    TextColorMark,
+    TextSizeMark,
     v(Spreadsheet, 'spreadsheet'),
     v(Buffer, 'buffer'),
     v(Plate, 'plate'),
@@ -371,6 +511,7 @@ export function schemaExtensions(views: NodeViews = {}): Extensions {
     v(Include, 'include'),
     v(RawBlock, 'rawBlock'),
     RawInline,
+    v(Reminder, 'reminder'),
   ];
 }
 

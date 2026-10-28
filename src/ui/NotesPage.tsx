@@ -4,7 +4,7 @@ import { navigate, useNotebook } from '../notebook/store';
 import { createNote, trashDoc } from '../notebook/actions';
 import type { DocMeta } from '../notebook/model';
 import { excerpt } from '../notebook/text';
-import { formatDate, formatRelative } from '../lib/dates';
+import { formatDate, formatRelative, LOCALE } from '../lib/dates';
 import { MenuButton, confirmDialog } from './overlay';
 import { TagPill } from './status';
 import { NavToggle } from './nav';
@@ -16,7 +16,7 @@ function monthOf(d: DocMeta): string {
   const day = d.date ?? (d.created ?? '').slice(0, 10);
   if (!day) return 'Undated';
   const [y, m] = day.split('-').map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  return new Date(y, m - 1, 1).toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' });
 }
 
 function NoteRow({ note }: { note: DocMeta }) {
@@ -113,7 +113,6 @@ export function NotesPage() {
       </div>
       <div className="gc-folder-inner gc-notes-inner">
         <header className="gc-page-head">
-          <div className="gc-eyebrow">Notebook</div>
           <h1 className="gc-page-title">Notes</h1>
           <p className="gc-lede">
             Meeting notes, ideas and brainstorming. A note is written like an entry but has no ID, project or status, and stays off the calendar and

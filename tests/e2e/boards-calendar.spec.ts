@@ -21,8 +21,6 @@ async function newBoard(page: Page, name: string, opts: { tasks?: boolean; colum
 
 test('a new board tracks things by default: no due dates, off the calendar and Home', async ({ page }) => {
   await openFolderNotebook(page);
-  const openTasks = page.locator('.gc-figures').getByText('Open tasks').locator('..');
-  await expect(openTasks).toContainText('2');
 
   await page.getByTitle('New board').click();
   const dialog = page.getByRole('dialog', { name: 'New board' });
@@ -59,7 +57,6 @@ test('a new board tracks things by default: no due dates, off the calendar and H
 
   // Not a task anywhere else.
   await page.locator('.gc-nav-item', { hasText: 'Home' }).click();
-  await expect(openTasks).toContainText('2');
   await page.keyboard.press('Control+k');
   await page.keyboard.type('new card');
   await expect(page.locator('.gc-pal-item', { hasText: 'New card in Cloning status' })).toBeVisible();
@@ -77,7 +74,10 @@ test('a new board tracks things by default: no due dates, off the calendar and H
   await waitForSave(page);
   expect(await readFile(page, 'Boards/Cloning status/_board.md')).toContain('cards: tasks');
   await page.locator('.gc-nav-item', { hasText: 'Home' }).click();
-  await expect(openTasks).toContainText('3');
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type('new task');
+  await expect(page.locator('.gc-pal-item', { hasText: 'New task in Cloning status' })).toBeVisible();
+  await page.keyboard.press('Escape');
 });
 
 test('a task board puts its cards on the calendar', async ({ page }) => {

@@ -1,3 +1,18 @@
+/**
+ * Dates are written in English whatever the computer's language, so a notebook reads the same on every device.
+ * The clock (12 or 24 hours) stays the computer's.
+ */
+export const LOCALE = 'en-US';
+const HOUR_CYCLE = (() => {
+  try {
+    return new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle;
+  } catch {
+    return undefined;
+  }
+})();
+/** Options for a time of day, on this computer's clock. */
+export const clock = (opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormatOptions => (HOUR_CYCLE ? { ...opts, hourCycle: HOUR_CYCLE } : opts);
+
 const pad = (n: number, w = 2) => String(Math.abs(Math.trunc(n))).padStart(w, '0');
 
 /** ISO 8601 timestamp in local time with offset, e.g. 2026-10-16T14:03:00+02:00 */
@@ -49,13 +64,13 @@ export const minutesOf = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Numbe
 /** HH:MM shown the way this browser shows times ("9:30 AM", "09:30"). */
 export function formatTime(hhmm: string): string {
   const [h, m] = hhmm.split(':').map(Number);
-  return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString(LOCALE, clock({ hour: 'numeric', minute: '2-digit' }));
 }
 
 /** A time in few characters, for a calendar chip: "9:30am", "4pm" (or "09:30", "16:00" on a 24-hour clock). */
 export function formatTimeShort(hhmm: string): string {
   const [h, m] = hhmm.split(':').map(Number);
-  const parts = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).formatToParts(new Date(2000, 0, 1, h, m));
+  const parts = new Intl.DateTimeFormat(LOCALE, clock({ hour: 'numeric', minute: '2-digit' })).formatToParts(new Date(2000, 0, 1, h, m));
   const twelve = parts.some((p) => p.type === 'dayPeriod');
   let out = '';
   parts.forEach((p, i) => {
@@ -83,8 +98,7 @@ export function formatDate(value: unknown, withTime = false): string {
   const d = parseDate(value);
   if (!d) return '';
   const opts: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
-  if (withTime) Object.assign(opts, { hour: '2-digit', minute: '2-digit' });
-  return d.toLocaleString(undefined, opts);
+  return d.toLocaleString(LOCALE, withTime ? clock({ ...opts, hour: '2-digit', minute: '2-digit' }) : opts);
 }
 
 /** "just now", "5 min ago", "3 h ago", "yesterday", or a date. */
@@ -101,7 +115,7 @@ export function formatRelative(value: unknown, now = Date.now()): string {
 }
 
 export function longDate(date = new Date()): string {
-  return date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  return date.toLocaleDateString(LOCALE, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 /** First day of the week in the browser's locale (0 = Sunday, 1 = Monday). */

@@ -219,7 +219,9 @@
 }
 @container (max-width: 150px) {
   .gc-cal-id,
-  .gc-week:not(.gc-weekview-body) .gc-cal-item > svg {
+  .gc-week:not(.gc-weekview-body) .gc-cal-item > svg,
+  .gc-week:not(.gc-weekview-body) .gc-cal-open > svg,
+  .gc-week:not(.gc-weekview-body) .has-check .gc-cal-time {
     display: none;
   }
 }
@@ -306,9 +308,13 @@
   margin-top: 2px;
 }
 /* The week view has room for the time on a line of its own, above the title. */
-.gc-weekview .gc-cal-item {
+.gc-weekview .gc-cal-item,
+.gc-weekview .gc-cal-open {
   flex-wrap: wrap;
   row-gap: 1px;
+}
+.gc-weekview .gc-cal-open {
+  align-items: flex-start;
 }
 .gc-weekview .gc-cal-time {
   order: -1;
@@ -618,6 +624,18 @@
     min-width: 0;
     flex-basis: calc(100% - 24px);
   }
+  .gc-agenda-open {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+  .gc-agenda-open .gc-agenda-time {
+    flex-basis: 100%;
+  }
+  /* A reminder's words wrap beside its bell rather than below it. */
+  .gc-agenda-open .gc-cal-title {
+    flex: 1 1 0;
+    min-width: 0;
+  }
 }
 
 /* Calendars and New entry: their icons alone where the bar must stay on one line. */
@@ -625,4 +643,108 @@
   .gc-cal-btn-label {
     display: none;
   }
+  .gc-cal-colorby,
+  .gc-cal-calendars,
+  .gc-cal-tools .gc-cal-new {
+    width: 32px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+
+/* Reminders: a box to tick them off, then their words (which open the page). */
+.gc-cal-item.has-check {
+  padding-left: 3px;
+  gap: 2px;
+}
+.gc-cal-open {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.gc-cal-check {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin: 0 2px;
+  accent-color: var(--tone);
+  cursor: pointer;
+}
+.gc-cal-item.is-reminder {
+  border-radius: 11px;
+}
+.gc-agenda-reminder {
+  cursor: default;
+  padding: 0 0 0 10px;
+}
+.gc-agenda-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px 8px 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.gc-agenda-reminder .gc-cal-check {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--c-orange);
+}
+
+/* Colour by project: which colour is which project (click one to change it). */
+.gc-cal-colorby {
+  flex: none;
+}
+.gc-cal-colorby[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.gc-cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.gc-cal-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.gc-cal-legend-item:hover {
+  border-color: var(--border-strong);
+}
+
+/* A flow step planned for a day, not started yet: an outline in its colour. */
+.gc-cal-item.is-step {
+  background: var(--panel) !important;
+  border: 1px dotted var(--tone);
+}
+.gc-agenda-item.is-step {
+  border-style: dotted;
 }

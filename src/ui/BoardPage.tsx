@@ -26,7 +26,7 @@ import { ColorPicker, PriorityPill, TagPill } from './status';
 import { openNewEntryDialog } from './NewEntryDialog';
 import { entryMenu } from './Sidebar';
 import { dirname, join } from '../lib/path';
-import { localDate } from '../lib/dates';
+import { localDate, LOCALE } from '../lib/dates';
 import { NavToggle } from './nav';
 import { entriesById, flowProgress } from '../flow/model';
 
@@ -36,7 +36,7 @@ function dueInfo(due: string | undefined, done: boolean): { label: string; tone:
   if (!due) return null;
   const today = localDate();
   const d = new Date(due + 'T00:00:00');
-  const label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const label = d.toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' });
   if (done) return { label, tone: 'gray' };
   if (due < today) return { label, tone: 'red' };
   const tomorrow = localDate(new Date(Date.now() + 86400000));
@@ -352,7 +352,7 @@ function ExperimentsBoard() {
               {(d.date ?? d.created) && (
                 <span>
                   <CalendarClock />{' '}
-                  {new Date((d.date ?? d.created!.slice(0, 10)) + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  {new Date((d.date ?? d.created!.slice(0, 10)) + 'T00:00:00').toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' })}
                 </span>
               )}
               {d.tasks && (
