@@ -105,7 +105,7 @@ test('stock collections have a version history too', async ({ page }) => {
   await page.clock.install();
   await openFolderNotebook(page);
   await page.locator('.gc-nav-item', { hasText: 'Stocks' }).click();
-  await page.locator('.gc-stock-tab', { hasText: 'Primers' }).click();
+  await page.locator('.gc-viewtab', { hasText: 'Primers' }).click();
   const loc = page.locator('.gc-stock-table tr[data-stock="PR-0001"]').getByLabel(/^Location of /);
   await loc.fill('Freezer A · box 1');
   await waitForSave(page);
@@ -133,7 +133,7 @@ test('a renamed stock collection keeps its history (it is filed by path)', async
   await page.clock.install();
   await openFolderNotebook(page);
   await page.locator('.gc-nav-item', { hasText: 'Stocks' }).click();
-  await page.locator('.gc-stock-tab', { hasText: 'Primers' }).click();
+  await page.locator('.gc-viewtab', { hasText: 'Primers' }).click();
   const loc = page.locator('.gc-stock-table tr[data-stock="PR-0001"]').getByLabel(/^Location of /);
   await loc.fill('Box A');
   await waitForSave(page);
@@ -144,7 +144,7 @@ test('a renamed stock collection keeps its history (it is filed by path)', async
   await page.getByRole('menuitem', { name: 'Rename…' }).click();
   await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Oligos');
   await page.keyboard.press('Enter');
-  await expect(page.locator('.gc-stock-tab', { hasText: 'Oligos' })).toBeVisible();
+  await expect(page.locator('.gc-viewtab', { hasText: 'Oligos' })).toBeVisible();
   await waitForSave(page);
   await expect.poll(() => listFiles(page, '.assaycraft/history')).toEqual([expect.stringMatching(/^Stocks ~ Oligos [0-9a-f]{8}\.json$/)]);
   await page.getByTitle('Oligos options').click();

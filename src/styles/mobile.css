@@ -126,15 +126,39 @@
   /* ───────── Pages ───────── */
 
   .gc-folder-inner,
-  .gc-home-inner,
   .gc-templates-inner,
-  .gc-settings-inner {
-    padding-left: 16px;
-    padding-right: 16px;
+  .gc-page-inner,
+  .gc-page-inner.is-wide {
+    padding: 20px 16px 48px;
   }
-  .gc-page-title,
-  .gc-home-title {
+  .gc-page-title {
     font-size: 30px;
+  }
+  .gc-savebar {
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  }
+  /* The view bar: views and filters on one row (scrolling sideways if need be), tools and New on the next. */
+  .gc-viewbar {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+  }
+  /* Views and filters wrap onto a second line rather than hide under each other. */
+  .gc-viewbar-views {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .gc-viewbar-views:empty {
+    display: none;
+  }
+  .gc-viewbar-tools {
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+  .gc-viewbar .gc-filter {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
   }
   .gc-explainer {
     display: none;
@@ -180,9 +204,6 @@
   }
   .gc-recent-arrow {
     grid-area: 1 / 4 / 3 / 5;
-  }
-  .gc-home-actions {
-    flex-wrap: wrap;
   }
   .gc-activity {
     --cell: 9px;
@@ -441,33 +462,24 @@
 
   .gc-kanban {
     gap: 10px;
-    padding: 12px 12px 20px;
+    padding: 0 16px 20px;
     scroll-snap-type: x mandatory;
-    scroll-padding: 12px;
+    scroll-padding: 16px;
+  }
+  /* On a phone the board scrolls as one page: the title first, then the columns. */
+  .gc-board-page {
+    overflow: auto;
   }
   .gc-col {
     width: calc(100vw - 52px);
     max-width: 360px;
     scroll-snap-align: start;
   }
-  .gc-calendar-page .gc-topbar {
-    flex-wrap: wrap;
-    row-gap: 6px;
+  .gc-calendar-page {
+    overflow: auto;
   }
-  .gc-calendar-page .gc-topbar .spacer {
-    flex-basis: 100%;
-    height: 0;
-  }
-  .gc-cal-tools {
-    margin-left: 0;
-  }
-  .gc-cal-tools .gc-cal-new {
-    display: none;
-  }
-  .gc-calendar-page .gc-topbar .gc-cal-new-phone {
-    display: inline-flex;
-    flex: none;
-    margin-left: auto;
+  .gc-cal-head.gc-page-inner {
+    padding-bottom: 0;
   }
 
   /* ───────── Touch-friendly ───────── */
@@ -510,6 +522,27 @@
     min-width: 24px;
     min-height: 24px;
     padding: 0;
+  }
+  .gc-tag-name {
+    min-height: 24px;
+    min-width: 24px;
+  }
+  .gc-reminder-btn {
+    height: 26px;
+  }
+  .gc-date-clear {
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    min-height: 24px;
+  }
+  .gc-agenda-reminder .gc-cal-check {
+    width: 24px;
+    height: 24px;
+  }
+  .gc-ann-color {
+    width: 28px;
+    height: 28px;
   }
   .gc-add-chip {
     height: 28px;

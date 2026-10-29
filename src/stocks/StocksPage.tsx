@@ -16,7 +16,7 @@ import {
   Package,
   Pencil,
   Plus,
-  Search,
+  FolderPlus,
   Sprout,
   Target,
   TestTube,
@@ -24,7 +24,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { NavToggle } from '../ui/nav';
+import { FilterField, NewButton, PageHead, PhoneBar, ViewBar } from '../ui/PageHeader';
 import { openVersionHistory } from '../history/HistoryDialog';
 import { Dialog, MenuButton, confirmDialog, openContextMenu, openDialog, promptDialog, type MenuItemSpec } from '../ui/overlay';
 import { navigate, toast, useNotebook } from '../notebook/store';
@@ -69,7 +69,7 @@ export const stockIcon = (type?: unknown) => TYPE_ICONS[String(type ?? 'other')]
 export const collectionType = (m: DocMeta) => stockType(String(m.extra.stock ?? ''));
 export const collectionPrefix = (m: DocMeta) => String(m.extra.prefix ?? '').trim() || collectionType(m).prefix;
 
-const TM_HELP = `Worked out from the sequence: nearest-neighbour (SantaLucia 1998), ${TM_CONDITIONS.sodium * 1000} mM Na⁺, ${TM_CONDITIONS.primer * 1e9} nM primer`;
+const TM_HELP = `Worked out from the sequence: nearest-neighbor (SantaLucia 1998), ${TM_CONDITIONS.sodium * 1000} mM Na⁺, ${TM_CONDITIONS.primer * 1e9} nM primer`;
 const COMPUTED_HELP: Partial<Record<ColumnRole, string>> = {
   length: 'Worked out from the sequence',
   gc: 'Worked out from the sequence',
@@ -451,7 +451,7 @@ function StockDetail({
 
 // ───────────── One collection ─────────────
 
-function Collection({ meta, target }: { meta: DocMeta; target?: string }) {
+function Collection({ meta, target, tabs }: { meta: DocMeta; target?: string; tabs: ReactNode }) {
   const type = collectionType(meta);
   const prefix = collectionPrefix(meta);
   const path = meta.path;
@@ -746,32 +746,34 @@ function Collection({ meta, target }: { meta: DocMeta; target?: string }) {
   return (
     <div ref={rootRef} className={`gc-stock-body ${selIndex >= 0 ? 'has-detail' : ''}`}>
       <div className="gc-stock-main">
-        <div className="gc-table-tools">
-          <label className="gc-filter">
-            <Search />
-            <input
-              value={q}
-              placeholder={`Filter ${meta.title.toLowerCase()}…`}
-              aria-label={`Filter ${meta.title}`}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </label>
-          <span className="muted gc-stock-count">
-            {q.trim() ? `${view.length} of ${table.rows.length}` : `${table.rows.length} ${table.rows.length === 1 ? type.item : 'stocks'}`}
-          </span>
-          <span className="spacer" />
-          <span className="gc-stock-actions">
-            <button
-              className="btn btn-sm"
-              onClick={() => openDialog((close) => <ColumnsDialog table={tableRef.current!} close={close} onSave={(t) => change(() => t)} />)}
-            >
-              <Columns3 /> <span className="gc-btn-label">Columns</span>
-            </button>
-            <MenuButton items={menu} className="icon-btn" title={`${meta.title} options`}>
-              <MoreHorizontal />
-            </MenuButton>
-          </span>
-        </div>
+        <ViewBar
+          tools={
+            <>
+              <FilterField value={q} onChange={setQ} placeholder={`Filter ${meta.title.toLowerCase()}…`} />
+              {q.trim() && (
+                <span className="muted gc-stock-count">
+                  {view.length} of {table.rows.length}
+                </span>
+              )}
+              <button
+                className="btn btn-sm"
+                onClick={() => openDialog((close) => <ColumnsDialog table={tableRef.current!} close={close} onSave={(t) => change(() => t)} />)}
+              >
+                <Columns3 /> <span className="gc-btn-label">Columns</span>
+              </button>
+              <MenuButton items={menu} className="icon-btn" title={`${meta.title} options`}>
+                <MoreHorizontal />
+              </MenuButton>
+              <NewButton
+                what={type.item}
+                onClick={() => addRow()}
+                more={[{ label: 'New collection…', icon: <FolderPlus />, onSelect: openNewCollectionDialog }]}
+              />
+            </>
+          }
+        >
+          {tabs}
+        </ViewBar>
         <div className="gc-stock-scroll">
           <table className="gc-stock-table" style={{ minWidth: width }}>
             <colgroup>
@@ -820,15 +822,12 @@ function Collection({ meta, target }: { meta: DocMeta; target?: string }) {
               ) : (
                 <>
                   <span>No {type.name.toLowerCase()} yet.</span>
-                  <span className="muted">Add them one by one, paste rows from Excel, or import a CSV file.</span>
+                  <span className="muted">Add them with New, paste rows from Excel, or import a CSV file from the ⋯ menu.</span>
                 </>
               )}
             </div>
           )}
         </div>
-        <button className="gc-stock-add" onClick={() => addRow()}>
-          <Plus /> Add {type.item}
-        </button>
       </div>
       {selIndex >= 0 && (
         <>
@@ -852,67 +851,51 @@ export function StocksPage({ path, id }: { path?: string; id?: string }) {
     [docs],
   );
   const current = (path && docs[path]?.kind === 'stocks' ? docs[path] : null) ?? collections[0] ?? null;
-  const type = current ? collectionType(current) : null;
 
   return (
     <div className="gc-page gc-stocks-page">
-      <div className="gc-topbar">
-        <NavToggle />
-        <span className="gc-page-icon">
-          <TestTubes />
-        </span>
-        <span className="gc-topbar-title">Stocks</span>
-        <span className="spacer" />
-        <button className="btn btn-sm" onClick={openNewCollectionDialog} aria-label="New collection">
-          <Plus /> <span className="gc-btn-label">New collection</span>
-        </button>
-      </div>
-      <div className="gc-folder-inner gc-stocks-inner">
-        <header className="gc-page-head">
-          <div className="gc-eyebrow">Inventory</div>
-          <h1 className="gc-page-title">Stocks</h1>
-          <p className="gc-lede">Primers, plasmids, glycerol stocks, seeds… one table per collection, linked from the entries that use them.</p>
-        </header>
+      <PhoneBar />
+      <div className="gc-page-inner is-wide">
+        <PageHead
+          title="Stocks"
+          lede={
+            <>
+              Primers, plasmids, cell lines and other stocks, one table per collection. Link one from an entry with <kbd>/</kbd> → Stock.
+            </>
+          }
+        />
         {!current ? (
-          <div className="empty-state">
-            <TestTubes />
-            <h3>No stock collections yet</h3>
-            <p>Keep track of your primers, plasmids, glycerol stocks or seeds, and link them from your entries.</p>
-            <div className="gc-empty-actions">
-              <button className="btn btn-primary" onClick={openNewCollectionDialog}>
-                <Plus /> New collection
-              </button>
+          <>
+            <ViewBar tools={<NewButton what="collection" onClick={openNewCollectionDialog} />} />
+            <div className="empty-state">
+              <TestTubes />
+              <h3>No stock collections yet</h3>
+              <p>A collection is one table: your primers, plasmids, glycerol stocks or seeds, each with an ID to link from entries.</p>
             </div>
-          </div>
+          </>
         ) : (
           <>
-            <div className="gc-stock-tabs" role="tablist" aria-label="Collections">
-              {collections.map((c) => (
-                <button
-                  key={c.path}
-                  role="tab"
-                  aria-selected={c.path === current.path}
-                  className={`gc-stock-tab ${c.path === current.path ? 'active' : ''}`}
-                  onClick={() => navigate({ name: 'stocks', path: c.path })}
-                >
-                  {stockIcon(c.extra.stock)}
-                  <span>{c.title}</span>
-                  <span className="gc-stock-tab-count">{c.stockItems?.length ?? 0}</span>
-                </button>
-              ))}
-              <button className="gc-stock-tab is-new" onClick={openNewCollectionDialog}>
-                <Plus /> <span>New collection</span>
-              </button>
-            </div>
-            {type && (
-              <p className="muted gc-stock-about">
-                {stockIcon(current.extra.stock)}
-                <span>
-                  {type.description} Link a stock from an entry with <kbd>/</kbd> → <em>Stock</em>.
-                </span>
-              </p>
-            )}
-            <Collection key={current.path} meta={current} target={current.path === path ? id : undefined} />
+            <Collection
+              key={current.path}
+              meta={current}
+              target={current.path === path ? id : undefined}
+              tabs={
+                <div className="gc-viewtabs" role="tablist" aria-label="Collections">
+                  {collections.map((c) => (
+                    <button
+                      key={c.path}
+                      role="tab"
+                      aria-selected={c.path === current.path}
+                      className={`gc-viewtab ${c.path === current.path ? 'active' : ''}`}
+                      onClick={() => navigate({ name: 'stocks', path: c.path })}
+                    >
+                      {stockIcon(c.extra.stock)}
+                      <span>{c.title}</span>
+                    </button>
+                  ))}
+                </div>
+              }
+            />
           </>
         )}
       </div>

@@ -1,9 +1,5 @@
 /* ───────── Stocks ───────── */
 
-.gc-stocks-inner {
-  max-width: 1360px;
-}
-
 .gc-stock-tabs {
   display: flex;
   flex-wrap: wrap;

@@ -34,7 +34,8 @@ test('import a PDF as a protocol, keep the original and compare them side by sid
   await openFolderNotebook(page);
   await page.locator('.gc-nav-item', { hasText: 'Protocols' }).click();
   const chooser = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: 'Import PDF' }).first().click();
+  await page.getByRole('button', { name: 'More to add' }).click();
+  await page.getByRole('menuitem', { name: 'Import PDF protocols…' }).click();
   await (await chooser).setFiles({ name: 'SOP-021 Inoue.pdf', mimeType: 'application/pdf', buffer: fixture('inoue-word.pdf') });
 
   // The dialog converts it right away and fills in the name.

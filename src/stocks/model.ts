@@ -111,7 +111,7 @@ export function cleanSequence(seq: string): string {
     .replace(/[^ACGTNRYSWKMBDHV]/g, '');
 }
 
-// SantaLucia (1998) unified nearest-neighbour parameters: ΔH (kcal/mol), ΔS (cal/K·mol).
+// SantaLucia (1998) unified nearest-neighbor parameters: ΔH (kcal/mol), ΔS (cal/K·mol).
 const NN: Record<string, [number, number]> = {
   AA: [-7.9, -22.2],
   TT: [-7.9, -22.2],
@@ -142,7 +142,7 @@ const reverseComplement = (s: string) =>
 export const TM_CONDITIONS = { sodium: 0.05, primer: 250e-9 };
 
 /**
- * Melting temperature (°C) by nearest neighbours (SantaLucia 1998, with its salt correction).
+ * Melting temperature (°C) by nearest neighbors (SantaLucia 1998, with its salt correction).
  * Null for sequences under 8 bases or with ambiguous bases (N, R, Y…).
  */
 export function meltingTemp(sequence: string, { sodium, primer } = TM_CONDITIONS): number | null {

@@ -414,9 +414,119 @@
   height: 15px;
 }
 
-/* Editorial page header: small eyebrow, serif title, one-line lede. */
+/*
+ * Pages that list things share one layout: the same width, the same left edge and the same title,
+ * then a view bar (views and filters on the left, tools and the page's New button on the right).
+ * Wide pages (calendar, boards, stocks) start at the same left edge and run to the window's edge.
+ */
+.gc-page-inner {
+  --frame: 1120px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--frame);
+  margin: 0 auto;
+  padding: 40px 40px 64px;
+}
+.gc-page-inner.is-wide {
+  max-width: none;
+  margin: 0;
+  padding-left: max(40px, calc((100% - var(--frame)) / 2 + 40px));
+}
 .gc-page-head {
-  margin: 8px 0 26px;
+  margin: 0 0 22px;
+}
+.gc-viewbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-height: 40px;
+  margin: 0 0 18px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+.gc-viewbar-views {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.gc-viewbar-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin-left: auto;
+}
+.gc-viewbar .gc-filter {
+  width: 200px;
+}
+.gc-viewbar .gc-status-filters {
+  margin: 0;
+}
+.gc-viewtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.gc-viewtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-3);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.gc-viewtab:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.gc-viewtab.active {
+  background: var(--bg-muted);
+  color: var(--text);
+}
+.gc-viewtab svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+.gc-viewbar-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--border);
+}
+/* New, and with ▾ the other things the page can add. */
+.gc-new {
+  display: inline-flex;
+  flex: none;
+}
+.gc-new.has-more .gc-new-main {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  padding-right: 10px;
+}
+.gc-new-more.btn {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  padding: 0 8px 0 6px;
+  border-left: 1px solid color-mix(in srgb, var(--on-ink) 28%, transparent);
+}
+.gc-phonebar {
+  gap: 4px;
+}
+.gc-head-crumbs {
+  margin: 0 0 6px -6px;
 }
 .gc-eyebrow {
   display: inline-flex;
@@ -448,6 +558,8 @@
   font-size: 15px;
   line-height: 1.55;
   color: var(--text-2);
+  /* No last word left alone on its line. */
+  text-wrap: pretty;
 }
 
 .gc-crumbs {
@@ -788,36 +900,17 @@
 
 /* ───────── Home ───────── */
 
-.gc-home-inner {
-  width: 100%;
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 48px 40px 72px;
-}
 .gc-home-hero {
   display: flex;
-  align-items: flex-end;
+  /* The greeting and the activity graph start on one line, the greeting where every page's title starts. */
+  align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
   margin-bottom: 30px;
   flex-wrap: wrap;
 }
-.gc-home-title {
-  margin: 0;
-  font-family: var(--display);
-  font-size: 40px;
-  font-weight: var(--display-weight);
-  line-height: 1.06;
-  letter-spacing: -0.028em;
-  font-optical-sizing: auto;
-}
 .gc-home-hero .gc-lede {
   margin-top: 12px;
-}
-.gc-home-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 20px;
 }
 
 /* Contributions graph: one square per day, darker the more documents were edited. */
@@ -889,58 +982,6 @@
   --cell: 9px;
 }
 
-/* At a glance: big serif figures separated by hairlines. */
-.gc-figures {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-bottom: 40px;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-.gc-figure {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  padding: 18px 20px 18px 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.12s;
-}
-.gc-figure + .gc-figure {
-  padding-left: 20px;
-  border-left: 1px solid var(--border);
-}
-.gc-figure:hover .gc-figure-value {
-  color: var(--accent);
-}
-.gc-figure-value {
-  font-family: var(--display);
-  font-size: 40px;
-  font-weight: var(--display-weight);
-  line-height: 1;
-  letter-spacing: -0.02em;
-  font-variant-numeric: lining-nums tabular-nums;
-  transition: color 0.12s;
-}
-.gc-figure-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 13px;
-  color: var(--text-3);
-}
-.gc-figure-label svg {
-  width: 13px;
-  height: 13px;
-}
-.gc-overdue {
-  color: var(--danger);
-  font-weight: 600;
-}
-
 .gc-home-section {
   margin-bottom: 40px;
 }
@@ -950,6 +991,12 @@
   gap: 12px;
   margin-bottom: 14px;
 }
+.gc-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
 .gc-section-title h2,
 .gc-panel-head h2 {
   flex: 1;
@@ -958,6 +1005,10 @@
   font-size: 25px;
   font-weight: var(--display-weight);
   letter-spacing: -0.016em;
+}
+/* A text button ending a heading line: its words, not its padding, meet the right edge. */
+.gc-section-title > .btn-ghost:last-child {
+  margin-right: -12px;
 }
 .gc-section-title .btn svg,
 .gc-panel-head .btn svg {
@@ -1235,13 +1286,14 @@
 
 /* ───────── Folder page ───────── */
 
+/* Old page containers still used by a few views: the same frame as .gc-page-inner. */
 .gc-folder-inner,
-.gc-templates-inner,
-.gc-settings-inner {
+.gc-templates-inner {
+  box-sizing: border-box;
   width: 100%;
-  max-width: 1160px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 36px 40px 64px;
+  padding: 40px 40px 64px;
 }
 .gc-subfolders {
   display: flex;
@@ -1521,8 +1573,24 @@
 
 /* ───────── Settings ───────── */
 
-.gc-settings-inner {
-  max-width: 840px;
+/* Settings sections keep a readable width, from the same left edge as every page. */
+.gc-settings-inner > .gc-settings-section {
+  max-width: 760px;
+}
+.gc-savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding: 10px max(40px, calc((100% - 1120px) / 2 + 40px));
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: saturate(1.2) blur(10px);
+  font-size: 13.5px;
+  color: var(--text-2);
 }
 .gc-settings-section {
   padding: 22px 0 26px;
@@ -2315,13 +2383,8 @@
   .gc-form-grid {
     grid-template-columns: 1fr;
   }
-  .gc-figures,
   .gc-recent-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .gc-figure:nth-child(3) {
-    padding-left: 0;
-    border-left: none;
   }
   .gc-welcome-art {
     justify-self: start;
@@ -2478,9 +2541,6 @@
 
 /* ───────── Notes ───────── */
 
-.gc-notes-inner {
-  max-width: 960px;
-}
 .gc-notes-group {
   margin-top: 22px;
 }
@@ -2847,16 +2907,27 @@
 /* ───────── How templates work ───────── */
 
 .gc-howto {
-  margin-bottom: 36px;
+  margin-bottom: 24px;
   padding: 22px 24px 18px;
   border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--bg-subtle);
 }
-.gc-howto-title {
+.gc-howto-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   margin: 0 0 14px;
+}
+.gc-howto-title {
+  margin: 0;
   font-size: 17px;
   font-weight: 650;
+}
+.btn-ghost.active {
+  background: var(--bg-muted);
+  color: var(--text);
 }
 .gc-howto-steps {
   display: grid;
@@ -2988,4 +3059,156 @@
     justify-self: center;
     transform: rotate(90deg);
   }
+}
+
+/* ───────── Literature: papers by reading status ───────── */
+.gc-lit-view {
+  flex: none;
+}
+.gc-lit-view button svg {
+  width: 14px;
+  height: 14px;
+}
+.gc-reading-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.gc-reading-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 160px;
+  padding: 10px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-subtle);
+  border: 1px solid transparent;
+}
+.gc-reading-col.is-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.gc-reading-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 2px 4px;
+  font-size: 13px;
+}
+.gc-reading-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  cursor: grab;
+}
+.gc-reading-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.gc-reading-open strong {
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+.gc-reading-where {
+  font-size: 12.5px;
+}
+.gc-reading-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.gc-reading-foot .spacer {
+  flex: 1;
+}
+.gc-reading-empty {
+  margin: 8px 4px;
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .gc-reading-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ───────── A month to pick a day from (flow steps) ───────── */
+.gc-minical {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  width: 252px;
+}
+.gc-minical-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.gc-minical-title {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.gc-minical-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  text-align: center;
+}
+.gc-minical-dow {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  padding: 2px 0;
+}
+.gc-minical-day {
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.gc-minical-day:hover {
+  background: var(--bg-subtle);
+}
+.gc-minical-day.is-today {
+  color: var(--accent-text);
+  font-weight: 650;
+}
+.gc-minical-day.is-picked {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 650;
+}
+
+/* A flow's step entries, indented under the entry that plans them. */
+.gc-tree-steps {
+  position: relative;
+}
+.gc-tree-steps::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 6px;
+  left: var(--step-rail, 36px);
+  border-left: 1px solid var(--border);
 }

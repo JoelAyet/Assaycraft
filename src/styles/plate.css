@@ -147,7 +147,7 @@
   outline-offset: 1px;
 }
 
-/* Sample colours: the app's tones (fill, edge, text), in light and dark. */
+/* Sample colors: the app's tones (fill, edge, text), in light and dark. */
 .c-blue {
   background: var(--c-blue-bg);
   border-color: var(--c-blue);

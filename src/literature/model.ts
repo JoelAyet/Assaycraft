@@ -4,7 +4,7 @@
  * Entries and notes cite a paper with an ordinary link to that file, so "Cited in" works like any
  * other backlink.
  */
-import type { DocMeta } from '../notebook/model';
+import type { ColorName, DocMeta } from '../notebook/model';
 
 export interface RefInfo {
   title: string;
@@ -359,4 +359,15 @@ export function toBibtex(info: RefInfo, key: string): string {
     .map(([k, v]) => `  ${k} = {${esc(v!)}}`)
     .join(',\n');
   return `@article{${key},\n${body}\n}\n`;
+}
+
+/** Where a paper is in your reading, the columns of the Literature board. A paper with none is still to read. */
+export const READING_STATUSES: { id: string; name: string; color: ColorName }[] = [
+  { id: 'to-read', name: 'To read', color: 'gray' },
+  { id: 'reading', name: 'Reading', color: 'blue' },
+  { id: 'read', name: 'Read', color: 'green' },
+];
+
+export function readingStatus(meta: Pick<DocMeta, 'status'>): string {
+  return READING_STATUSES.some((s) => s.id === meta.status) ? meta.status! : 'to-read';
 }

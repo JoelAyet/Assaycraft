@@ -59,9 +59,10 @@ test('an experiment gets a time: on its page, in its file and on the calendar', 
   expect(text).toContain('end-time: "12:00"');
 
   await openCalendar(page);
-  await page.locator('.gc-segmented button', { hasText: 'Week' }).click();
-  await expect(page.locator('.gc-cal-item', { hasText: 'ELISA plate 1' })).toContainText(/9:30/);
-  await page.locator('.gc-segmented button', { hasText: 'Agenda' }).click();
+  await page.locator('.gc-viewtab', { hasText: 'Week' }).click();
+  // In the week, at its hours.
+  await expect(page.locator('.gc-tevent', { hasText: 'ELISA plate 1' })).toContainText(/9:30/);
+  await page.locator('.gc-viewtab', { hasText: 'Agenda' }).click();
   await expect(page.locator('.gc-agenda-item', { hasText: 'ELISA plate 1' }).locator('.gc-agenda-time')).toHaveText(/9:30.*–.*12:00/);
   expect(errors).toEqual([]);
 });
@@ -107,7 +108,7 @@ test('another calendar shows next to the experiments, read-only, and can be hidd
   // Saved with the notebook, so a connected phone shows it too.
   expect(await readFile(page, 'assaycraft.json')).toContain('"name": "Lab bookings"');
 
-  await page.locator('.gc-segmented button', { hasText: 'Agenda' }).click();
+  await page.locator('.gc-viewtab', { hasText: 'Agenda' }).click();
   const booking = page.locator('.gc-agenda-item', { hasText: 'Confocal booked' });
   await expect(booking).toContainText('Lab bookings');
   await expect(page.locator('.gc-agenda-item', { hasText: 'Lab meeting' }).first()).toBeVisible();

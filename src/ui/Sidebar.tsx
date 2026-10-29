@@ -168,26 +168,57 @@ interface TreeNode {
   name: string;
   folders: TreeNode[];
   entries: DocMeta[];
+  /** Entries that are steps of a flow, under the entry that holds the flow (in the same folder). */
+  steps: Map<string, DocMeta[]>;
 }
 
 function buildTree(folders: string[], docs: DocMeta[]): TreeNode {
-  const root: TreeNode = { path: LAYOUT.projects, name: 'Projects', folders: [], entries: [] };
+  const root: TreeNode = { path: LAYOUT.projects, name: 'Projects', folders: [], entries: [], steps: new Map() };
   const byPath = new Map<string, TreeNode>([[LAYOUT.projects, root]]);
   for (const f of folders) {
-    const node: TreeNode = { path: f, name: basename(f), folders: [], entries: [] };
+    const node: TreeNode = { path: f, name: basename(f), folders: [], entries: [], steps: new Map() };
     byPath.set(f, node);
   }
   for (const f of folders) byPath.get(dirname(f))?.folders.push(byPath.get(f)!);
-  for (const d of docs) byPath.get(dirname(d.path))?.entries.push(d);
+  // Each step's entry goes under the entry whose flow it is a step of, when they share a folder.
+  const byId = new Map(docs.filter((d) => d.id).map((d) => [d.id, d]));
+  const parentOf = new Map<string, DocMeta>();
+  for (const d of docs)
+    for (const st of d.flow ?? []) {
+      const child = st.ref ? byId.get(st.ref) : undefined;
+      if (child && child !== d && dirname(child.path) === dirname(d.path) && !parentOf.has(child.path)) parentOf.set(child.path, d);
+    }
+  // No loops: a plan that is itself a step of one of its steps stays at the top.
+  for (const [child, parent] of [...parentOf]) {
+    for (let p: DocMeta | undefined = parent, n = 0; p && n < 50; p = parentOf.get(p.path), n++)
+      if (p.path === child) {
+        parentOf.delete(child);
+        break;
+      }
+  }
+  for (const d of docs) {
+    const node = byPath.get(dirname(d.path));
+    if (!node) continue;
+    const parent = parentOf.get(d.path);
+    if (parent) node.steps.set(parent.path, [...(node.steps.get(parent.path) ?? []), d]);
+    else node.entries.push(d);
+  }
   for (const n of byPath.values()) {
     n.folders.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
     n.entries.sort((a, b) => (b.created ?? '').localeCompare(a.created ?? '') || b.id.localeCompare(a.id));
+    // Steps in the order of their flow.
+    for (const [parentPath, list] of n.steps) {
+      const order = (byPath.get(dirname(parentPath)) ? docs.find((d) => d.path === parentPath)?.flow : undefined) ?? [];
+      list.sort((a, b) => order.findIndex((st) => st.ref === a.id) - order.findIndex((st) => st.ref === b.id));
+    }
   }
   return root;
 }
 
 function countEntries(n: TreeNode): number {
-  return n.entries.length + n.folders.reduce((s, f) => s + countEntries(f), 0);
+  let steps = 0;
+  for (const list of n.steps.values()) steps += list.length;
+  return n.entries.length + steps + n.folders.reduce((s, f) => s + countEntries(f), 0);
 }
 
 export function moveDocWithPrompt(path: string) {
@@ -321,7 +352,7 @@ function TreeFolder({
             <TreeFolder key={f.path} node={f} depth={depth + 1} expanded={expanded} toggle={toggle} route={route} />
           ))}
           {node.entries.map((d) => (
-            <TreeEntry key={d.path} doc={d} depth={depth + 1} route={route} />
+            <TreeEntry key={d.path} doc={d} depth={depth + 1} route={route} steps={node.steps} />
           ))}
           {!node.folders.length && !node.entries.length && (
             <div className="gc-tree-empty" style={{ paddingLeft: 28 + (depth + 1) * 14 }}>
@@ -334,11 +365,12 @@ function TreeFolder({
   );
 }
 
-function TreeEntry({ doc, depth, route }: { doc: DocMeta; depth: number; route: Route }) {
+function TreeEntry({ doc, depth, route, steps }: { doc: DocMeta; depth: number; route: Route; steps: Map<string, DocMeta[]> }) {
   const statuses = useNotebook((s) => s.config.entryStatuses);
   const active = route.name === 'doc' && route.path === doc.path;
   const st = statusOf(statuses, doc.status);
-  return (
+  const children = steps.get(doc.path) ?? [];
+  const row = (
     <div
       className={`gc-tree-row is-entry ${active ? 'active' : ''}`}
       style={{ paddingLeft: 26 + depth * 14 }}
@@ -354,6 +386,18 @@ function TreeEntry({ doc, depth, route }: { doc: DocMeta; depth: number; route: 
       <span className={`gc-status-dot tone-${st?.color ?? 'gray'}`} />
       {doc.id && <span className="gc-tree-id">{doc.id}</span>}
       <span className="gc-tree-label">{doc.title}</span>
+    </div>
+  );
+  if (!children.length) return row;
+  // The steps of its flow, indented under it.
+  return (
+    <div className="gc-tree-plan">
+      {row}
+      <div className="gc-tree-steps" role="group" aria-label={`Steps of ${doc.title}`} style={{ ['--step-rail' as string]: `${29 + depth * 14}px` }}>
+        {children.map((c) => (
+          <TreeEntry key={c.path} doc={c} depth={depth + 1} route={route} steps={steps} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -494,7 +538,7 @@ export function Sidebar() {
   return (
     <aside className={`gc-sidebar ${navOpen ? 'is-open' : ''}`} aria-label="Notebook">
       <div className="gc-sidebar-top">
-        <MenuButton items={notebookMenu} className="gc-notebook-btn" title="Notebook menu" placement="bottom-start">
+        <MenuButton items={notebookMenu} className="gc-notebook-btn" label="Notebook menu" placement="bottom-start">
           <Logo />
           <span className="gc-notebook-name">{config.name || vault.name}</span>
           <ChevronDown className="gc-notebook-chevron" />
@@ -588,7 +632,7 @@ export function Sidebar() {
               <TreeFolder key={f.path} node={f} depth={0} expanded={expanded} toggle={toggle} route={route} />
             ))}
             {tree.entries.map((d) => (
-              <TreeEntry key={d.path} doc={d} depth={-1} route={route} />
+              <TreeEntry key={d.path} doc={d} depth={-1} route={route} steps={tree.steps} />
             ))}
             {!tree.folders.length && !tree.entries.length && <div className="gc-tree-empty">No projects yet</div>}
           </div>

@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  CalendarPlus,
   ExternalLink,
   FileText,
   LayoutTemplate,
@@ -19,7 +20,9 @@ import {
   Workflow,
   X,
 } from 'lucide-react';
-import { MenuButton, openDialog, type MenuItemSpec } from '../ui/overlay';
+import { MenuButton, Popover, openDialog, usePopover, type MenuItemSpec } from '../ui/overlay';
+import { MiniCalendar } from '../ui/MiniCalendar';
+import { patchMeta } from '../notebook/actions';
 import { EntryPicker } from '../ui/pickers';
 import { StatusPill, statusOf } from '../ui/status';
 import { openNewEntryDialog } from '../ui/NewEntryDialog';
@@ -29,6 +32,7 @@ import { navigate, useNotebook } from '../notebook/store';
 import { LAYOUT, type DocMeta } from '../notebook/model';
 import { dirname, isInside, relative } from '../lib/path';
 import { entriesById, flowProgress, normalizeFlow, type FlowData, type FlowStep } from './model';
+import { LOCALE, localDate } from '../lib/dates';
 
 /** Set by the "insert flow" command so a new flow starts with the cursor in its first step. */
 let focusNextFlow = false;
@@ -55,10 +59,63 @@ function useColumns() {
   return { ref, cols };
 }
 
+const shortDay = (ymd: string) => new Date(ymd + 'T00:00:00').toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' });
+
 function dateText(d: DocMeta): string {
-  const f = (ymd: string) => new Date(ymd + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   if (!d.date) return '';
-  return d.end && d.end !== d.date ? `${f(d.date)} – ${f(d.end)}` : f(d.date);
+  return d.end && d.end !== d.date ? `${shortDay(d.date)} – ${shortDay(d.end)}` : shortDay(d.date);
+}
+
+/** A step's day, picked on a small calendar: when a planned step is to start, or its entry's date once started. */
+function StepDateButton({
+  value,
+  step,
+  onPick,
+  disabled,
+}: {
+  value?: string;
+  step: number;
+  onPick: (ymd: string | undefined) => void;
+  disabled?: boolean;
+}) {
+  const p = usePopover();
+  return (
+    <>
+      <button
+        ref={p.ref}
+        className="btn btn-sm gc-flow-setdate"
+        disabled={disabled}
+        aria-label={value ? `Day of step ${step}: ${shortDay(value)}. Change it` : `Set a day for step ${step}`}
+        title={value ? 'Change the day' : 'Set the day it starts'}
+        onClick={p.toggle}
+      >
+        <CalendarPlus /> <span className="gc-flow-setdate-label">{value ? shortDay(value) : 'Set date'}</span>
+      </button>
+      {p.open && (
+        <Popover anchor={p.ref.current} onClose={p.close}>
+          <MiniCalendar
+            value={value}
+            label={`Day of step ${step}`}
+            onPick={(ymd) => {
+              p.close();
+              onPick(ymd);
+            }}
+          />
+          {value && (
+            <button
+              className="menu-item"
+              onClick={() => {
+                p.close();
+                onPick(undefined);
+              }}
+            >
+              <X /> No date
+            </button>
+          )}
+        </Popover>
+      )}
+    </>
+  );
 }
 
 /** onNext: Enter adds the name and clears the field for the next one (it stays put, so no keystroke is lost). */
@@ -174,6 +231,8 @@ export function FlowView({ node, updateAttributes, editor, getPos, deleteNode }:
     openNewEntryDialog({
       heading: `Start step ${i + 1}`,
       title: step.title,
+      // On the day planned for it, if there is one.
+      ...(step.date ? { date: step.date, status: step.date > localDate() ? 'planned' : 'in-progress' } : {}),
       templatePath: templateOf(step)?.path ?? null,
       folder: isInside(ctx.path, LAYOUT.projects) ? dirname(ctx.path) : undefined,
       onCreated: (path) => {
@@ -282,7 +341,12 @@ export function FlowView({ node, updateAttributes, editor, getPos, deleteNode }:
           ) : missing ? (
             <span className="pill tone-red">Entry not found</span>
           ) : (
-            !inTemplate && <span className="pill gc-flow-planned">Not started</span>
+            !inTemplate && (
+              <>
+                <span className="pill gc-flow-planned">Not started</span>
+                {step.date && <span className="gc-flow-date">Planned {shortDay(step.date)}</span>}
+              </>
+            )
           )}
           {!entry && tpl ? (
             <span className="gc-flow-tpl" title="New entry starts from this template">
@@ -303,6 +367,21 @@ export function FlowView({ node, updateAttributes, editor, getPos, deleteNode }:
             <button className="btn btn-sm gc-flow-start" onClick={() => start(i)} aria-label={`Start step ${i + 1}: ${title}`}>
               <Play /> Start
             </button>
+          )}
+          {canStart && !missing && (
+            <StepDateButton
+              step={i + 1}
+              value={entry ? entry.date : step.date}
+              disabled={!!entry?.locked}
+              onPick={(date) => {
+                if (entry) patchMeta(entry.path, { date: date ?? entry.date });
+                else {
+                  const { date: _old, ...rest } = current().steps[i];
+                  void _old;
+                  setStep(i, date ? { ...rest, date } : rest);
+                }
+              }}
+            />
           )}
         </div>
       </div>

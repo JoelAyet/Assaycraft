@@ -1,5 +1,7 @@
 import { Check } from 'lucide-react';
 import { Popover, usePopover } from './overlay';
+import { saveConfig } from '../notebook/actions';
+import { getState, useNotebook } from '../notebook/store';
 import { COLOR_NAMES, PRIORITIES, type ColorName, type Priority, type StatusOption } from '../notebook/model';
 
 export function statusOf(statuses: StatusOption[], id: string | undefined): StatusOption | undefined {
@@ -105,22 +107,59 @@ export function ColorPicker({ value, onChange }: { value: ColorName; onChange: (
   );
 }
 
-/** Deterministic color for a tag name. */
-export function tagColor(tag: string): ColorName {
+const NAME_PALETTE: ColorName[] = ['blue', 'green', 'purple', 'orange', 'teal', 'pink', 'yellow', 'brown', 'red'];
+
+/** A color that follows from a name, so a tag or project keeps its color everywhere until one is chosen. */
+export function nameColor(name: string): ColorName {
   let h = 0;
-  for (const ch of tag) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const palette: ColorName[] = ['blue', 'green', 'purple', 'orange', 'teal', 'pink', 'yellow', 'brown', 'red'];
-  return palette[h % palette.length];
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return NAME_PALETTE[h % NAME_PALETTE.length];
 }
 
+/** A tag's color: the one chosen for it in this notebook, or one from its name. */
+export function tagColor(tag: string, chosen?: Record<string, ColorName>): ColorName {
+  return chosen?.[tag] ?? nameColor(tag);
+}
+
+export function useTagColor(tag: string): ColorName {
+  const chosen = useNotebook((s) => s.config.tagColors?.[tag]);
+  return chosen ?? nameColor(tag);
+}
+
+/** A project's color on the calendar. */
+export function projectColor(project: string, chosen?: Record<string, ColorName>): ColorName {
+  return chosen?.[project] ?? nameColor(project);
+}
+
+/** A tag in its color. Where `onRemove` is given (an entry's own tags), its name also opens a color choice. */
 export function TagPill({ tag, onRemove }: { tag: string; onRemove?: () => void }) {
+  const color = useTagColor(tag);
+  const p = usePopover();
   return (
-    <span className={`pill pill-sq tone-${tagColor(tag)} gc-tag`}>
-      {tag}
+    <span className={`pill pill-sq tone-${color} gc-tag`}>
+      {onRemove ? (
+        <button ref={p.ref} className="gc-tag-name" title={`Color of “${tag}”`} aria-label={`Color of tag ${tag}`} onClick={p.toggle}>
+          {tag}
+        </button>
+      ) : (
+        tag
+      )}
       {onRemove && (
         <button className="gc-tag-x" onClick={onRemove} aria-label={`Remove ${tag}`}>
           ×
         </button>
+      )}
+      {p.open && (
+        <Popover anchor={p.ref.current} onClose={p.close}>
+          <div className="menu-label">Color of “{tag}” everywhere</div>
+          <ColorPicker
+            value={color}
+            onChange={(c) => {
+              p.close();
+              void saveConfig({ tagColors: { ...getState().config.tagColors, [tag]: c } });
+            }}
+          />
+        </Popover>
       )}
     </span>
   );

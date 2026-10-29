@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { newBlankEntry, openFolderNotebook, skipTour, trackErrors, waitForSave } from './helpers';
 
 const PHONE_UA = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36';
@@ -101,7 +102,19 @@ function audit(phone: boolean) {
       .map((n) => n.textContent)
       .join('')
       .trim();
-    if (!text || !visible(el)) continue;
+    if (!text) continue;
+    // Words squeezed to no width at all, the rest of their row having taken it, are not drawn either.
+    const flat = el.getBoundingClientRect();
+    if (
+      flat.width < 1 &&
+      flat.height >= 1 &&
+      el.scrollWidth > 8 &&
+      getComputedStyle(el).position !== 'absolute' &&
+      el.parentElement &&
+      visible(el.parentElement)
+    )
+      cut.push({ el: name(el), text: text.slice(0, 40), w: 0, need: el.scrollWidth, squeezed: true });
+    if (!visible(el)) continue;
     if (el.closest('[disabled], [aria-disabled="true"]')) continue;
     const s = getComputedStyle(el);
     const fg = parse(s.color);
@@ -165,8 +178,8 @@ function audit(phone: boolean) {
       el.closest('label');
     if (!label) unnamed.push({ el: name(el), html: el.outerHTML.slice(0, 120) });
     const min = Math.min(r.width, r.height);
-    const labelled = el.tagName === 'INPUT' && (el.closest('label')?.textContent ?? '').trim().length > 0;
-    if (phone && min < 24 && !labelled && !(el.tagName === 'A' && getComputedStyle(el).display === 'inline'))
+    const labeled = el.tagName === 'INPUT' && (el.closest('label')?.textContent ?? '').trim().length > 0;
+    if (phone && min < 24 && !labeled && !(el.tagName === 'A' && getComputedStyle(el).display === 'inline'))
       small.push({
         el: name(el),
         text: (el.textContent ?? el.getAttribute('aria-label') ?? '').trim().slice(0, 25),
@@ -188,7 +201,9 @@ function audit(phone: boolean) {
     const x = r.left + r.width / 2;
     const y = r.top + Math.min(r.height / 2, 16);
     const top = x > 0 && y > 0 && x < window.innerWidth && y < window.innerHeight ? document.elementFromPoint(x, y) : null;
-    if (top && !active.contains(top) && !top.contains(active) && !top.parentElement?.contains(active))
+    // A menu opened from the page (Color and size, say) is meant to sit over it for a moment.
+    const menu = top?.closest('.popover, [role="menu"], [role="dialog"]');
+    if (top && !menu && !active.contains(top) && !top.contains(active) && !top.parentElement?.contains(active))
       covered.push({ field: name(active), under: name(top), text: (top.textContent ?? '').trim().slice(0, 40) });
   }
   // A phone has no room to spare: a page's title starts near the edge, as on every other page.
@@ -307,7 +322,7 @@ for (const s of SETUPS) {
       // Literature: the library, adding and importing papers, a paper, and citing one in the example entry.
       await nav('Literature');
       await check('Literature');
-      await page.getByRole('button', { name: 'Add paper' }).first().click();
+      await page.getByRole('button', { name: 'New paper' }).click();
       await page.getByRole('dialog').locator('#paper-title').fill('A test paper');
       await check('Add paper dialog');
       await page.getByRole('tab', { name: 'BibTeX or RIS' }).click();
@@ -335,13 +350,15 @@ for (const s of SETUPS) {
       await page.locator('.gc-tpl-card', { hasText: 'Molecular cloning' }).click();
       await check('Template');
       await nav('Stocks');
-      await page.locator('.gc-stock-tab', { hasText: 'Primers' }).click();
+      await page.locator('.gc-viewtab', { hasText: 'Primers' }).click();
       await page.locator('.gc-stock-table').waitFor();
       await check('Stocks');
       await page.locator('.gc-stock-id', { hasText: 'PR-0001' }).click();
       await check('Stock details');
       await page.getByRole('button', { name: 'Close the details' }).click();
-      await page.locator('.gc-stock-tab', { hasText: 'New collection' }).click();
+      await page.getByRole('button', { name: 'More to add' }).click();
+      await check('New menu');
+      await page.getByRole('menuitem', { name: 'New collection…' }).click();
       await check('New collection dialog');
       await page.keyboard.press('Escape');
       // Two editing sessions, then the version history.
@@ -350,7 +367,7 @@ for (const s of SETUPS) {
       await waitForSave(page);
       await page.clock.fastForward('11:00');
       await location.fill('Freezer B · box 7');
-      await page.locator('.gc-stock-add').click();
+      await page.locator('.gc-new-main').click();
       await page.keyboard.type('T7 promoter');
       await page.keyboard.press('Escape');
       await waitForSave(page);
@@ -376,7 +393,7 @@ for (const s of SETUPS) {
       await check('Tracking board');
       await nav('Calendar');
       for (const view of ['Month', 'Week', 'Agenda']) {
-        await page.locator('.gc-segmented button', { hasText: view }).click();
+        await page.locator('.gc-viewtab', { hasText: view }).click();
         await check(`Calendar ${view}`);
       }
       if (s.phone) {
@@ -565,7 +582,7 @@ for (const s of SETUPS) {
       await waitForSave(page);
       await check('Entry with a time');
       await nav('Calendar');
-      await page.locator('.gc-segmented button', { hasText: 'Month' }).click();
+      await page.locator('.gc-viewtab', { hasText: 'Month' }).click();
       await page.getByRole('button', { name: 'Calendars' }).click();
       await check('Calendars');
       await page.getByLabel('Calendar address (iCal)').fill('https://calendar.google.com/calendar/ical/lab%40group/private-0123456789/basic.ics');
@@ -577,16 +594,128 @@ for (const s of SETUPS) {
       await check('Calendars, with a calendar and the link');
       await page.keyboard.press('Escape');
       await check('Month with another calendar');
-      if (s.phone) await page.locator('.gc-segmented button', { hasText: 'Agenda' }).click();
+      if (s.phone) await page.locator('.gc-viewtab', { hasText: 'Agenda' }).click();
       await page.locator('.gc-cal-item.is-event:visible, .gc-agenda-item.is-event:visible', { hasText: 'Confocal' }).first().click();
       await check('Event of another calendar');
       await page.keyboard.press('Escape');
-      await page.locator('.gc-segmented button', { hasText: 'Week' }).click();
+      await page.locator('.gc-viewtab', { hasText: 'Week' }).click();
       await check('Week with times');
-      await page.locator('.gc-segmented button', { hasText: 'Agenda' }).click();
+      await page.locator('.gc-viewtab', { hasText: 'Agenda' }).click();
       await check('Agenda with times');
       await nav('Home');
       await check('Home with a time');
+      expect(problems).toEqual({});
+    });
+    test('colors, reminders, the reading board, drawn notes and planned steps pass the design checks', async ({ page }) => {
+      test.setTimeout(150_000);
+      const problems: Record<string, unknown> = {};
+      const check = async (screen: string) => {
+        await page.waitForTimeout(250);
+        const found = faults(await page.evaluate(audit, s.phone));
+        if (found) problems[screen] = found;
+      };
+      const nav = async (item: string) => {
+        if (s.phone) await page.locator('.gc-nav-toggle').first().click();
+        await page.locator('.gc-nav-item', { hasText: item }).click();
+      };
+      const slash = async (command: string, item: string) => {
+        await page.keyboard.type(`/${command}`);
+        await page.locator('.gc-slash-item').filter({ hasText: item }).first().click();
+      };
+      await openFolderNotebook(page);
+      if (s.phone) await page.locator('.gc-nav-toggle').first().click();
+      await newBlankEntry(page, 'Western blot, day 2');
+      await page.locator('.ProseMirror').click();
+      await page.keyboard.type('Transfer at 100 V');
+      await page.keyboard.press('Shift+Home');
+      await page.getByRole('button', { name: 'Highlight color' }).click();
+      await check('Highlight colors');
+      await page.getByRole('button', { name: 'Highlight green' }).click();
+      await page.getByRole('button', { name: 'Text color and size' }).click();
+      await page.getByRole('button', { name: 'Text red' }).click();
+      await check('Text color and size menu');
+      await page.keyboard.press('Escape');
+      await page.locator('.ProseMirror').press('End');
+      await page.keyboard.press('Enter');
+      await slash('day', 'Day');
+      await expect(page.locator('.ProseMirror h2')).toBeVisible();
+      await page.locator('.gc-date-chip').click();
+      await check('Day of a date heading');
+      await page.keyboard.press('Escape');
+      await page.locator('.ProseMirror > p').last().click();
+      await slash('reminder', 'Reminder');
+      const reminder = page.getByRole('group', { name: 'Reminder' });
+      await expect(reminder).toBeVisible();
+      await page.keyboard.type('Take the membrane out of the blocking buffer');
+      await reminder.getByRole('button', { name: 'Add time' }).click();
+      await page.getByLabel('Type a time').fill('14:30');
+      await page.getByLabel('Type a time').press('Enter');
+      await check('Reminder');
+      await page.keyboard.press('Escape');
+      await expect(page.locator('.gc-reminder-btn')).toBeVisible();
+      await page.getByRole('button', { name: 'Add tag' }).click();
+      await page.keyboard.type('blot');
+      await page.keyboard.press('Enter');
+      await page.keyboard.press('Escape');
+      await page.getByRole('button', { name: 'Color of tag blot' }).click();
+      await check('Tag color');
+      await page.keyboard.press('Escape');
+      await page.locator('.ProseMirror > p').last().click();
+      await page.getByRole('button', { name: 'Insert a table' }).click();
+      await page.locator('.gc-sheet-grid td[data-r="1"][data-c="0"]').click({ button: 'right' });
+      await check('Table menu with cell colors');
+      await page.getByRole('menuitemradio', { name: 'Fill yellow' }).click();
+      await page.locator('.gc-sheet-grid td[data-r="2"][data-c="1"]').click({ button: 'right' });
+      await page.getByRole('menuitem', { name: 'Freeze columns A–B' }).click();
+      await waitForSave(page);
+      await check('Entry with colors, a reminder and a table');
+      // A flow with a step planned for a day.
+      await page.locator('.ProseMirror > p').last().click();
+      await slash('flow', 'Flow');
+      await page.keyboard.type('Strip and reprobe');
+      await page.keyboard.press('Enter');
+      await page.keyboard.press('Escape');
+      await page.getByRole('button', { name: 'Set a day for step 1' }).click();
+      await check('Day of a flow step');
+      await page.getByRole('group', { name: 'Day of step 1' }).locator('.gc-minical-day').last().click();
+      await waitForSave(page);
+      await page.locator('.gc-flow').scrollIntoViewIfNeeded();
+      await check('Flow with a planned step');
+      // A gel photo with notes drawn on it.
+      await page.locator('.ProseMirror > p').last().click();
+      const chooser = page.waitForEvent('filechooser');
+      await page.locator('.gc-toolbar').getByRole('button', { name: 'Attach files' }).click();
+      await (await chooser).setFiles({ name: 'gel.heic', mimeType: 'image/heic', buffer: readFileSync('tests/fixtures/heic/gel.heic') });
+      const image = page.locator('.gc-image').first();
+      await expect.poll(() => image.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth), { timeout: 30_000 }).toBe(320);
+      await image.hover();
+      await image.getByRole('button', { name: 'Annotate' }).click();
+      const box = (await image.locator('svg.gc-ann-layer').boundingBox())!;
+      await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.3);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.6, { steps: 4 });
+      await page.mouse.up();
+      await check('Drawing on an image');
+      await page.getByRole('button', { name: 'Done' }).click();
+      await waitForSave(page);
+      if (!s.phone) {
+        await page.getByRole('navigation', { name: 'Index of this page' }).hover();
+        await check('Index of the page');
+      }
+      await nav('Calendar');
+      await page.getByRole('button', { name: 'Color by project' }).click();
+      await page.locator('.gc-viewtab', { hasText: 'Month' }).click();
+      await check('Month by project, with a reminder');
+      await page.locator('.gc-viewtab', { hasText: 'Week' }).click();
+      await check('Week by project, with a reminder');
+      await page.locator('.gc-viewtab', { hasText: 'Agenda' }).click();
+      await check('Agenda with a reminder and a planned step');
+      await page.getByRole('button', { name: 'Color by project' }).click();
+      await nav('Literature');
+      await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Board' }).click();
+      await check('Literature board');
+      await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'List' }).click();
+      await check('Literature list with reading status');
       expect(problems).toEqual({});
     });
   });

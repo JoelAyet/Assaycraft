@@ -11,7 +11,6 @@ import {
   HardDrive,
   Globe,
   Plus,
-  Settings,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -25,7 +24,7 @@ import { renameKnownNotebook } from '../fs/registry';
 import { ABOUT } from '../lib/about';
 import { useOfflineState } from '../lib/offline';
 import { Logo } from './Sidebar';
-import { NavToggle } from './nav';
+import { PageHead, PhoneBar } from './PageHeader';
 import { startTour } from './Tour';
 
 function StatusRow({
@@ -125,26 +124,9 @@ export function SettingsPage() {
 
   return (
     <div className="gc-page gc-settings-page">
-      <div className="gc-topbar">
-        <NavToggle />
-        <span className="gc-page-icon">
-          <Settings />
-        </span>
-        <span className="gc-topbar-title">Settings</span>
-        <span className="spacer" />
-        <button className="btn btn-sm" disabled={!dirty} onClick={() => setDraft(config)}>
-          Discard
-        </button>
-        <button className="btn btn-primary btn-sm" disabled={!dirty} onClick={() => void save()}>
-          Save settings
-        </button>
-      </div>
-      <div className="gc-settings-inner">
-        <header className="gc-page-head">
-          <div className="gc-eyebrow">{config.name || vault.name}</div>
-          <h1 className="gc-page-title">Settings</h1>
-          <p className="gc-lede">How this notebook names, sorts and stores your work, and how Assaycraft looks in this browser.</p>
-        </header>
+      <PhoneBar />
+      <div className="gc-page-inner gc-settings-inner">
+        <PageHead title="Settings" lede="How this notebook names and stores your work, and how Assaycraft looks in this browser." />
         <section className="gc-settings-section">
           <h2>Notebook</h2>
           <div className="gc-form-grid">
@@ -214,9 +196,9 @@ export function SettingsPage() {
           </div>
         </section>
 
-        <section className="gc-settings-section">
+        <section className="gc-settings-section" id="settings-statuses">
           <h2>Entry statuses</h2>
-          <p className="muted">These are the columns of the Experiments board. Each entry stores its status id in its front matter.</p>
+          <p className="muted">These are the columns of the Experiments board, in order.</p>
           <div className="gc-status-list">
             {statuses.map((s, i) => (
               <StatusRow
@@ -430,6 +412,18 @@ export function SettingsPage() {
           </div>
         </section>
       </div>
+      {dirty && (
+        <div className="gc-savebar" role="region" aria-label="Unsaved changes">
+          <span>You have unsaved changes.</span>
+          <span className="spacer" />
+          <button className="btn btn-sm" onClick={() => setDraft(config)}>
+            Discard
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => void save()}>
+            Save settings
+          </button>
+        </div>
+      )}
     </div>
   );
 }

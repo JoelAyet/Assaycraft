@@ -1,7 +1,7 @@
 /** Guidance for building templates and sub-templates: the "New template" dialog, tips and the template check. */
 import type { JSONContent } from '@tiptap/core';
 import { useMemo, useState } from 'react';
-import { ArrowRight, BookOpen, CircleCheck, LayoutTemplate, Lightbulb, Link2, Puzzle, TriangleAlert } from 'lucide-react';
+import { ArrowRight, Blocks, BookOpen, CircleCheck, LayoutTemplate, Lightbulb, Link2, TriangleAlert, X } from 'lucide-react';
 import { toast, useNotebook } from '../notebook/store';
 import { createTemplate, readDoc } from '../notebook/actions';
 import type { DocMeta } from '../notebook/model';
@@ -12,7 +12,7 @@ import { Dialog, openDialog } from './overlay';
 import { EntryPicker } from './pickers';
 import { dirname } from '../lib/path';
 
-type Kind = 'template' | 'subtemplate';
+export type Kind = 'template' | 'subtemplate';
 
 const include = (d: DocMeta) => `<!-- gc:include ${JSON.stringify({ id: d.id, name: d.title })} -->`;
 
@@ -112,12 +112,24 @@ export function BracketsDemo() {
 }
 
 /** The Templates page's introduction: what templates, brackets and sub-templates are, in three steps. */
-export function TemplatesHowTo() {
+export function TemplatesHowTo({ onClose }: { onClose?: () => void }) {
   return (
     <section className="gc-howto" aria-labelledby="gc-howto-title">
-      <h2 id="gc-howto-title" className="gc-howto-title">
-        How templates work
-      </h2>
+      <div className="gc-howto-head">
+        <h2 id="gc-howto-title" className="gc-howto-title">
+          How templates work
+        </h2>
+        {onClose && (
+          <button
+            className="icon-btn icon-btn-sm"
+            aria-label="Close the guide"
+            title="Close the guide (How it works opens it again)"
+            onClick={onClose}
+          >
+            <X />
+          </button>
+        )}
+      </div>
       <ol className="gc-howto-steps">
         <li>
           <span className="gc-howto-num" aria-hidden="true">
@@ -169,7 +181,7 @@ export function TemplateGuide({ kind }: { kind: Kind }) {
     return (
       <div className="gc-guide">
         <h3>
-          <Puzzle /> How sub-templates work
+          <Blocks /> How sub-templates work
         </h3>
         <ol className="gc-help-steps">
           <li>
@@ -322,7 +334,7 @@ function NewTemplateDialog({ kind, close }: { kind: Kind; close: () => void }) {
   return (
     <Dialog
       title={isTpl ? 'New entry template' : 'New sub-template'}
-      icon={isTpl ? <LayoutTemplate className="gc-dialog-icon" /> : <Puzzle className="gc-dialog-icon" />}
+      icon={isTpl ? <LayoutTemplate className="gc-dialog-icon" /> : <Blocks className="gc-dialog-icon" />}
       onClose={close}
       wide
       className="gc-create-dialog"
@@ -407,7 +419,7 @@ function NewTemplateDialog({ kind, close }: { kind: Kind; close: () => void }) {
               <input type="radio" name="nt-start" disabled={!entries.length} checked={start === 'entry'} onChange={() => setStart('entry')} />
               <span>
                 <strong>Copy of an entry</strong>
-                <small>Reuse an experiment you already wrote; replace its specific values with {'{{variables}}'} afterwards</small>
+                <small>Reuse an experiment you already wrote; replace its specific values with {'{{variables}}'} afterward</small>
               </span>
             </label>
             {start === 'entry' && (
@@ -435,7 +447,7 @@ function NewTemplateDialog({ kind, close }: { kind: Kind; close: () => void }) {
                   </label>
                 ))}
               </div>
-              <span className="field-hint">They are added in the order you tick them. You can add more later with / → Sub-template.</span>
+              <span className="field-hint">They are added in the order you check them. You can add more later with / → Sub-template.</span>
             </div>
           )}
           {isTpl && (

@@ -5,7 +5,6 @@ import {
   CalendarClock,
   CheckSquare,
   ListTodo,
-  FlaskConical,
   Folder,
   KanbanSquare,
   Link2,
@@ -13,7 +12,6 @@ import {
   Palette,
   Pencil,
   Plus,
-  Search,
   Settings,
   Trash2,
   Workflow,
@@ -26,8 +24,8 @@ import { ColorPicker, PriorityPill, TagPill } from './status';
 import { openNewEntryDialog } from './NewEntryDialog';
 import { entryMenu } from './Sidebar';
 import { dirname, join } from '../lib/path';
-import { localDate } from '../lib/dates';
-import { NavToggle } from './nav';
+import { localDate, LOCALE } from '../lib/dates';
+import { FilterField, NewButton, PageHead, PhoneBar, ViewBar } from './PageHeader';
 import { entriesById, flowProgress } from '../flow/model';
 
 const CARD_MIME = 'application/x-assaycraft-card';
@@ -36,7 +34,7 @@ function dueInfo(due: string | undefined, done: boolean): { label: string; tone:
   if (!due) return null;
   const today = localDate();
   const d = new Date(due + 'T00:00:00');
-  const label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const label = d.toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' });
   if (done) return { label, tone: 'gray' };
   if (due < today) return { label, tone: 'red' };
   const tomorrow = localDate(new Date(Date.now() + 86400000));
@@ -191,11 +189,6 @@ function Kanban({
               </span>
               <span className="gc-col-count">{list.length}</span>
               <span className="spacer" />
-              {col.id !== '__none__' && (
-                <button className="icon-btn icon-btn-sm" title={`Add to ${col.name}`} onClick={() => onAdd(col.id)}>
-                  <Plus />
-                </button>
-              )}
               {columnMenu && col.id !== '__none__' && (
                 <MenuButton items={() => columnMenu(col, ci - (orphan.length ? 1 : 0))} className="icon-btn icon-btn-sm" title="Column options">
                   <MoreHorizontal />
@@ -270,16 +263,13 @@ function useFiltered(items: DocMeta[], q: string) {
   }, [items, q]);
 }
 
-function FilterInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
-  return (
-    <label className="gc-filter">
-      <Search />
-      <input value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-    </label>
-  );
-}
-
 // ───────────── Experiments board (notebook entries by status) ─────────────
+
+/** The board's columns are the notebook's entry statuses, set in Settings. */
+function editStatuses() {
+  navigate({ name: 'settings' });
+  setTimeout(() => document.getElementById('settings-statuses')?.scrollIntoView({ block: 'start' }), 60);
+}
 
 function ExperimentsBoard() {
   const docs = useNotebook((s) => s.docs);
@@ -300,29 +290,29 @@ function ExperimentsBoard() {
   );
   return (
     <div className="gc-page gc-board-page">
-      <div className="gc-topbar">
-        <NavToggle />
-        <span className="gc-page-icon">
-          <FlaskConical />
-        </span>
-        <h1 className="gc-topbar-title is-display">Experiments</h1>
-        <span className="muted gc-topbar-sub">All notebook entries by status. Drag a card to change its status.</span>
-        <span className="spacer" />
-        <select className="select gc-select-sm" value={project} onChange={(e) => setProject(e.target.value)} aria-label="Project">
-          <option value="">All projects</option>
-          {projects.map((p) => (
-            <option key={p} value={p}>
-              {p.split('/')[1]}
-            </option>
-          ))}
-        </select>
-        <FilterInput value={q} onChange={setQ} placeholder="Filter…" />
-        <button className="icon-btn" title="Edit statuses" onClick={() => navigate({ name: 'settings' })}>
-          <Settings />
-        </button>
-        <button className="btn btn-primary btn-sm" onClick={() => openNewEntryDialog({ folder: project || undefined })}>
-          <Plus /> New entry
-        </button>
+      <PhoneBar />
+      <div className="gc-page-inner is-wide gc-board-head">
+        <PageHead title="Experiments" lede="Every entry, by status. Drag a card to another column to change its status." />
+        <ViewBar
+          tools={
+            <>
+              <FilterField value={q} onChange={setQ} placeholder="Filter entries…" />
+              <MenuButton items={[{ label: 'Edit statuses…', icon: <Settings />, onSelect: editStatuses }]} title="Board options">
+                <MoreHorizontal />
+              </MenuButton>
+              <NewButton what="entry" onClick={() => openNewEntryDialog({ folder: project || undefined })} />
+            </>
+          }
+        >
+          <select className="select gc-select-sm" value={project} onChange={(e) => setProject(e.target.value)} aria-label="Project">
+            <option value="">All projects</option>
+            {projects.map((p) => (
+              <option key={p} value={p}>
+                {p.split('/')[1]}
+              </option>
+            ))}
+          </select>
+        </ViewBar>
       </div>
       <Kanban
         columns={statuses}
@@ -352,7 +342,7 @@ function ExperimentsBoard() {
               {(d.date ?? d.created) && (
                 <span>
                   <CalendarClock />{' '}
-                  {new Date((d.date ?? d.created!.slice(0, 10)) + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  {new Date((d.date ?? d.created!.slice(0, 10)) + 'T00:00:00').toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' })}
                 </span>
               )}
               {d.tasks && (
@@ -525,21 +515,20 @@ function TaskBoard({ folder }: { folder: string }) {
 
   return (
     <div className="gc-page gc-board-page">
-      <div className="gc-topbar">
-        <NavToggle />
-        <span className="gc-page-icon">
-          <KanbanSquare />
-        </span>
-        <h1 className="gc-topbar-title is-display">{board.title}</h1>
-        {board.description && <span className="muted gc-topbar-sub">{board.description}</span>}
-        <span className="spacer" />
-        <FilterInput value={q} onChange={setQ} placeholder="Filter cards…" />
-        <MenuButton items={boardMenu} title="Board options">
-          <MoreHorizontal />
-        </MenuButton>
-        <button className="btn btn-primary btn-sm" onClick={() => void createCard(folder, { status: columns[0]?.id, open: true })}>
-          <Plus /> New {noun}
-        </button>
+      <PhoneBar />
+      <div className="gc-page-inner is-wide gc-board-head">
+        <PageHead title={board.title} lede={board.description || undefined} />
+        <ViewBar
+          tools={
+            <>
+              <FilterField value={q} onChange={setQ} placeholder="Filter cards…" />
+              <MenuButton items={boardMenu} title="Board options">
+                <MoreHorizontal />
+              </MenuButton>
+              <NewButton what={noun} onClick={() => void createCard(folder, { status: columns[0]?.id, open: true })} />
+            </>
+          }
+        />
       </div>
       <Kanban
         columns={columns}

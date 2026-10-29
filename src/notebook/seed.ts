@@ -97,7 +97,7 @@ Keep every verified clone as a glycerol stock so it can be regrown at any time.
 ## Procedure
 
 1. Grow 5 mL LB + antibiotic overnight from a single colony.
-2. Mix 500 µL culture with 500 µL sterile 50 % glycerol in a labelled cryovial (25 % final).
+2. Mix 500 µL culture with 500 µL sterile 50 % glycerol in a labeled cryovial (25 % final).
 3. Vortex briefly and freeze at −80 °C.
 4. Record the box and position below.
 5. To recover a strain, scrape a little of the frozen stock with a sterile tip and streak it on a plate. Do not thaw the vial.

@@ -120,6 +120,16 @@
   --c-red-bg: #fde3e1;
   --c-red-fg: #6b1d19;
   --c-red: #e5484d;
+  /* Colored text in entries: readable (4.5:1) on the page and on its highlights. */
+  --ink-red: #c62828;
+  --ink-orange: #b4530f;
+  --ink-yellow: #8a5a00;
+  --ink-green: #1e7d47;
+  --ink-teal: #0f7a6f;
+  --ink-blue: #1f5fd1;
+  --ink-purple: #6d3fd6;
+  --ink-pink: #c0306f;
+  --ink-gray: #5f5f68;
 }
 
 :root[data-accent='violet'] {
@@ -221,6 +231,15 @@
   --c-red-bg: #5c2523;
   --c-red-fg: #f9c3c0;
   --c-red: #f06b6f;
+  --ink-red: #ff8a85;
+  --ink-orange: #f2a056;
+  --ink-yellow: #e8c25a;
+  --ink-green: #66d394;
+  --ink-teal: #55d0c1;
+  --ink-blue: #8ab6ff;
+  --ink-purple: #bba3ff;
+  --ink-pink: #f592c4;
+  --ink-gray: #a6a6ae;
 }
 :root[data-theme='dark'][data-accent='violet'] {
   --accent: #a78bfa;

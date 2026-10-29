@@ -11,8 +11,8 @@ import {
   STOCK_TYPES,
 } from '../../src/stocks/model';
 
-describe('primer maths', () => {
-  it('matches nearest-neighbour Tm from Biopython (SantaLucia 1998, 50 mM Na+, 250 nM primer)', () => {
+describe('primer math', () => {
+  it('matches nearest-neighbor Tm from Biopython (SantaLucia 1998, 50 mM Na+, 250 nM primer)', () => {
     // Reference values: Bio.SeqUtils.MeltingTemp.Tm_NN(seq, nn_table=DNA_NN3, Na=50, dnac1=125, dnac2=125, saltcorr=5).
     const ref: [string, number][] = [
       ['ATGGTGAGCAAGGGCGAGGAG', 60.72],

@@ -186,9 +186,10 @@ test('tables behave like a spreadsheet and are saved as Markdown with formulas',
   expect(md).toContain('"B5":"=B2+B3"');
 });
 
-test('improving a sub-template updates entries created afterwards', async ({ page }) => {
+test('improving a sub-template updates entries created afterward', async ({ page }) => {
   await openFolderNotebook(page);
   await page.locator('.gc-nav-item', { hasText: 'Templates' }).click();
+  await page.getByRole('group', { name: 'Kind' }).getByRole('button', { name: 'Sub-templates' }).click();
   await page.locator('.gc-tpl-card', { hasText: 'Agarose gel' }).click();
   await expect(page.locator('.gc-title-input')).toHaveValue('Agarose gel');
   await page.locator('.ProseMirror p').last().click();
@@ -199,6 +200,7 @@ test('improving a sub-template updates entries created afterwards', async ({ pag
   expect(await readFile(page, 'Templates/Sub-templates/Agarose gel.md')).toContain('Image on the blue-light transilluminator.');
 
   await page.locator('.gc-nav-item', { hasText: 'Templates' }).click();
+  await page.getByRole('group', { name: 'Kind' }).getByRole('button', { name: 'Entry templates' }).click();
   await page.locator('.gc-tpl-card', { hasText: 'Molecular cloning' }).getByRole('button', { name: 'Use' }).click();
   await page.getByRole('button', { name: 'Create entry' }).click();
   await expect(page.locator('.ProseMirror')).toContainText('Image on the blue-light transilluminator.');
@@ -250,9 +252,9 @@ test('TIFF images from microscopes and gel imagers are shown, a page at a time, 
   await expect(stack.locator('.gc-image-meta')).toContainText('Page 1 of 3');
   await stack.getByTitle('Next page').click();
   await expect(stack.locator('.gc-image-meta')).toContainText('Page 2 of 3');
-  // A format the browser can't draw says so, with the file to download.
-  await expect(heic.locator('.gc-image-fallback')).toContainText('IMG_0042.heic');
-  await expect(heic.locator('.gc-image-fallback')).toContainText('can’t show this kind of image');
+  // A photo that can't be read (not a real HEIC) is kept as it is, and says so, with the file to download.
+  await expect(heic.locator('.gc-image-fallback')).toContainText('IMG_0042.heic', { timeout: 20_000 });
+  await expect(heic.locator('.gc-image-fallback')).toContainText('Can’t show this HEIC photo');
   await expect(heic.locator('.gc-image-fallback').getByRole('link', { name: 'Download' })).toHaveAttribute('download', 'IMG_0042.heic');
   await waitForSave(page);
   expect(await readFile(page, 'Projects/EXP-0001 Imaging.md')).toContain('![](attachments/EXP-0001/cells%2016-bit.tif)');

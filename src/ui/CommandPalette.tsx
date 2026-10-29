@@ -13,7 +13,7 @@ import {
   LayoutTemplate,
   ListTodo,
   NotebookPen,
-  Puzzle,
+  Blocks,
   Search,
   Settings,
   FileUp,
@@ -75,7 +75,7 @@ function iconFor(d: DocMeta) {
     case 'template':
       return <LayoutTemplate />;
     case 'subtemplate':
-      return <Puzzle />;
+      return <Blocks />;
     case 'card':
       return <CheckSquare />;
     case 'board':

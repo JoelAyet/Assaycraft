@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Check, Copy, Laptop, RefreshCw, Smartphone, Unlink } from 'lucide-react';
 import { useNotebook, toast } from '../notebook/store';
 import { formatRelative } from '../lib/dates';
-import { NavToggle } from './nav';
+import { PageHead, PhoneBar } from './PageHeader';
 import { confirmDialog } from './overlay';
 import { cancelPendingPairing, forgetPairing, newPairing, syncSupported, unlinkFromComputer, useSync, type PeerStatus } from '../sync/manager';
 import { QrCode } from '../sync/qr';
@@ -238,21 +238,16 @@ export function PhonePage() {
   const phone = role === 'phone';
   return (
     <div className="gc-page gc-settings-page">
-      <div className="gc-topbar">
-        <NavToggle />
-        <span className="gc-page-icon">{phone ? <Laptop /> : <Smartphone />}</span>
-        <span className="gc-topbar-title">{phone ? 'Computer connection' : 'Connect a phone'}</span>
-      </div>
-      <div className="gc-settings-inner">
-        <header className="gc-page-head">
-          <div className="gc-eyebrow">{notebook}</div>
-          <h1 className="gc-page-title">{phone ? 'Computer connection' : 'Connect a phone'}</h1>
-          <p className="gc-lede">
-            {phone
+      <PhoneBar />
+      <div className="gc-page-inner gc-settings-inner">
+        <PageHead
+          title={phone ? 'Computer connection' : 'Connect a phone'}
+          lede={
+            phone
               ? 'This notebook is kept in sync with the computer it came from.'
-              : 'Use this notebook on your phone at the bench. The phone keeps its own copy, and what you write on either device shows up on the other.'}
-          </p>
-        </header>
+              : 'Use this notebook on your phone at the bench. The phone keeps its own copy, and what you write on either device shows up on the other.'
+          }
+        />
         {!syncSupported() ? (
           <p className="gc-option-note">Connecting devices needs the website (assaycraftlab.com), not the single-file version.</p>
         ) : phone ? (

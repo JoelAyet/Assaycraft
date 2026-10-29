@@ -190,7 +190,7 @@ function CircularMap({ record, highlight, onHover, onSelect }: Props) {
         {record.name.length > 22 ? record.name.slice(0, 21) + '…' : record.name}
       </text>
       <text x={200} y={212} textAnchor="middle" className="gc-map-sub">
-        {length.toLocaleString()} bp
+        {length.toLocaleString('en-US')} bp
       </text>
     </svg>
   );

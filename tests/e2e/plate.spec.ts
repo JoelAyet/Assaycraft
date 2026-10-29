@@ -38,10 +38,10 @@ test('a plate layout: samples go in wells by row, column, drag, click or keyboar
     await page.keyboard.type(n);
     await page.keyboard.press('Enter');
   }
-  // Blanks start grey; the sample just added is the one to fill with.
+  // Blanks start gray; the sample just added is the one to fill with.
   await expect(sample(page, 'Blank').locator('.gc-plate-swatch')).toHaveClass(/c-gray/);
   await expect(sample(page, 'WT')).toHaveAttribute('aria-pressed', 'true');
-  // Its colour, from the row of swatches in its menu.
+  // Its color, from the row of swatches in its menu.
   await page.getByRole('button', { name: 'Options for WT', exact: true }).click();
   await expect(page.getByRole('menuitemradio', { name: 'Orange' })).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('menuitemradio', { name: 'Teal' }).click();
@@ -116,7 +116,7 @@ test('plate samples link to stocks, which list the entry as using them', async (
   await expect(stockSample.locator('.gc-plate-link')).toHaveText('GS-0001');
   const name = (await stockSample.locator('.gc-plate-sample-name').textContent())!;
   await page.getByRole('button', { name: 'Fill row A', exact: true }).click();
-  // Another, linked afterwards from its menu.
+  // Another, linked afterward from its menu.
   await page.getByLabel('Add sample').fill('Control');
   await page.keyboard.press('Enter');
   await page.getByRole('button', { name: 'Options for Control' }).click();

@@ -1,4 +1,5 @@
 import { adjustFormula, isFormula, parseLiteral } from './formula';
+import { cellName, parseRef } from './refs';
 
 /**
  * A spreadsheet block. `rows[r][c]` holds exactly what the user typed
@@ -8,6 +9,45 @@ export interface SheetData {
   rows: string[][];
   /** Column widths in px (null = automatic). */
   widths?: (number | null)[];
+  /** Cell background colors, by cell ("B2": "yellow"), from the notebook's palette. */
+  colors?: Record<string, string>;
+  /** How many columns from the left stay in view when the table scrolls sideways. */
+  freeze?: number;
+}
+
+/** Colors a cell can be filled with. */
+export const CELL_COLORS = ['yellow', 'green', 'teal', 'blue', 'purple', 'pink', 'red', 'orange', 'gray'] as const;
+
+/** Move cell colors with their cells when rows or columns are inserted, deleted or reordered. */
+function remapColors(
+  colors: Record<string, string> | undefined,
+  fn: (r: number, c: number) => { r: number; c: number } | null,
+): Record<string, string> | undefined {
+  if (!colors) return colors;
+  const out: Record<string, string> = {};
+  for (const [key, color] of Object.entries(colors)) {
+    const ref = parseRef(key);
+    if (!ref) continue;
+    const to = fn(ref.r, ref.c);
+    if (to) out[cellName(to.r, to.c)] = color;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** Fill a block of cells with a color (or clear it). */
+export function setCellColor(d: SheetData, rect: { r1: number; c1: number; r2: number; c2: number }, color: string | null): SheetData {
+  const colors = { ...d.colors };
+  for (let r = rect.r1; r <= rect.r2; r++)
+    for (let c = rect.c1; c <= rect.c2; c++) {
+      if (color) colors[cellName(r, c)] = color;
+      else delete colors[cellName(r, c)];
+    }
+  return { ...d, colors: Object.keys(colors).length ? colors : undefined };
+}
+
+/** Keep the first `count` columns in view (0: none). */
+export function setFreeze(d: SheetData, count: number): SheetData {
+  return { ...d, freeze: count > 0 ? count : undefined };
 }
 
 export const DEFAULT_COL_WIDTH = 120;
@@ -45,13 +85,14 @@ export function insertRows(d: SheetData, at: number, count = 1): SheetData {
   const cols = sheetSize(d).cols;
   const rows = mapFormulas(d.rows, (f) => adjustFormula(f, 'row', at, count));
   rows.splice(at, 0, ...Array.from({ length: count }, () => Array.from({ length: cols }, () => '')));
-  return { ...d, rows };
+  return { ...d, rows, colors: remapColors(d.colors, (r, c) => ({ r: r >= at ? r + count : r, c })) };
 }
 
 export function deleteRows(d: SheetData, at: number, count = 1): SheetData {
   if (d.rows.length - count < 1) return d;
   const rows = d.rows.filter((_, i) => i < at || i >= at + count);
-  return { ...d, rows: mapFormulas(rows, (f) => adjustFormula(f, 'row', at, -count)) };
+  const colors = remapColors(d.colors, (r, c) => (r >= at && r < at + count ? null : { r: r >= at + count ? r - count : r, c }));
+  return { ...d, rows: mapFormulas(rows, (f) => adjustFormula(f, 'row', at, -count)), colors };
 }
 
 export function insertCols(d: SheetData, at: number, count = 1): SheetData {
@@ -62,14 +103,17 @@ export function insertCols(d: SheetData, at: number, count = 1): SheetData {
   });
   const widths = d.widths ? [...d.widths] : undefined;
   widths?.splice(at, 0, ...Array.from({ length: count }, () => null));
-  return { ...d, rows, widths };
+  const freeze = d.freeze && at < d.freeze ? d.freeze + count : d.freeze;
+  return { ...d, rows, widths, freeze, colors: remapColors(d.colors, (r, c) => ({ r, c: c >= at ? c + count : c })) };
 }
 
 export function deleteCols(d: SheetData, at: number, count = 1): SheetData {
   if (sheetSize(d).cols - count < 1) return d;
   const rows = d.rows.map((row) => row.filter((_, i) => i < at || i >= at + count));
   const widths = d.widths?.filter((_, i) => i < at || i >= at + count);
-  return { ...d, rows: mapFormulas(rows, (f) => adjustFormula(f, 'col', at, -count)), widths };
+  const freeze = d.freeze && at < d.freeze ? Math.max(at, d.freeze - count) || undefined : d.freeze;
+  const colors = remapColors(d.colors, (r, c) => (c >= at && c < at + count ? null : { r, c: c >= at + count ? c - count : c }));
+  return { ...d, rows: mapFormulas(rows, (f) => adjustFormula(f, 'col', at, -count)), widths, freeze, colors };
 }
 
 /** Grow the grid so that (rows × cols) fits. */
@@ -98,7 +142,7 @@ export function setCells(d: SheetData, updates: { r: number; c: number; v: strin
 
 /** Sort data rows (not the header) by a column. Formulas are left untouched relative to their row. */
 export function sortByColumn(d: SheetData, col: number, dir: 1 | -1, display: string[][]): SheetData {
-  const [header, ...body] = d.rows.map((r, i) => ({ r, key: display[i]?.[col] ?? '' }));
+  const [header, ...body] = d.rows.map((r, i) => ({ r, i, key: display[i]?.[col] ?? '' }));
   body.sort((a, b) => {
     const av = parseLiteral(a.key);
     const bv = parseLiteral(b.key);
@@ -107,7 +151,9 @@ export function sortByColumn(d: SheetData, col: number, dir: 1 | -1, display: st
     if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
     return a.key.localeCompare(b.key, undefined, { numeric: true, sensitivity: 'base' }) * dir;
   });
-  return { ...d, rows: [header.r, ...body.map((x) => x.r)] };
+  // Cell colors go with their rows.
+  const to = new Map(body.map((x, k) => [x.i, k + 1]));
+  return { ...d, rows: [header.r, ...body.map((x) => x.r)], colors: remapColors(d.colors, (r, c) => ({ r: to.get(r) ?? r, c })) };
 }
 
 export function isNumericText(s: string): boolean {

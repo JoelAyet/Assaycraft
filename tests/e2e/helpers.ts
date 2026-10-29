@@ -55,7 +55,15 @@ export async function readFile(page: Page, path: string): Promise<string> {
       const parts = path.split('/');
       const name = parts.pop()!;
       for (const p of parts) dir = await dir.getDirectoryHandle(p);
-      return (await (await dir.getFileHandle(name)).getFile()).text();
+      // A file being saved at that moment cannot be read (NotReadableError): try again a moment later.
+      for (let tries = 0; ; tries++) {
+        try {
+          return await (await (await dir.getFileHandle(name)).getFile()).text();
+        } catch (err) {
+          if (tries >= 20 || (err as Error).name !== 'NotReadableError') throw err;
+          await new Promise((r) => setTimeout(r, 50));
+        }
+      }
     },
     { nb: NOTEBOOK, path },
   );

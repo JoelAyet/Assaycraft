@@ -232,9 +232,20 @@ button.gc-flow-title.is-plain:hover {
   min-height: 26px;
   margin-top: auto;
 }
-.gc-flow-start svg {
+.gc-flow-start svg,
+.gc-flow-setdate svg {
   width: 12px;
   height: 12px;
+}
+.gc-flow-card-foot {
+  flex-wrap: wrap;
+  container-type: inline-size;
+}
+/* A narrow card keeps Start and the day on one line: the day button shows only its icon (the card says the day). */
+@container (max-width: 180px) {
+  .gc-flow-setdate-label {
+    display: none;
+  }
 }
 /* In a template, a step is only a name and the template it starts from. */
 .gc-flow.is-template .gc-flow-card {
@@ -292,7 +303,8 @@ button.gc-flow-title.is-plain:hover {
   .gc-flow-card {
     min-height: 0;
   }
-  .gc-flow-start {
+  .gc-flow-start,
+  .gc-flow-setdate {
     height: 36px;
   }
   /* Easier to tap: the name of a step opens or renames it. */
@@ -475,6 +487,7 @@ button.gc-flow-title.is-plain:hover {
 @media print {
   .gc-flow-menu,
   .gc-flow-start,
+  .gc-flow-setdate,
   .gc-flow-card.is-add,
   .gc-flow .is-faint {
     display: none !important;

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Folder, FolderOpen, FolderPlus, MoreHorizontal, Pencil, Plus, Search, Trash2, ChevronRight } from 'lucide-react';
+import { ArrowDown, ArrowUp, Folder, FolderPlus, MoreHorizontal, Pencil, Trash2, ChevronRight } from 'lucide-react';
 import { navigate, toast, useNotebook } from '../notebook/store';
 import { LAYOUT, type DocMeta } from '../notebook/model';
 import { createFolder, renameFolder, trashFolder } from '../notebook/actions';
@@ -8,8 +8,8 @@ import { MenuButton, confirmDialog, openContextMenu, promptDialog, type MenuItem
 import { StatusPill, TagPill, statusOf } from './status';
 import { entryMenu } from './Sidebar';
 import { basename, dirname, isInside } from '../lib/path';
-import { formatRelative } from '../lib/dates';
-import { NavToggle } from './nav';
+import { formatRelative, LOCALE } from '../lib/dates';
+import { FilterField, NewButton, PageHead, PhoneBar, ViewBar } from './PageHeader';
 
 type SortKey = 'id' | 'title' | 'status' | 'date' | 'modified' | 'folder';
 
@@ -111,58 +111,40 @@ export function FolderPage({ path }: { path: string }) {
         ] as MenuItemSpec[])),
   ];
 
-  const crumbs = path.split('/');
+  const crumbs = path.split('/').slice(0, -1);
   return (
     <div className="gc-page gc-folder-page">
-      <div className="gc-topbar">
-        <NavToggle />
-        <nav className="gc-crumbs" aria-label="Breadcrumbs">
-          {crumbs.map((c, i) => {
-            const p = crumbs.slice(0, i + 1).join('/');
-            const last = i === crumbs.length - 1;
-            return (
-              <span key={p} className={`gc-crumb ${last ? 'is-current' : ''}`}>
-                {last ? <span>{c}</span> : <button onClick={() => navigate({ name: 'folder', path: p })}>{c}</button>}
-                {!last && <ChevronRight />}
-              </span>
-            );
-          })}
-        </nav>
-        <span className="spacer" />
-        <MenuButton items={menu} title="Folder options">
-          <MoreHorizontal />
-        </MenuButton>
-        <button className="btn btn-primary btn-sm" onClick={() => openNewEntryDialog({ folder: path })}>
-          <Plus /> New entry
-        </button>
-      </div>
-      <div className="gc-folder-inner">
-        <header className="gc-page-head">
-          <div className="gc-eyebrow">
-            <FolderOpen /> {isRoot ? 'Projects' : dirname(path) === LAYOUT.projects ? 'Project' : basename(dirname(path))}
-          </div>
-          <h1 className="gc-page-title">{isRoot ? 'All entries' : basename(path)}</h1>
-          <p className="gc-lede">
-            {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
-            {entries.length > 0 && ` · ${entries.filter((e) => e.status === 'in-progress').length} in progress`}
-          </p>
-        </header>
-        {children.length > 0 && (
-          <div className="gc-subfolders">
-            {children.map((f) => (
-              <button key={f} className="gc-subfolder" onClick={() => navigate({ name: 'folder', path: f })}>
-                <Folder />
-                <span>{basename(f)}</span>
-                <span className="muted">{Object.values(docs).filter((d) => d.kind === 'entry' && isInside(d.path, f)).length}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="gc-table-tools">
-          <label className="gc-filter">
-            <Search />
-            <input value={q} placeholder="Filter entries…" onChange={(e) => setQ(e.target.value)} />
-          </label>
+      <PhoneBar />
+      <div className="gc-page-inner">
+        <PageHead
+          title={isRoot ? 'All entries' : basename(path)}
+          above={
+            crumbs.length > 0 && (
+              <nav className="gc-crumbs gc-head-crumbs" aria-label="Breadcrumbs">
+                {crumbs.map((c, i) => {
+                  const p = crumbs.slice(0, i + 1).join('/');
+                  return (
+                    <span key={p} className="gc-crumb">
+                      <button onClick={() => navigate({ name: 'folder', path: p })}>{c}</button>
+                      <ChevronRight />
+                    </span>
+                  );
+                })}
+              </nav>
+            )
+          }
+        />
+        <ViewBar
+          tools={
+            <>
+              <FilterField value={q} onChange={setQ} placeholder="Filter entries…" />
+              <MenuButton items={menu} title="Folder options">
+                <MoreHorizontal />
+              </MenuButton>
+              <NewButton what={isRoot ? 'entry' : `entry in ${basename(path)}`} onClick={() => openNewEntryDialog({ folder: path })} />
+            </>
+          }
+        >
           <div className="gc-status-filters">
             <button className={`pill ${statusFilter === null ? 'is-selected' : 'gc-pill-empty'}`} onClick={() => setStatusFilter(null)}>
               All {entries.length}
@@ -180,16 +162,22 @@ export function FolderPage({ path }: { path: string }) {
               );
             })}
           </div>
-        </div>
+        </ViewBar>
+        {children.length > 0 && (
+          <div className="gc-subfolders">
+            {children.map((f) => (
+              <button key={f} className="gc-subfolder" onClick={() => navigate({ name: 'folder', path: f })}>
+                <Folder />
+                <span>{basename(f)}</span>
+                <span className="muted">{Object.values(docs).filter((d) => d.kind === 'entry' && isInside(d.path, f)).length}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {rows.length === 0 ? (
           <div className="empty-state">
             <Folder />
             <h3>{entries.length ? 'No matching entries' : 'No entries here yet'}</h3>
-            {!entries.length && (
-              <button className="btn btn-primary" onClick={() => openNewEntryDialog({ folder: path })}>
-                <Plus /> New entry
-              </button>
-            )}
           </div>
         ) : (
           <table className="gc-table">
@@ -215,7 +203,7 @@ export function FolderPage({ path }: { path: string }) {
                     <StatusPill status={statusOf(statuses, d.status)} />
                   </td>
                   <td className="col-date muted">
-                    {d.date ? new Date(d.date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                    {d.date ? new Date(d.date + 'T00:00:00').toLocaleDateString(LOCALE, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
                   </td>
                   <td className="col-tags">
                     <span className="gc-tags">

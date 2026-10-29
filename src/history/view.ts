@@ -2,6 +2,7 @@
 import { splitFrontMatter } from '../notebook/frontmatter';
 import { countChanges, type ChangeCount } from './diff';
 import { versionTexts, type HistoryFile } from './store';
+import { LOCALE, clock } from '../lib/dates';
 
 export interface HistoryItem {
   key: string;
@@ -82,7 +83,7 @@ export function dayLabel(t: number, now = Date.now()): string {
   if (dayKey(d) === dayKey(today)) return 'Today';
   const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
   if (dayKey(d) === dayKey(yesterday)) return 'Yesterday';
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(LOCALE, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -90,4 +91,4 @@ export function dayLabel(t: number, now = Date.now()): string {
   });
 }
 
-export const timeLabel = (t: number) => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+export const timeLabel = (t: number) => new Date(t).toLocaleTimeString(LOCALE, clock({ hour: 'numeric', minute: '2-digit' }));

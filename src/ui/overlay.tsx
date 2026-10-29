@@ -41,6 +41,9 @@ export function Popover({ anchor, onClose, placement = 'bottom-start', children,
       const t = e.target as Node;
       if (ref.current?.contains(t)) return;
       if (anchor instanceof HTMLElement && anchor.contains(t)) return;
+      // A popover opened from this one (a time list in a reminder's popover) is part of it.
+      const other = (t as Element).closest?.('.popover');
+      if (other && other !== ref.current && ref.current && other.compareDocumentPosition(ref.current) & Node.DOCUMENT_POSITION_PRECEDING) return;
       onClose();
     };
     const onKey = (e: KeyboardEvent) => {
@@ -92,7 +95,7 @@ export interface MenuEntry {
   onSelect: () => void;
 }
 
-/** A row of small icon-only choices (colours, say): each named by its label, which shows as a tooltip. */
+/** A row of small icon-only choices (colors, say): each named by its label, which shows as a tooltip. */
 export interface MenuRow {
   row: (MenuEntry & { checked?: boolean })[];
 }
@@ -159,12 +162,16 @@ export function MenuButton({
   children,
   className = 'icon-btn',
   title,
+  label,
   placement = 'bottom-end',
 }: {
   items: MenuItemSpec[] | (() => MenuItemSpec[]);
   children: ReactNode;
   className?: string;
+  /** Its name, shown as a tooltip too. */
   title?: string;
+  /** Its name without a tooltip, for a button whose words already say what it is. */
+  label?: string;
   placement?: Placement;
 }) {
   const p = usePopover();
@@ -173,8 +180,8 @@ export function MenuButton({
       <button
         ref={p.ref}
         className={className}
-        title={title}
-        aria-label={title}
+        title={label ? undefined : title}
+        aria-label={label ?? title}
         onClick={(e) => {
           e.stopPropagation();
           p.toggle();

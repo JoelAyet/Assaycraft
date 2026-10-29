@@ -136,7 +136,7 @@
   font-weight: 700;
   fill: var(--text) !important;
 }
-/* Selected (the whole block is, just after it is inserted), map text would be painted black: keep its colours. */
+/* Selected (the whole block is, just after it is inserted), map text would be painted black: keep its colors. */
 .gc-map text::selection {
   fill: var(--text-2);
 }

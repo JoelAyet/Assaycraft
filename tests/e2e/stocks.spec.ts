@@ -14,7 +14,7 @@ const computed = (page: Page, id: string) => row(page, id).locator('td.col-compu
 
 async function openPrimers(page: Page) {
   await page.locator('.gc-nav-item', { hasText: 'Stocks' }).click();
-  await page.locator('.gc-stock-tab', { hasText: 'Primers' }).click();
+  await page.locator('.gc-viewtab', { hasText: 'Primers' }).click();
   await expect(page.locator('.gc-stock-table')).toBeVisible();
 }
 
@@ -24,7 +24,7 @@ test('primers: add one, and get its length, GC % and Tm', async ({ page }) => {
   await openPrimers(page);
   await expect(computed(page, 'PR-0001')).toHaveText(['21', '61.9', '60.7']);
 
-  await page.locator('.gc-stock-add').click();
+  await page.locator('.gc-new-main').click();
   await expect(row(page, 'PR-0004').getByLabel('Name of PR-0004')).toBeFocused();
   await page.keyboard.type('T7 promoter');
   await page.keyboard.press('Tab');
@@ -97,14 +97,14 @@ test('link a primer from an entry; clicking it shows the primer in its table', a
   await expect(detail.locator('.gc-stock-used-item')).toHaveText(/EXP-0001\s*EGFP PCR/);
 
   // Renamed collections keep their links working (the ID is looked up).
-  await page.locator('.gc-table-tools').getByTitle('Primers options').click();
+  await page.locator('.gc-viewbar').getByTitle('Primers options').click();
   await page.locator('.menu-item', { hasText: 'Rename…' }).click();
   await page.locator('.dialog input').fill('Oligos');
   await page
     .locator('.dialog')
     .getByRole('button', { name: /Save|OK|Rename/ })
     .click();
-  await expect(page.locator('.gc-stock-tab.active')).toContainText('Oligos');
+  await expect(page.locator('.gc-viewtab.active')).toContainText('Oligos');
   await expect.poll(() => listFiles(page, 'Stocks')).toEqual(['Glycerol stocks.md', 'Oligos.md']);
 
   await detail.locator('.gc-stock-used-item').click();
@@ -127,13 +127,13 @@ test('new collections: seeds, with their own columns and IDs', async ({ page }) 
   await openFolderNotebook(page, { seed: false });
   await page.locator('.gc-nav-item', { hasText: 'Stocks' }).click();
   await expect(page.locator('.empty-state')).toContainText('No stock collections yet');
-  await page.locator('.empty-state').getByRole('button', { name: 'New collection' }).click();
+  await page.getByRole('button', { name: 'New collection' }).click();
   await page.locator('.dialog .gc-template-option', { hasText: 'Seeds' }).click();
   await expect(page.locator('#sc-prefix')).toHaveValue('SD-');
   await page.locator('#sc-title').fill('Arabidopsis seeds');
   await page.locator('#sc-prefix').fill('at-');
   await page.getByRole('button', { name: 'Create collection' }).click();
-  await expect(page.locator('.gc-stock-tab.active')).toContainText('Arabidopsis seeds');
+  await expect(page.locator('.gc-viewtab.active')).toContainText('Arabidopsis seeds');
   await expect(page.locator('.gc-stock-table th')).toHaveText([
     'ID',
     'Name',
@@ -144,12 +144,12 @@ test('new collections: seeds, with their own columns and IDs', async ({ page }) 
     'Location',
     'Notes',
   ]);
-  await page.locator('.gc-stock-add').click();
+  await page.locator('.gc-new-main').click();
   await page.keyboard.type('Col-0');
   await expect(row(page, 'AT-0001')).toBeVisible();
 
   // Add a column.
-  await page.locator('.gc-table-tools').getByRole('button', { name: 'Columns' }).click();
+  await page.locator('.gc-viewbar').getByRole('button', { name: 'Columns' }).click();
   await page.getByLabel('New column').fill('Mother plant');
   await page.getByRole('button', { name: 'Add column' }).click();
   await page.getByRole('button', { name: 'Save columns' }).click();
@@ -168,5 +168,5 @@ test('settings: saving goes back to Home', async ({ page }) => {
   await page.getByLabel('Your name').fill('Joel Ayet');
   await page.getByRole('button', { name: 'Save settings' }).click();
   await expect(page.locator('.toast')).toContainText('Settings saved');
-  await expect(page.locator('.gc-home-title')).toHaveText(/, Joel$/);
+  await expect(page.locator('.gc-home .gc-page-title')).toHaveText(/, Joel$/);
 });

@@ -81,7 +81,7 @@ test('literature: add a paper by DOI, keep notes on it, and see where it is cite
   await expect(jinek).toContainText('A programmable dual-RNA-guided DNA endonuclease');
   await expect(jinek).toContainText('cited in 1');
 
-  await page.getByRole('button', { name: 'Add paper' }).first().click();
+  await page.getByRole('button', { name: 'New paper' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('DOI or PubMed ID').fill('https://doi.org/10.1126/science.1231143');
   await dialog.getByRole('button', { name: 'Look up' }).click();
@@ -106,7 +106,7 @@ test('literature: add a paper by DOI, keep notes on it, and see where it is cite
   expect(md).toContain('## Abstract\n\nFunctional elucidation of causal genetic variants');
 
   // The same DOI again: it is already in the library.
-  await page.getByRole('button', { name: 'Add paper' }).first().click();
+  await page.getByRole('button', { name: 'New paper' }).click();
   await dialog.getByLabel('DOI or PubMed ID').fill('10.1126/science.1231143');
   await dialog.getByRole('button', { name: 'Look up' }).click();
   await expect(dialog.locator('.gc-paper-dup')).toContainText('Already in your library as Cong et al., 2013');
@@ -118,7 +118,7 @@ test('literature: add a paper by DOI, keep notes on it, and see where it is cite
   await expect(page.locator('.gc-doc-kicker')).toContainText('Cong2013');
   await expect(page.locator('.gc-doc-kicker')).toContainText('Paper');
   await expect(page.locator('.gc-crumbs')).toContainText('Literature');
-  await expect(page.locator('.gc-props .gc-prop-label')).toHaveText(['Authors', 'Journal', 'DOI', 'Tags', 'Cited in']);
+  await expect(page.locator('.gc-props .gc-prop-label')).toHaveText(['Reading', 'Authors', 'Journal', 'DOI', 'Tags', 'Cited in']);
   await expect(page.locator('.gc-paper-authors')).toHaveText('Le Cong, F. Ann Ran, David Cox, Feng Zhang');
   await expect(page.locator('.gc-props')).toContainText('Science, 2013; 339(6121): 819–823');
   await expect(page.getByRole('link', { name: /10\.1126\/science\.1231143/ })).toHaveAttribute('href', 'https://doi.org/10.1126/science.1231143');
@@ -126,7 +126,7 @@ test('literature: add a paper by DOI, keep notes on it, and see where it is cite
 
   // A DOI that does not exist, and no connection.
   await page.locator('.gc-nav-item', { hasText: 'Literature' }).click();
-  await page.getByRole('button', { name: 'Add paper' }).first().click();
+  await page.getByRole('button', { name: 'New paper' }).click();
   await dialog.getByLabel('DOI or PubMed ID').fill('10.9999/nothing');
   await dialog.getByRole('button', { name: 'Look up' }).click();
   await expect(dialog.getByRole('alert')).toHaveText('No paper found with the DOI 10.9999/nothing.');
@@ -195,7 +195,7 @@ test('cite a paper from an entry: a link to it, listed under "Cited in"', async 
 test('import papers from BibTeX and RIS, and export the library as BibTeX', async ({ page }) => {
   await openFolderNotebook(page);
   await page.locator('.gc-nav-item', { hasText: 'Literature' }).click();
-  await page.getByRole('button', { name: 'Literature options' }).click();
+  await page.getByRole('button', { name: 'More to add' }).click();
   await page.getByRole('menuitem', { name: 'Import BibTeX or RIS…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Add a paper' });
   await dialog.locator('#paper-bib').fill(`% From Zotero
@@ -265,6 +265,6 @@ test('a web page as a reference shows its year and link, not a journal', async (
     .fill('@misc{addgene2020, title = {Addgene CRISPR guide}, author = {Addgene}, year = {2020}, url = {https://www.addgene.org/guides/crispr/}}');
   await page.getByRole('button', { name: 'Import paper' }).click();
   await page.locator('.gc-paper-row .gc-note-open').click();
-  await expect(page.locator('.gc-props .gc-prop-label')).toHaveText(['Authors', 'Year', 'Link', 'Tags', 'Cited in']);
+  await expect(page.locator('.gc-props .gc-prop-label')).toHaveText(['Reading', 'Authors', 'Year', 'Link', 'Tags', 'Cited in']);
   await expect(page.getByRole('link', { name: /addgene\.org/ })).toHaveAttribute('href', 'https://www.addgene.org/guides/crispr/');
 });

@@ -9,9 +9,8 @@ import {
   LayoutTemplate,
   MoreHorizontal,
   NotebookPen,
-  Puzzle,
+  Blocks,
   RotateCcw,
-  Search,
   TestTubes,
   Trash2,
 } from 'lucide-react';
@@ -21,7 +20,7 @@ import { LAYOUT } from '../notebook/model';
 import type { TrashItem } from '../notebook/trash';
 import { formatDate, formatRelative } from '../lib/dates';
 import { MenuButton, confirmDialog } from './overlay';
-import { NavToggle } from './nav';
+import { FilterField, PageHead, PhoneBar, ViewBar } from './PageHeader';
 
 const KIND_NAMES: Record<string, string> = {
   entry: 'Entry',
@@ -53,7 +52,7 @@ function kindOf(item: TrashItem): { icon: ReactNode; name: string } {
     case 'template':
       return { icon: <LayoutTemplate />, name };
     case 'subtemplate':
-      return { icon: <Puzzle />, name };
+      return { icon: <Blocks />, name };
     default:
       return { icon: <FileText />, name };
   }
@@ -163,35 +162,23 @@ export function TrashPage() {
 
   return (
     <div className="gc-page gc-notes-page gc-trash-page">
-      <div className="gc-topbar">
-        <NavToggle />
-        <span className="gc-page-icon">
-          <Trash2 />
-        </span>
-        <span className="gc-topbar-title">Trash</span>
-        <span className="spacer" />
+      <PhoneBar />
+      <div className="gc-page-inner">
+        <PageHead
+          title="Trash"
+          lede={`Deleted pages, boards and folders, kept until you delete them forever${vault?.kind === 'folder' ? ' (in the notebook’s .trash folder)' : ''}. Restore puts one back where it was, with its attachments and history.`}
+        />
         {trash.length > 0 && (
-          <button className="btn btn-sm btn-danger-ghost" onClick={empty}>
-            <Trash2 /> Empty trash
-          </button>
-        )}
-      </div>
-      <div className="gc-folder-inner gc-notes-inner">
-        <header className="gc-page-head">
-          <div className="gc-eyebrow">Notebook</div>
-          <h1 className="gc-page-title">Trash</h1>
-          <p className="gc-lede">
-            Pages, boards and folders you deleted. <strong>Restore</strong> puts one back where it was, with its attachments and version history. They
-            stay here until you delete them forever{vault?.kind === 'folder' ? ', in the notebook’s .trash folder' : ''}.
-          </p>
-        </header>
-        {trash.length > 0 && (
-          <div className="gc-table-tools">
-            <label className="gc-filter">
-              <Search />
-              <input value={q} placeholder="Filter the trash…" aria-label="Filter the trash" onChange={(e) => setQ(e.target.value)} />
-            </label>
-          </div>
+          <ViewBar
+            tools={
+              <>
+                <FilterField value={q} onChange={setQ} placeholder="Filter the trash…" />
+                <button className="btn btn-sm btn-danger-ghost" onClick={empty}>
+                  <Trash2 /> Empty trash
+                </button>
+              </>
+            }
+          />
         )}
         {groups.map((g) => (
           <section key={g.day} className="gc-notes-group" aria-label={g.day}>
@@ -208,7 +195,6 @@ export function TrashPage() {
           <div className="empty-state gc-notes-empty">
             <Trash2 />
             <h3>The trash is empty</h3>
-            <p>When you delete a page, a board or a folder, it waits here so you can bring it back.</p>
           </div>
         )}
       </div>

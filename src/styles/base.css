@@ -478,7 +478,7 @@ button.pill:hover {
   margin: 5px 4px;
   background: var(--border);
 }
-/* A row of icon-only choices, such as colours. */
+/* A row of icon-only choices, such as colors. */
 .menu-row {
   display: grid;
   grid-template-columns: repeat(5, 30px);

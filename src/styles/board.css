@@ -1,12 +1,17 @@
 .gc-board-page {
   overflow: hidden;
 }
+/* The title and view bar stay put; the columns scroll below them, from the page's left edge. */
+.gc-board-head.gc-page-inner {
+  flex: none;
+  padding-bottom: 0;
+}
 .gc-kanban {
   flex: 1;
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  padding: 20px 22px 28px;
+  padding: 0 22px 28px max(40px, calc((100% - 1120px) / 2 + 40px));
   overflow: auto;
 }
 /* Columns are tinted with their status color, like grouped boards in Notion. */
@@ -168,6 +173,17 @@
 .gc-col-add svg {
   width: 14px;
   height: 14px;
+}
+/* With a mouse, a column's own New shows when pointed at, so the page's New is the one always in view. */
+@media (hover: hover) {
+  .gc-col-add {
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  .gc-col:hover .gc-col-add,
+  .gc-col:focus-within .gc-col-add {
+    opacity: 1;
+  }
 }
 .gc-quick-add .textarea {
   min-height: 0;

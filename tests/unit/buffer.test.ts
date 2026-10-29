@@ -95,7 +95,7 @@ describe('buffer calculator', () => {
     };
     const r = computeBuffer(d);
     expect(r.liters).toBe(0.05);
-    expect(r.fill?.text).toBe('46 mL'); // solids don't count towards the volume
+    expect(r.fill?.text).toBe('46 mL'); // solids don't count toward the volume
     expect(r.error).toBeNull();
     const over = computeBuffer({ ...d, rows: [row('Glycerol', '100', '%', '60', '%'), row('Ethanol', '100', '%', '50', '%')] });
     expect(over.error).toBe('The components add up to more than the final volume');

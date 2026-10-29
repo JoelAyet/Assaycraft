@@ -16,7 +16,8 @@ import {
   FileText,
   FileType2,
   MoreHorizontal,
-  Puzzle,
+  PenLine,
+  Blocks,
   Table2,
   Trash2,
 } from 'lucide-react';
@@ -35,6 +36,8 @@ import { parseDelimited, sniffDelimiter } from '../sheet/tsv';
 import { normalizeSheet } from '../sheet/model';
 import { PdfView } from '../ui/PdfView';
 import { decodeTiff, isTiffName, type TiffPreview } from '../lib/tiff';
+import { heicToJpeg, isHeicName } from '../lib/heic';
+import { AnnotationEditor, AnnotationLayer, normalizeAnnotations, type Annotation } from './annotate';
 
 function useEditable(editor: NodeViewProps['editor']) {
   return useEditorState({ editor, selector: (s) => s.editor.isEditable });
@@ -88,6 +91,29 @@ function useTiffPreview(blob: Blob | null, page: number) {
   return state;
 }
 
+/** A HEIC photo (attached before Assaycraft converted them) drawn as a JPEG for display; the file stays as it is. */
+function useHeicPreview(blob: Blob | null) {
+  const [state, setState] = useState<{ url: string | null; error: string | null }>({ url: null, error: null });
+  useEffect(() => {
+    if (!blob) return;
+    let url: string | null = null;
+    let cancelled = false;
+    heicToJpeg(blob, 0.85).then(
+      (jpeg) => {
+        if (cancelled) return;
+        url = URL.createObjectURL(jpeg);
+        setState({ url, error: null });
+      },
+      (err: Error) => !cancelled && setState({ url: null, error: err.message }),
+    );
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [blob]);
+  return state;
+}
+
 export function ImageView({ node, updateAttributes, selected, editor, deleteNode }: NodeViewProps) {
   const ctx = useDocContext();
   const editable = useEditable(editor);
@@ -99,7 +125,12 @@ export function ImageView({ node, updateAttributes, selected, editor, deleteNode
   const tiff = isTiffName(src);
   const [page, setPage] = useState(0);
   const preview = useTiffPreview(tiff ? blob : null, page);
-  const shownUrl = tiff ? preview.url : fileUrl;
+  const heic = isHeicName(src);
+  const heicPreview = useHeicPreview(heic ? blob : null);
+  const shownUrl = tiff ? preview.url : heic ? heicPreview.url : fileUrl;
+  const marks = useMemo(() => normalizeAnnotations(node.attrs.marks), [node.attrs.marks]);
+  const [aspect, setAspect] = useState(0);
+  const [drawing, setDrawing] = useState(false);
   // Formats the browser can't draw (HEIC from a phone, an unusual TIFF): say so instead of showing a blank line.
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [shownUrl]);
@@ -107,11 +138,16 @@ export function ImageView({ node, updateAttributes, selected, editor, deleteNode
     ? 'This browser can’t show this kind of image.'
     : tiff && preview.error
       ? `Can’t preview this TIFF: ${preview.error}.`
-      : null;
+      : heic && heicPreview.error
+        ? `Can’t show this HEIC photo: ${heicPreview.error}.`
+        : null;
   const width = (node.attrs.width as string | null) ?? null;
   const info = tiff ? preview.info : null;
   return (
-    <NodeViewWrapper className={`gc-image ${selected ? 'is-selected' : ''}`} data-drag-handle="">
+    <NodeViewWrapper
+      className={`gc-image ${selected ? 'is-selected' : ''} ${drawing ? 'is-drawing' : ''}`}
+      data-drag-handle={drawing ? undefined : ''}
+    >
       <figure style={{ width: width ?? undefined }}>
         {error ? (
           <div className="gc-missing">
@@ -136,13 +172,26 @@ export function ImageView({ node, updateAttributes, selected, editor, deleteNode
             )}
           </div>
         ) : shownUrl ? (
-          <img
-            src={shownUrl}
-            alt={String(node.attrs.alt ?? '')}
-            draggable={false}
-            onError={() => setBroken(true)}
-            onDoubleClick={() => shownUrl && window.open(shownUrl, '_blank')}
-          />
+          <div className="gc-image-frame">
+            <img
+              src={shownUrl}
+              alt={String(node.attrs.alt ?? '')}
+              draggable={false}
+              onError={() => setBroken(true)}
+              onLoad={(e) => setAspect(e.currentTarget.naturalWidth / (e.currentTarget.naturalHeight || 1))}
+              onDoubleClick={() => !drawing && shownUrl && window.open(shownUrl, '_blank')}
+            />
+            {drawing && aspect ? (
+              <AnnotationEditor
+                marks={marks}
+                aspect={aspect}
+                onChange={(next: Annotation[]) => updateAttributes({ marks: next.length ? next : null })}
+                onDone={() => setDrawing(false)}
+              />
+            ) : (
+              <AnnotationLayer marks={marks} aspect={aspect} />
+            )}
+          </div>
         ) : (
           <div className="gc-image-loading" />
         )}
@@ -173,8 +222,16 @@ export function ImageView({ node, updateAttributes, selected, editor, deleteNode
             onChange={(e) => updateAttributes({ alt: e.target.value })}
           />
         )}
-        {editable && !cannotShow && (
+        {editable && !cannotShow && !drawing && (
           <div className="gc-image-tools" contentEditable={false}>
+            <button
+              className="gc-chip-btn"
+              title="Draw lines, arrows, boxes and text on the image"
+              onClick={() => setDrawing(true)}
+              disabled={!aspect}
+            >
+              <PenLine /> Annotate
+            </button>
             {WIDTHS.map((w) => (
               <button
                 key={w.label}
@@ -386,7 +443,7 @@ export function IncludeView({ node, selected, editor, deleteNode, getPos }: Node
   };
 
   const menu: MenuItemSpec[] = [
-    ...(target ? [{ label: 'Open sub-template', icon: <Puzzle />, onSelect: () => navigate({ name: 'doc', path: target.path }) }] : []),
+    ...(target ? [{ label: 'Open sub-template', icon: <Blocks />, onSelect: () => navigate({ name: 'doc', path: target.path }) }] : []),
     ...(editable && target ? [{ label: 'Replace with an editable copy', icon: <Copy />, onSelect: () => void inline() }] : []),
     ...(editable ? (['sep', { label: 'Remove', icon: <Trash2 />, danger: true, onSelect: () => deleteNode() }] as MenuItemSpec[]) : []),
   ];
@@ -399,7 +456,7 @@ export function IncludeView({ node, selected, editor, deleteNode, getPos }: Node
         <button className="icon-btn icon-btn-sm" onClick={() => setOpen((o) => !o)} title={open ? 'Collapse' : 'Preview'}>
           {open ? <ChevronDown /> : <ChevronRight />}
         </button>
-        <Puzzle className="gc-include-icon" />
+        <Blocks className="gc-include-icon" />
         <span className="gc-include-label">Sub-template</span>
         <button className="gc-include-name" onClick={() => (target ? navigate({ name: 'doc', path: target.path }) : undefined)}>
           {target?.title ?? name}

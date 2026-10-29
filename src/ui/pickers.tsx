@@ -1,6 +1,6 @@
 import type { Editor } from '@tiptap/core';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BookMarked, BookOpen, CheckSquare, FileText, Link2, Plus, Puzzle, Search, LayoutTemplate } from 'lucide-react';
+import { BookMarked, BookOpen, CheckSquare, FileText, Link2, Plus, Blocks, Search, LayoutTemplate } from 'lucide-react';
 import { Dialog, openDialog } from './overlay';
 import { useNotebook } from '../notebook/store';
 import { materializeTemplate, templateVariables } from '../notebook/actions';
@@ -114,7 +114,7 @@ function SubtemplatePicker({ close, editor, ctx }: { close: () => void; editor: 
     return (
       <Dialog
         title={`Insert “${chosen.title}”`}
-        icon={<Puzzle className="gc-dialog-icon" />}
+        icon={<Blocks className="gc-dialog-icon" />}
         onClose={close}
         footer={
           <>
@@ -133,7 +133,7 @@ function SubtemplatePicker({ close, editor, ctx }: { close: () => void; editor: 
   }
 
   return (
-    <Dialog title="Insert a sub-template" icon={<Puzzle className="gc-dialog-icon" />} onClose={close}>
+    <Dialog title="Insert a sub-template" icon={<Blocks className="gc-dialog-icon" />} onClose={close}>
       <div className="gc-picker-search">
         <Search />
         <input
@@ -173,7 +173,7 @@ function SubtemplatePicker({ close, editor, ctx }: { close: () => void; editor: 
             onMouseEnter={() => setIndex(i)}
             onClick={() => void choose(d)}
           >
-            {d.kind === 'subtemplate' ? <Puzzle /> : <LayoutTemplate />}
+            {d.kind === 'subtemplate' ? <Blocks /> : <LayoutTemplate />}
             <span className="gc-picker-main">
               <span className="gc-picker-title">
                 <span className="gc-picker-name">{d.title}</span>

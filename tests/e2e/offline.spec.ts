@@ -22,8 +22,10 @@ const TYPES: Record<string, string> = {
 async function serveSite() {
   const root = mkdtempSync(join(tmpdir(), 'assaycraft-site-'));
   cpSync(dist, root, { recursive: true });
+  const requests: string[] = [];
   const server = createServer((req, res) => {
     const path = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname);
+    requests.push(path);
     // Like Cloudflare: the app page is only served at the site's address.
     if (path === '/index.html') {
       res.writeHead(307, { location: '/' }).end();
@@ -41,6 +43,7 @@ async function serveSite() {
   return {
     url: `http://127.0.0.1:${(server.address() as AddressInfo).port}/`,
     root,
+    requests,
     close: () => {
       server.close();
       rmSync(root, { recursive: true, force: true });
@@ -79,7 +82,8 @@ test.describe('offline copy of the hosted app', () => {
       await expect(page.locator('.gc-sidebar')).toBeVisible();
       await page.locator('.gc-nav-item', { hasText: 'Protocols' }).click();
       const chooser = page.waitForEvent('filechooser');
-      await page.getByRole('button', { name: 'Import PDF' }).first().click();
+      await page.getByRole('button', { name: 'More to add' }).click();
+      await page.getByRole('menuitem', { name: 'Import PDF protocols…' }).click();
       await (
         await chooser
       ).setFiles({ name: 'gibson.pdf', mimeType: 'application/pdf', buffer: readFileSync('tests/fixtures/pdf/gibson-chromium.pdf') });
@@ -105,6 +109,7 @@ test.describe('offline copy of the hosted app', () => {
       const [before] = await cacheNames(page);
 
       // Publish a new version.
+      site.requests.length = 0;
       const swPath = join(site.root, 'sw.js');
       writeFileSync(swPath, readFileSync(swPath, 'utf8').replace(/const VERSION = "([0-9a-f]+)"/, 'const VERSION = "$1-next"'));
       await page.evaluate(async () => (await navigator.serviceWorker.getRegistration())!.update());
@@ -113,6 +118,8 @@ test.describe('offline copy of the hosted app', () => {
       await expect(offer).toBeVisible({ timeout: 20_000 });
       await Promise.all([page.waitForEvent('load'), offer.getByRole('button', { name: 'Reload' }).click()]);
       await expect.poll(() => cacheNames(page)).toEqual([`${before}-next`]);
+      // Built files that did not change (here, all of them) are not downloaded again.
+      expect(site.requests.filter((p) => p.startsWith('/assets/'))).toEqual([]);
       await expect(page.getByRole('heading', { name: 'Assaycraft' })).toBeVisible();
       expect(errors).toEqual([]);
     } finally {

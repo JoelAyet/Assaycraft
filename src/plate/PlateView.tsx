@@ -64,7 +64,7 @@ const COLOR_NAMES: Record<SampleColor, string> = {
   yellow: 'Yellow',
   red: 'Red',
   brown: 'Brown',
-  gray: 'Grey',
+  gray: 'Gray',
 };
 
 /** The brush: a sample's name, or null to empty wells. */
@@ -216,7 +216,7 @@ export function PlateView({ node, updateAttributes, editor, getPos, deleteNode }
     { label: s.ref ? 'Link to another stock…' : 'Link to a stock…', icon: <TestTubes />, onSelect: () => linkStock(s) },
     { label: 'Link to an entry…', icon: <FileText />, onSelect: () => linkEntry(s) },
     ...(s.ref ? [{ label: 'Unlink', icon: <Link2Off />, onSelect: () => setSample(s.name, { ref: undefined }) } as MenuItemSpec] : []),
-    { heading: 'Colour' },
+    { heading: 'Color' },
     {
       row: SAMPLE_COLORS.map((c) => ({
         label: COLOR_NAMES[c],
