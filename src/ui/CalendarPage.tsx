@@ -971,24 +971,45 @@ function WeekGrid({ start, days, items }: { start: string; days: string[]; items
   );
 }
 
-/** Something with a time, placed at its hours: drag it to move it, click it to open it. */
+/** The bottom edge of an item is being dragged: a change of length, not a move. */
+let resizing = false;
+const LAST_END = 23 * 60 + 45;
+
+/**
+ * Something with a time, placed at its hours: drag it to move it, click it to open it. An entry's
+ * bottom edge changes how long it lasts, in steps of a quarter of an hour.
+ */
 function TimedEvent({ t }: { t: Timed }) {
   const { item } = t;
+  const from = minutesOf(item.time!);
+  // Its length while the bottom edge is being dragged.
+  const [length, setLength] = useState<number | null>(null);
+  const current = length ?? minutesLong(item);
+  const height = length === null ? t.height : Math.max(22, (length / 60) * HOUR_PX - 2);
   const style: CSSProperties = {
     top: t.top,
-    height: t.height,
+    height,
     left: `calc(${(t.col / t.cols) * 100}% + 2px)`,
     width: `calc(${100 / t.cols}% - 4px)`,
   };
   const movable = !!item.doc;
-  const short = t.height < 40;
+  const resizable = movable && item.kind === 'entry';
+  const short = height < 40;
+  const clampLength = (m: number) => Math.max(SNAP, Math.min(LAST_END - from, m));
+  const setEnd = (m: number) => {
+    if (m !== minutesLong(item)) patchMeta(item.doc!.path, { endTime: hhmm(from + m) }, 200);
+  };
   return (
     <div
-      className={`gc-tevent tone-${item.color} is-${item.kind === 'card' ? 'task' : item.kind} ${item.done ? 'is-done' : ''} ${short ? 'is-short' : ''}`}
+      className={`gc-tevent tone-${item.color} is-${item.kind === 'card' ? 'task' : item.kind} ${item.done ? 'is-done' : ''} ${short ? 'is-short' : ''} ${length !== null ? 'is-resizing' : ''}`}
       style={style}
       draggable={movable}
       title={itemTitle(item)}
       onDragStart={(e) => {
+        if (resizing) {
+          e.preventDefault();
+          return;
+        }
         const r = e.currentTarget.getBoundingClientRect();
         startDrag(e, item, 0, Math.max(0, ((e.clientY - r.top) / HOUR_PX) * 60));
       }}
@@ -1011,11 +1032,56 @@ function TimedEvent({ t }: { t: Timed }) {
           open(item, e.currentTarget);
         }}
       >
-        <span className="gc-tevent-time">{formatTimeRange(item.time, item.endTime)}</span>
-        <span className="gc-tevent-title" style={{ WebkitLineClamp: Math.max(1, Math.floor((t.height - 22) / 16)) }}>
+        <span className="gc-tevent-time">{formatTimeRange(item.time, length === null ? item.endTime : hhmm(from + length))}</span>
+        <span className="gc-tevent-title" style={{ WebkitLineClamp: Math.max(1, Math.floor((height - 22) / 16)) }}>
           {item.title}
         </span>
       </button>
+      {resizable && (
+        <div
+          className="gc-tevent-resize"
+          role="slider"
+          tabIndex={0}
+          aria-label={`End time of ${item.title}`}
+          aria-valuemin={from + SNAP}
+          aria-valuemax={LAST_END}
+          aria-valuenow={from + current}
+          aria-valuetext={formatTime(hhmm(from + current))}
+          // No drag of the whole item from here, and no text selection.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            e.stopPropagation();
+            const handle = e.currentTarget;
+            const top = handle.parentElement!.getBoundingClientRect().top;
+            handle.setPointerCapture(e.pointerId);
+            resizing = true;
+            let next = minutesLong(item);
+            const move = (ev: PointerEvent) => {
+              next = clampLength(Math.round((((ev.clientY - top) / HOUR_PX) * 60) / SNAP) * SNAP);
+              setLength(next);
+            };
+            const up = () => {
+              handle.removeEventListener('pointermove', move);
+              handle.removeEventListener('pointerup', up);
+              handle.removeEventListener('pointercancel', up);
+              resizing = false;
+              setEnd(next);
+              setLength(null);
+            };
+            handle.addEventListener('pointermove', move);
+            handle.addEventListener('pointerup', up);
+            handle.addEventListener('pointercancel', up);
+          }}
+          onKeyDown={(e) => {
+            const step = { ArrowDown: SNAP, ArrowRight: SNAP, ArrowUp: -SNAP, ArrowLeft: -SNAP }[e.key];
+            if (!step) return;
+            e.preventDefault();
+            setEnd(clampLength(minutesLong(item) + step));
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@
   "name": "assaycraft",
   "private": true,
   "homepage": "https://assaycraftlab.com",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "description": "A local-first electronic lab notebook for the browser. Entries are saved as Markdown files.",
   "type": "module",
   "engines": {

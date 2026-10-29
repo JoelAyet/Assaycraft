@@ -884,6 +884,44 @@
   border-style: dashed;
   cursor: pointer;
 }
+/* The bottom edge: drag it, or use the arrow keys, to change how long the entry lasts. */
+.gc-tevent-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 7px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.gc-tevent-resize::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  width: 18px;
+  height: 2px;
+  margin-left: -9px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0;
+}
+.gc-tevent:hover .gc-tevent-resize::after,
+.gc-tevent.is-resizing .gc-tevent-resize::after,
+.gc-tevent-resize:focus-visible::after {
+  opacity: 0.5;
+}
+.gc-tevent-resize:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 0 0 6px 6px;
+}
+.gc-tevent.is-resizing {
+  z-index: 3;
+  box-shadow:
+    inset 3px 0 0 var(--tone),
+    var(--shadow);
+}
 .gc-tevent.is-done {
   opacity: 0.6;
 }

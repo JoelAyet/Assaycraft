@@ -99,6 +99,22 @@ test('the week shows the hours: plan at an hour, move to another, or make it all
   await expect(event).toContainText(/3:00\sPM|15:00/);
   await expect.poll(() => readFile(page, path)).toMatch(/\ntime: ['"]?15:00/);
 
+  // Its bottom edge, dragged an hour down, makes it last two hours; the arrow keys nudge it.
+  const edge = event.getByRole('slider', { name: 'End time of Western blot transfer' });
+  const bottom = (await edge.boundingBox())!;
+  await event.hover();
+  await page.mouse.move(bottom.x + bottom.width / 2, bottom.y + bottom.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bottom.x + bottom.width / 2, bottom.y + 20, { steps: 4 });
+  await page.mouse.move(bottom.x + bottom.width / 2, bottom.y + bottom.height / 2 + 44, { steps: 6 });
+  await page.mouse.up();
+  await expect(event).toContainText(/3:00\sPM\s*[–-]\s*5:00\sPM|15:00\s*[–-]\s*17:00/);
+  await expect.poll(() => readFile(page, path)).toMatch(/\nend-time: ['"]?17:00/);
+  await expect.poll(() => readFile(page, path)).toMatch(/\ntime: ['"]?15:00/);
+  await edge.focus();
+  await page.keyboard.press('ArrowUp');
+  await expect.poll(() => readFile(page, path)).toMatch(/\nend-time: ['"]?16:45/);
+
   // Dropped in the all-day row, it loses its time.
   const from = (await event.boundingBox())!;
   const to = (await page.locator('.gc-tgrid-allday .gc-day.is-today').boundingBox())!;
