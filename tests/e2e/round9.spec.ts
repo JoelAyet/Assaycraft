@@ -78,7 +78,7 @@ test('/day puts in today, and its date opens a calendar to pick another day, in 
   const yesterday = day(-1);
   if (yesterday.slice(0, 7) !== day(0).slice(0, 7)) await cal.getByRole('button', { name: 'Previous month' }).click();
   const label = new Date(yesterday + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  await cal.getByRole('button', { name: label }).click();
+  await cal.getByRole('button', { name: label, exact: true }).click();
   await expect(heading).toHaveText(`${yesterday} · ${weekday(yesterday)}`);
   await page.locator('.ProseMirror > p').last().click();
   await expect(page.locator('.ProseMirror')).toBeFocused();
@@ -227,8 +227,9 @@ test('a flow step gets a day on a small calendar, shows on the calendar, and its
   const target = day(3);
   const label = new Date(target + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const cal = page.getByRole('group', { name: 'Day of step 1' });
-  if (!(await cal.getByRole('button', { name: label }).count())) await cal.getByRole('button', { name: 'Next month' }).click();
-  await cal.getByRole('button', { name: label }).click();
+  // Exact: “Sunday, November 1” is also the start of “Sunday, November 15”.
+  if (!(await cal.getByRole('button', { name: label, exact: true }).count())) await cal.getByRole('button', { name: 'Next month' }).click();
+  await cal.getByRole('button', { name: label, exact: true }).click();
   await expect(page.locator('.gc-flow-card').first()).toContainText('Planned');
   await waitForSave(page);
   const plan = pathOf(page);

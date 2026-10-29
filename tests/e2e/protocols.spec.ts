@@ -181,7 +181,8 @@ test('settings show who made Assaycraft', async ({ page }) => {
   await openFolderNotebook(page, { seed: false });
   await page.goto('/#/settings');
   await expect(page.locator('.gc-about')).toContainText('Created by Joel Ayet · 2026');
-  await expect(page.locator('.gc-about')).toContainText(/v\d+\.\d+\.\d+/);
+  // “v1.1”, or “v1.1.2” for a patch release.
+  await expect(page.locator('.gc-about')).toContainText(/\bv\d+\.\d+/);
 });
 
 test('appearance: accent color and entry font are applied and remembered', async ({ page }) => {
