@@ -29,6 +29,7 @@ import { VariableHighlight } from './variables';
 import { ReminderView } from '../reminders/ReminderView';
 import { ListIndent } from './keys';
 import { BlockSelect } from './blockSelect';
+import { DateHeading } from './dateHeading';
 
 const stopAllButDrag = ({ event }: { event: Event }) => !event.type.startsWith('drag') && event.type !== 'drop';
 
@@ -53,6 +54,7 @@ function buildExtensions(placeholder: string, commands: () => ReturnType<typeof 
     VariableHighlight,
     ListIndent,
     BlockSelect,
+    DateHeading,
   ];
 }
 

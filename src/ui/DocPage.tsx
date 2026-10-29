@@ -22,7 +22,7 @@ import {
   MoreHorizontal,
   NotebookPen,
   Printer,
-  Puzzle,
+  Blocks,
   Scissors,
   Trash2,
   Link2,
@@ -601,7 +601,7 @@ function TemplateProps({ meta }: { meta: DocMeta }) {
           <span className="gc-tags">
             {includes.map((d) => (
               <button key={d.path} className="pill pill-sq tone-blue" onClick={() => navigate({ name: 'doc', path: d.path })}>
-                <Puzzle className="gc-inline-icon" /> {d.title}
+                <Blocks className="gc-inline-icon" /> {d.title}
               </button>
             ))}
           </span>
@@ -636,7 +636,7 @@ function kindLabel(meta: DocMeta, board: DocMeta | undefined) {
     case 'template':
       return { icon: <LayoutTemplate />, text: 'Entry template' };
     case 'subtemplate':
-      return { icon: <Puzzle />, text: 'Sub-template' };
+      return { icon: <Blocks />, text: 'Sub-template' };
     case 'card':
       return boardCards(board) === 'tasks' ? { icon: <ListTodo />, text: 'Task' } : { icon: <KanbanSquare />, text: 'Card' };
     case 'protocol':
@@ -763,7 +763,7 @@ export function docMenu(meta: DocMeta, editor: Editor | null): MenuItemSpec[] {
       },
       {
         label: 'Save as sub-template',
-        icon: <Puzzle />,
+        icon: <Blocks />,
         onSelect: () => void saveEntryAsTemplate(meta.path, 'subtemplate').then(() => toast('Sub-template created', 'success')),
       },
       {
@@ -785,7 +785,7 @@ export function docMenu(meta: DocMeta, editor: Editor | null): MenuItemSpec[] {
           title: 'New sub-template from selection',
           label: 'Name',
           placeholder: 'e.g. Western blot transfer',
-          hint: 'The selection becomes a reusable block. Afterwards, replace values that change between runs with {{variables}}.',
+          hint: 'The selection becomes a reusable block. Then replace values that change between runs with {{variables}}.',
         }).then((name) => {
           if (!name) return;
           void createTemplate({ kind: 'subtemplate', title: name, content, sourceFolder: dirname(meta.path), open: false }).then(() =>

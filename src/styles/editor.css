@@ -766,7 +766,7 @@
 :root[data-theme='dark'] .gc-prose mark:not([data-color]) {
   background: rgba(226, 184, 72, 0.32);
 }
-/* Highlight colours, coloured text and sizes (also shown in the Colour and size menu). */
+/* Highlight colors, colored text and sizes (also shown in the Color and size menu). */
 mark[data-color='green'] {
   background: var(--c-green-bg);
 }
@@ -828,9 +828,54 @@ mark[data-color='gray'] {
   font-size: 1.6em;
   line-height: 1.3;
 }
-/* The toolbar's colour button: an A over a bar in the current text colour. */
+/* The toolbar's color button: an A over a bar in the current text color. */
 .gc-ink-btn {
   position: relative;
+}
+/* Highlight and the arrow for its color: one control. */
+.gc-tb-split {
+  display: inline-flex;
+  align-items: center;
+}
+.gc-toolbar .gc-tb-caret {
+  width: 16px;
+  margin-left: -3px;
+  border-radius: 6px;
+  color: var(--text-3);
+}
+.gc-tb-caret svg {
+  width: 12px;
+  height: 12px;
+}
+.gc-hl-bar {
+  opacity: 1;
+}
+.gc-ink-bar.gc-hl-bar[data-color='yellow'] {
+  background: var(--c-yellow);
+}
+.gc-ink-bar.gc-hl-bar[data-color='green'] {
+  background: var(--c-green);
+}
+.gc-ink-bar.gc-hl-bar[data-color='teal'] {
+  background: var(--c-teal);
+}
+.gc-ink-bar.gc-hl-bar[data-color='blue'] {
+  background: var(--c-blue);
+}
+.gc-ink-bar.gc-hl-bar[data-color='purple'] {
+  background: var(--c-purple);
+}
+.gc-ink-bar.gc-hl-bar[data-color='pink'] {
+  background: var(--c-pink);
+}
+.gc-ink-bar.gc-hl-bar[data-color='red'] {
+  background: var(--c-red);
+}
+.gc-ink-bar.gc-hl-bar[data-color='orange'] {
+  background: var(--c-orange);
+}
+.gc-ink-bar.gc-hl-bar[data-color='gray'] {
+  background: var(--c-gray);
 }
 .gc-ink-bar {
   position: absolute;
@@ -884,7 +929,7 @@ mark[data-color='gray'] {
   font-weight: 600;
   color: var(--text-3);
 }
-/* Ten swatches a row (none and nine colours): two even rows of five. */
+/* Ten swatches a row (none and nine colors): two even rows of five. */
 .gc-ink-row {
   display: grid;
   grid-template-columns: repeat(5, max-content);
@@ -1420,7 +1465,8 @@ mark[data-color='gray'] {
   gap: 4px;
   height: 22px;
   padding: 0 7px;
-  margin: 0 1px;
+  /* A little room from the words before it, which are typed right up to it. */
+  margin: 0 1px 0 4px;
   border: 1px solid color-mix(in srgb, var(--c-orange) 45%, transparent);
   border-radius: 999px;
   background: var(--c-orange-bg);
@@ -1441,7 +1487,7 @@ mark[data-color='gray'] {
 .gc-reminder-chip.is-selected .gc-reminder-btn {
   box-shadow: 0 0 0 2px var(--accent);
 }
-/* Ticked off: the chip fades with its line. */
+/* Checked off: the chip fades with its line. */
 li[data-checked='true'] .gc-reminder-btn {
   background: var(--bg-muted);
   border-color: var(--border);
@@ -1451,33 +1497,50 @@ li[data-checked='true'] .gc-reminder-btn {
 .gc-reminder-edit {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  width: 240px;
+  gap: 6px;
+  padding: 10px 12px 12px;
+  width: 280px;
+}
+.gc-reminder-row {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  align-items: center;
+  min-height: 32px;
+}
+.gc-reminder-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.gc-reminder-key svg {
+  width: 14px;
+  height: 14px;
+}
+.gc-reminder-help {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
 }
 .gc-reminder-remove {
   align-self: flex-start;
 }
 
-/* /day and /reminder windows */
-.gc-date-prompt {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* A day heading's date (/day): click it to pick another day. */
+.gc-date-chip {
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: underline dotted color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 4px;
 }
-.gc-quick-days {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.gc-date-chip:hover {
+  background: var(--bg-hover);
+  text-decoration-color: currentColor;
 }
-.gc-quick-days .btn.is-picked {
-  border-color: var(--accent);
-  color: var(--accent-text);
-  background: var(--accent-soft);
-}
-.gc-date-preview {
-  margin: 0;
-  font-size: 13px;
+.gc-prose[contenteditable='false'] .gc-date-chip {
+  cursor: text;
+  text-decoration: none;
 }
 
 /* ───────── Notes drawn on an image ───────── */
@@ -1592,6 +1655,14 @@ body.is-marquee * {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   border-radius: 4px;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+/* A drag from the text into another block selects blocks, not ragged lines of text. */
+.gc-prose.is-block-dragging,
+.gc-prose.is-block-dragging * {
+  user-select: none;
+}
+.gc-prose.is-block-dragging ::selection {
+  background: transparent;
 }
 
 /* ───────── The page's index, at its right edge (computers) ───────── */

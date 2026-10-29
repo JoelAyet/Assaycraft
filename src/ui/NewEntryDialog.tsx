@@ -31,7 +31,7 @@ interface Initial {
   status?: string;
   /** Protocols to link to the new entry. */
   protocols?: string[];
-  /** Start with "copy the protocol steps into the entry" ticked. */
+  /** Start with "copy the protocol steps into the entry" checked. */
   copyProtocolSteps?: boolean;
   title?: string;
   /** The dialog's title, e.g. "Start step 3". */
@@ -274,7 +274,7 @@ function NewEntryDialog({ close, initial }: { close: () => void; initial: Initia
             {protocols.length > 0 && (
               <label className="checkbox gc-check">
                 <input type="checkbox" checked={copySteps} onChange={(e) => setCopySteps(e.target.checked)} />
-                Copy the protocol steps into the entry, to tick them off and note changes
+                Copy the protocol steps into the entry, to check them off and note changes
               </label>
             )}
           </div>

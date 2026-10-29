@@ -152,9 +152,9 @@ export interface NotebookConfig {
   created: string;
   /** Other calendars shown in the calendar (read-only), by their iCal address. */
   calendars?: CalendarLink[];
-  /** Colours chosen for tags (others get one from their name). */
+  /** Colors chosen for tags (others get one from their name). */
   tagColors?: Record<string, ColorName>;
-  /** Colours chosen for projects on the calendar (others get one from their name). */
+  /** Colors chosen for projects on the calendar (others get one from their name). */
   projectColors?: Record<string, ColorName>;
 }
 

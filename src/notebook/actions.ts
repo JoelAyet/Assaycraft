@@ -549,11 +549,12 @@ export function updateFlowStepDate(stalePath: string, index: number, date: strin
   return rewriteBody(stalePath, (body) => setFlowStepDate(body, index, date), 'That step is no longer in its flow');
 }
 
-/** Move a reminder in a page to another day (keeping its time), or tick it off, writing the page's file. */
-export async function updateReminder(stalePath: string, index: number, change: { date: string } | { done: boolean }) {
+/** Move a reminder in a page to another day (keeping its time), or check it off, writing the page's file. */
+/** Move reminder `index` to another day (and time: null makes it all-day, left out keeps it), or check it off. */
+export async function updateReminder(stalePath: string, index: number, change: { date: string; time?: string | null } | { done: boolean }) {
   return rewriteBody(
     stalePath,
-    (body) => ('date' in change ? moveReminder(body, index, change.date) : setReminderDone(body, index, change.done)),
+    (body) => ('date' in change ? moveReminder(body, index, change.date, change.time) : setReminderDone(body, index, change.done)),
     'That reminder is no longer in its page',
   );
 }
@@ -1086,7 +1087,7 @@ export function releaseVersion(path: string, version: string, note: string) {
   patchMeta(path, { version: v, revisions: [rev, ...(cur.revisions ?? []).filter((r) => r.version !== v)] }, 0);
 }
 
-/** Columns from their names: grey to start, green to finish, colours in between. */
+/** Columns from their names: gray to start, green to finish, colors in between. */
 export function boardColumns(names: string[]): StatusOption[] {
   const middle: ColorName[] = ['blue', 'purple', 'orange', 'teal', 'yellow', 'pink'];
   const taken = new Set<string>();

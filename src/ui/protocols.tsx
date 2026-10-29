@@ -21,9 +21,7 @@ import {
   MoreHorizontal,
   NotebookPen,
   PanelRight,
-  Plus,
-  Puzzle,
-  Search,
+  Blocks,
   Trash2,
 } from 'lucide-react';
 import { getState, navigate, setState, toast, useNotebook } from '../notebook/store';
@@ -52,7 +50,7 @@ import { PdfBatchDialog, PdfPicker, conversionSummary, isPdf, pickPdfs, useConve
 import { openSourcePane, sourcePathOf } from './PdfView';
 import { formatDate, formatRelative } from '../lib/dates';
 import type { JSONContent } from '@tiptap/core';
-import { NavToggle } from './nav';
+import { FilterField, NewButton, PageHead, PhoneBar, ViewBar } from './PageHeader';
 
 export function protocolsById(docs: Record<string, DocMeta>): Map<string, DocMeta> {
   const out = new Map<string, DocMeta>();
@@ -160,7 +158,7 @@ function backlinkIcon(d: DocMeta) {
     case 'template':
       return <LayoutTemplate />;
     case 'subtemplate':
-      return <Puzzle />;
+      return <Blocks />;
     case 'card':
       return <CheckSquare />;
     case 'protocol':
@@ -574,7 +572,7 @@ function NewProtocolDialog({
                 <strong>One method per protocol</strong>, written so that a colleague could follow it without asking you.
               </li>
               <li>
-                <strong>List the materials</strong> with amounts and catalogue numbers. Tables can calculate, e.g. <code>=B2*4</code>.
+                <strong>List the materials</strong> with amounts and catalog numbers. Tables can calculate, e.g. <code>=B2*4</code>.
               </li>
               <li>
                 <strong>Number the steps</strong> and give times, temperatures, speeds and volumes.
@@ -661,7 +659,7 @@ function ProtocolInsertDialog({ close, editor, ctx }: { close: () => void; edito
           <span className="field-hint">
             {mode === 'link'
               ? 'Adds a link at the cursor.'
-              : 'Copies the protocol here so you can tick off steps and note changes. The original is not modified.'}
+              : 'Copies the protocol here so you can check off steps and note changes. The original is not modified.'}
             {tracks ? ' The protocol is also added to this page’s Protocols field.' : ''}
           </span>
         </div>
@@ -777,57 +775,24 @@ export function ProtocolsPage() {
           <strong>Drop PDFs to import them as protocols</strong>
         </div>
       )}
-      <div className="gc-topbar">
-        <NavToggle />
-        <span className="gc-page-icon">
-          <BookOpen />
-        </span>
-        <span className="gc-topbar-title">Protocols</span>
-        <span className="spacer" />
-        <button
-          className="btn btn-sm"
-          onClick={() => void pickAndImportPdfs()}
-          title="Convert PDF protocols into editable protocols"
-          aria-label="Import PDF"
+      <PhoneBar />
+      <div className="gc-page-inner">
+        <PageHead
+          title="Protocols"
+          lede="Your lab’s reference methods (SOPs), each with a version and a history, linked from the entries that follow them."
+        />
+        <ViewBar
+          tools={
+            <>
+              <FilterField value={q} onChange={setQ} placeholder="Filter protocols…" />
+              <NewButton
+                what="protocol"
+                onClick={() => openNewProtocolDialog()}
+                more={[{ label: 'Import PDF protocols…', icon: <FileUp />, onSelect: () => void pickAndImportPdfs() }]}
+              />
+            </>
+          }
         >
-          <FileUp /> <span className="gc-btn-label">Import PDF</span>
-        </button>
-        <button className="btn btn-primary btn-sm" onClick={() => openNewProtocolDialog()}>
-          <Plus /> New protocol
-        </button>
-      </div>
-      <div className="gc-folder-inner">
-        <header className="gc-page-head">
-          <h1 className="gc-page-title">Protocols</h1>
-          <p className="gc-lede">Your lab’s reference methods, versioned, and linked from every entry that follows them.</p>
-        </header>
-        <div className="gc-explainer">
-          <div>
-            <BookOpen />
-            <strong>Protocols</strong> are your lab’s reference methods (SOPs): one Markdown file each in <code>{LAYOUT.protocols}/</code>, with a
-            version, a status and a history of changes.
-          </div>
-          <div>
-            <Link2 />
-            <strong>Link them</strong> from an entry’s <em>Protocols</em> field or with <code>/</code> → <em>Protocol</em>. Link them in a template
-            and every new entry from it is linked too. Click a linked protocol to read it side by side.
-          </div>
-          <div>
-            <History />
-            <strong>Version them</strong>: <em>Release new version</em> records what changed. Entries can keep a copy of the steps they followed, and
-            each protocol lists where it is used.
-          </div>
-          <div>
-            <FileUp />
-            <strong>Import PDFs</strong>: vendor protocols and kit handbooks become editable protocols, with their steps, tables and figures. Drop
-            them here or use <em>Import PDF</em>.
-          </div>
-        </div>
-        <div className="gc-table-tools">
-          <label className="gc-filter">
-            <Search />
-            <input value={q} placeholder="Filter protocols…" onChange={(e) => setQ(e.target.value)} />
-          </label>
           <div className="gc-status-filters">
             <button className={`pill ${statusFilter === null ? 'is-selected' : 'gc-pill-empty'}`} onClick={() => setStatusFilter(null)}>
               All {protocols.length}
@@ -844,7 +809,7 @@ export function ProtocolsPage() {
           </div>
           {tags.length > 0 && (
             <select
-              className="select gc-tag-filter"
+              className="select gc-select-sm gc-tag-filter"
               aria-label="Filter by tag"
               value={tagFilter ?? ''}
               onChange={(e) => setTagFilter(e.target.value || null)}
@@ -857,23 +822,18 @@ export function ProtocolsPage() {
               ))}
             </select>
           )}
-        </div>
+        </ViewBar>
         {rows.length === 0 ? (
           <div className="empty-state">
             <BookOpen />
             <h3>{protocols.length ? 'No matching protocols' : 'No protocols yet'}</h3>
             {!protocols.length && (
               <>
-                <p>
-                  Write your lab’s methods once, then link them from your entries. You can also import PDFs, or turn an entry into a protocol from its
-                  ⋯ menu.
-                </p>
+                <p>Link a protocol from an entry’s Protocols field or with / → Protocol, and every entry that follows it is listed on it.</p>
+                <p>PDF protocols and kit handbooks become editable protocols: drop them here or use New ▾ → Import.</p>
                 <div className="gc-empty-actions">
-                  <button className="btn btn-primary" onClick={() => openNewProtocolDialog()}>
-                    <Plus /> New protocol
-                  </button>
                   <button className="btn" onClick={() => void pickAndImportPdfs()}>
-                    <FileUp /> Import PDF
+                    <FileUp /> Import PDF protocols
                   </button>
                 </div>
               </>

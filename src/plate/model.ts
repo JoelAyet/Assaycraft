@@ -1,7 +1,7 @@
 /**
  * Plate layouts: which sample goes in which well of a 24-, 48-, 96- or 384-well plate.
  *
- * In the file a plate is a comment with its name, format and samples (their colour and the stock or
+ * In the file a plate is a comment with its name, format and samples (their color and the stock or
  * entry each one is linked to), then an ordinary table of the plate, one cell per well:
  *
  *   <!-- gc:plate {"name":"ELISA 1","format":96,"samples":[{"name":"WT","color":"blue","ref":"GS-0001"}]} -->
@@ -25,7 +25,7 @@ export const PLATE_FORMATS: PlateFormat[] = [
   { wells: 384, rows: 16, cols: 24 },
 ];
 
-/** Colours a sample can have (the app's own, readable in light and dark). */
+/** Colors a sample can have (the app's own, readable in light and dark). */
 export const SAMPLE_COLORS = ['blue', 'orange', 'green', 'purple', 'pink', 'teal', 'yellow', 'red', 'brown', 'gray'] as const;
 export type SampleColor = (typeof SAMPLE_COLORS)[number];
 
@@ -59,13 +59,13 @@ export function wellIndex(well: string, format: PlateFormat): [number, number] |
   return r < format.rows && c >= 0 && c < format.cols ? [r, c] : null;
 }
 
-/** The next colour not yet used (or used least). */
+/** The next color not yet used (or used least). */
 export function nextColor(samples: PlateSample[]): SampleColor {
   const uses = (c: SampleColor) => samples.filter((s) => s.color === c).length;
   return [...SAMPLE_COLORS].sort((a, b) => uses(a) - uses(b) || SAMPLE_COLORS.indexOf(a) - SAMPLE_COLORS.indexOf(b))[0];
 }
 
-/** Blanks and no-template controls start grey, as on most plate maps; other samples take the next colour. */
+/** Blanks and no-template controls start gray, as on most plate maps; other samples take the next color. */
 export function colorFor(name: string, samples: PlateSample[]): SampleColor {
   const blank = /^(blank|empty|ntc|no[ -]?template|mock|buffer only|medium only|media only)\b/i.test(name.trim());
   return blank && !samples.some((s) => s.color === 'gray') ? 'gray' : nextColor(samples);

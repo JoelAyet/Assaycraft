@@ -637,11 +637,11 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
         { label: 'Fill right', hint: 'Ctrl+R', onSelect: fillRight },
         { label: 'Clear cells', hint: 'Del', onSelect: () => rect && clearRect(rect) },
         'sep',
-        { heading: 'Cell colour' },
+        { heading: 'Cell color' },
         {
           row: [
             {
-              label: 'No colour',
+              label: 'No color',
               icon: <span className="gc-cell-swatch is-none" />,
               onSelect: () => withData((d) => setCellColor(d, r, null)),
             },

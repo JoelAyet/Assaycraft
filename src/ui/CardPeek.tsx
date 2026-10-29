@@ -4,6 +4,7 @@ import { Maximize2, MoreHorizontal, X } from 'lucide-react';
 import { navigate, setState, useNotebook } from '../notebook/store';
 import { readDoc } from '../notebook/actions';
 import { DocEditor } from '../editor/DocEditor';
+import { useMarqueeSelect } from '../editor/blockSelect';
 import { Breadcrumbs, DocHeader, docMenu } from './DocPage';
 import { MenuButton } from './overlay';
 
@@ -11,6 +12,8 @@ function PeekPanel({ path }: { path: string }) {
   const meta = useNotebook((s) => s.docs[path]);
   const [body, setBody] = useState<string | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+  useMarqueeSelect(meta?.locked ? null : editor, scrollEl);
   const close = () => setState({ peek: null });
 
   useEffect(() => {
@@ -62,7 +65,7 @@ function PeekPanel({ path }: { path: string }) {
             <X />
           </button>
         </div>
-        <div className="gc-peek-scroll">
+        <div className="gc-peek-scroll" ref={setScrollEl}>
           <div className="gc-doc gc-doc-peek">
             <DocHeader meta={meta} readOnly={!!meta.locked} compact />
             {body !== null && (

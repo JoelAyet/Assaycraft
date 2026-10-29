@@ -32,7 +32,7 @@ export function ActivityGraph() {
       cells.push({ day, date, count: counts.get(day) ?? 0, week, row: i % 7 });
       if (date.getDate() === 1 && week < WEEKS - 1) months.push({ week, label: date.toLocaleDateString(LOCALE, { month: 'short' }) });
     }
-    // Monday, Wednesday and Friday are labelled, whichever day the week starts on.
+    // Monday, Wednesday and Friday are labeled, whichever day the week starts on.
     const weekdays = [0, 1, 2, 3, 4, 5, 6]
       .filter((row) => [1, 3, 5].includes((weekStart + row) % 7))
       .map((row) => ({ row, label: cells[row]?.date.toLocaleDateString(LOCALE, { weekday: 'short' }) ?? '' }));

@@ -82,7 +82,8 @@ test.describe('offline copy of the hosted app', () => {
       await expect(page.locator('.gc-sidebar')).toBeVisible();
       await page.locator('.gc-nav-item', { hasText: 'Protocols' }).click();
       const chooser = page.waitForEvent('filechooser');
-      await page.getByRole('button', { name: 'Import PDF' }).first().click();
+      await page.getByRole('button', { name: 'More to add' }).click();
+      await page.getByRole('menuitem', { name: 'Import PDF protocols…' }).click();
       await (
         await chooser
       ).setFiles({ name: 'gibson.pdf', mimeType: 'application/pdf', buffer: readFileSync('tests/fixtures/pdf/gibson-chromium.pdf') });

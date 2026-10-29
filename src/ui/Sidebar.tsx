@@ -538,7 +538,7 @@ export function Sidebar() {
   return (
     <aside className={`gc-sidebar ${navOpen ? 'is-open' : ''}`} aria-label="Notebook">
       <div className="gc-sidebar-top">
-        <MenuButton items={notebookMenu} className="gc-notebook-btn" title="Notebook menu" placement="bottom-start">
+        <MenuButton items={notebookMenu} className="gc-notebook-btn" label="Notebook menu" placement="bottom-start">
           <Logo />
           <span className="gc-notebook-name">{config.name || vault.name}</span>
           <ChevronDown className="gc-notebook-chevron" />

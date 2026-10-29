@@ -414,9 +414,119 @@
   height: 15px;
 }
 
-/* Editorial page header: small eyebrow, serif title, one-line lede. */
+/*
+ * Pages that list things share one layout: the same width, the same left edge and the same title,
+ * then a view bar (views and filters on the left, tools and the page's New button on the right).
+ * Wide pages (calendar, boards, stocks) start at the same left edge and run to the window's edge.
+ */
+.gc-page-inner {
+  --frame: 1120px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--frame);
+  margin: 0 auto;
+  padding: 40px 40px 64px;
+}
+.gc-page-inner.is-wide {
+  max-width: none;
+  margin: 0;
+  padding-left: max(40px, calc((100% - var(--frame)) / 2 + 40px));
+}
 .gc-page-head {
-  margin: 8px 0 26px;
+  margin: 0 0 22px;
+}
+.gc-viewbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-height: 40px;
+  margin: 0 0 18px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+.gc-viewbar-views {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.gc-viewbar-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin-left: auto;
+}
+.gc-viewbar .gc-filter {
+  width: 200px;
+}
+.gc-viewbar .gc-status-filters {
+  margin: 0;
+}
+.gc-viewtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.gc-viewtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-3);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.gc-viewtab:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.gc-viewtab.active {
+  background: var(--bg-muted);
+  color: var(--text);
+}
+.gc-viewtab svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+.gc-viewbar-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--border);
+}
+/* New, and with ▾ the other things the page can add. */
+.gc-new {
+  display: inline-flex;
+  flex: none;
+}
+.gc-new.has-more .gc-new-main {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  padding-right: 10px;
+}
+.gc-new-more.btn {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  padding: 0 8px 0 6px;
+  border-left: 1px solid color-mix(in srgb, var(--on-ink) 28%, transparent);
+}
+.gc-phonebar {
+  gap: 4px;
+}
+.gc-head-crumbs {
+  margin: 0 0 6px -6px;
 }
 .gc-eyebrow {
   display: inline-flex;
@@ -448,6 +558,8 @@
   font-size: 15px;
   line-height: 1.55;
   color: var(--text-2);
+  /* No last word left alone on its line. */
+  text-wrap: pretty;
 }
 
 .gc-crumbs {
@@ -788,12 +900,6 @@
 
 /* ───────── Home ───────── */
 
-.gc-home-inner {
-  width: 100%;
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 48px 40px 72px;
-}
 .gc-home-hero {
   display: flex;
   align-items: flex-end;
@@ -802,22 +908,8 @@
   margin-bottom: 30px;
   flex-wrap: wrap;
 }
-.gc-home-title {
-  margin: 0;
-  font-family: var(--display);
-  font-size: 40px;
-  font-weight: var(--display-weight);
-  line-height: 1.06;
-  letter-spacing: -0.028em;
-  font-optical-sizing: auto;
-}
 .gc-home-hero .gc-lede {
   margin-top: 12px;
-}
-.gc-home-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 20px;
 }
 
 /* Contributions graph: one square per day, darker the more documents were edited. */
@@ -897,6 +989,12 @@
   align-items: baseline;
   gap: 12px;
   margin-bottom: 14px;
+}
+.gc-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
 }
 .gc-section-title h2,
 .gc-panel-head h2 {
@@ -1183,13 +1281,14 @@
 
 /* ───────── Folder page ───────── */
 
+/* Old page containers still used by a few views: the same frame as .gc-page-inner. */
 .gc-folder-inner,
-.gc-templates-inner,
-.gc-settings-inner {
+.gc-templates-inner {
+  box-sizing: border-box;
   width: 100%;
-  max-width: 1160px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 36px 40px 64px;
+  padding: 40px 40px 64px;
 }
 .gc-subfolders {
   display: flex;
@@ -1469,8 +1568,24 @@
 
 /* ───────── Settings ───────── */
 
-.gc-settings-inner {
-  max-width: 840px;
+/* Settings sections keep a readable width, from the same left edge as every page. */
+.gc-settings-inner > .gc-settings-section {
+  max-width: 760px;
+}
+.gc-savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding: 10px max(40px, calc((100% - 1120px) / 2 + 40px));
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: saturate(1.2) blur(10px);
+  font-size: 13.5px;
+  color: var(--text-2);
 }
 .gc-settings-section {
   padding: 22px 0 26px;
@@ -2421,9 +2536,6 @@
 
 /* ───────── Notes ───────── */
 
-.gc-notes-inner {
-  max-width: 960px;
-}
 .gc-notes-group {
   margin-top: 22px;
 }
@@ -2790,16 +2902,27 @@
 /* ───────── How templates work ───────── */
 
 .gc-howto {
-  margin-bottom: 36px;
+  margin-bottom: 24px;
   padding: 22px 24px 18px;
   border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--bg-subtle);
 }
-.gc-howto-title {
+.gc-howto-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   margin: 0 0 14px;
+}
+.gc-howto-title {
+  margin: 0;
   font-size: 17px;
   font-weight: 650;
+}
+.btn-ghost.active {
+  background: var(--bg-muted);
+  color: var(--text);
 }
 .gc-howto-steps {
   display: grid;

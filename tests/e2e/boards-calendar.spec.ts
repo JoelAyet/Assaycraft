@@ -91,14 +91,14 @@ test('a task board puts its cards on the calendar', async ({ page }) => {
   await page.keyboard.press('Escape');
   await waitForSave(page);
   await page.locator('.gc-nav-item', { hasText: 'Calendar' }).click();
-  await page.locator('.gc-segmented button', { hasText: 'Week' }).click();
+  await page.locator('.gc-viewtab', { hasText: 'Week' }).click();
   await expect(page.locator('.gc-cal-item', { hasText: 'Defrost the −20 °C freezer' })).toBeVisible();
 });
 
 test('calendar: a week view, and controls that stay put', async ({ page }) => {
   await openFolderNotebook(page);
   await page.locator('.gc-nav-item', { hasText: 'Calendar' }).click();
-  const title = page.locator('.gc-calendar-page h1');
+  const title = page.locator('.gc-cal-month-title');
   const next = page.getByTitle('Next month');
 
   // Month to month, the arrows and Today do not move, whatever the month is called.
@@ -113,16 +113,16 @@ test('calendar: a week view, and controls that stay put', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Today' })).toBeDisabled();
 
   // The week of today, a week at a time.
-  await page.locator('.gc-segmented button', { hasText: 'Week' }).click();
-  await expect(page.locator('.gc-weekview-head > div')).toHaveCount(7);
-  await expect(page.locator('.gc-weekview-head .is-today')).toHaveCount(1);
-  await expect(page.locator(`.gc-weekview .gc-day[data-day="${ymd(new Date())}"]`)).toHaveClass(/is-today/);
-  const firstDay = () => page.locator('.gc-weekview .gc-day').first().getAttribute('data-day');
+  await page.locator('.gc-viewtab', { hasText: 'Week' }).click();
+  await expect(page.locator('.gc-tgrid-head .gc-tgrid-day')).toHaveCount(7);
+  await expect(page.locator('.gc-tgrid-head .is-today')).toHaveCount(1);
+  await expect(page.locator(`.gc-tgrid-col[data-day="${ymd(new Date())}"]`)).toHaveClass(/is-today/);
+  const firstDay = () => page.locator('.gc-tgrid-col').first().getAttribute('data-day');
   const thisWeek = (await firstDay())!;
   const plusDays = (d: string, n: number) => ymd(new Date(new Date(d + 'T12:00:00').getTime() + n * 86400000));
   await page.getByTitle('Next week').click();
   await expect.poll(firstDay).toBe(plusDays(thisWeek, 7));
-  await expect(page.locator('.gc-weekview-head .is-today')).toHaveCount(0);
+  await expect(page.locator('.gc-tgrid-head .is-today')).toHaveCount(0);
   await page.getByTitle('Previous week').click();
   await page.getByTitle('Previous week').click();
   await expect.poll(firstDay).toBe(plusDays(thisWeek, -7));
@@ -132,7 +132,7 @@ test('calendar: a week view, and controls that stay put', async ({ page }) => {
   await expect(title).toHaveText(/\d{4}/);
   // The choice of view is remembered.
   await page.reload();
-  await expect(page.locator('.gc-weekview')).toBeVisible();
+  await expect(page.locator('.gc-tgrid')).toBeVisible();
 });
 
 test('the week starts on the day chosen in Settings', async ({ page }) => {
@@ -148,9 +148,9 @@ test('the week starts on the day chosen in Settings', async ({ page }) => {
     await page.getByRole('radio', { name }).click();
     await expect(page.getByRole('radio', { name })).toHaveAttribute('aria-checked', 'true');
     await page.goto('/#/calendar');
-    await page.locator('.gc-segmented button', { hasText: 'Month' }).click();
+    await page.locator('.gc-viewtab', { hasText: 'Month' }).click();
     await expect(monthHead).toHaveText(weekday(day));
-    await page.locator('.gc-segmented button', { hasText: 'Week' }).click();
+    await page.locator('.gc-viewtab', { hasText: 'Week' }).click();
     await expect(page.locator('.gc-weekview-dow').first()).toHaveText(weekday(day));
     // The activity graph on Home starts its columns on the same day.
     await page.goto('/#/');
@@ -166,17 +166,18 @@ test('the week starts on the day chosen in Settings', async ({ page }) => {
 test.describe('on a laptop', () => {
   test.use({ viewport: { width: 1100, height: 760 } });
 
-  test('the calendar bar stays on one line, whatever the month', async ({ page }) => {
+  test('the calendar keeps its views and tools on one row, and the month and Today on the next, whatever the month', async ({ page }) => {
     await openFolderNotebook(page, { seed: false });
     await page.locator('.gc-nav-item', { hasText: 'Calendar' }).click();
-    const today = page.getByRole('button', { name: 'Today' });
-    const newEntry = page.locator('.gc-cal-tools .gc-cal-new');
+    const y = async (sel: string) =>
+      Math.round((await page.locator(sel).first().boundingBox())!.y + (await page.locator(sel).first().boundingBox())!.height / 2);
     // Twelve months, then twelve weeks (one of them across the new year).
     for (const view of ['Month', 'Week']) {
-      await page.locator('.gc-segmented button', { hasText: view }).click();
+      await page.locator('.gc-viewtab', { hasText: view }).click();
       for (let i = 0; i < 12; i++) {
-        const [a, b] = [(await today.boundingBox())!, (await newEntry.boundingBox())!];
-        expect(Math.abs(a.y - b.y), `${await page.locator('.gc-calendar-page h1').textContent()}`).toBeLessThan(4);
+        const title = (await page.locator('.gc-cal-month-title').textContent()) ?? '';
+        expect(Math.abs((await y('.gc-viewtabs')) - (await y('.gc-new'))), title).toBeLessThan(4);
+        expect(Math.abs((await y('.gc-cal-month-title')) - (await y('.gc-cal-nav'))), title).toBeLessThan(6);
         await page.getByTitle(`Next ${view.toLowerCase()}`).click();
       }
     }
@@ -186,16 +187,17 @@ test.describe('on a laptop', () => {
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
-  test('the calendar bar takes two rows: title, then filters and views', async ({ page }) => {
+  test('the calendar has its views in one row and one New', async ({ page }) => {
     await openFolderNotebook(page, { seed: false });
     await page.goto('/#/calendar');
-    const top = async (sel: string) => Math.round((await page.locator(sel).first().boundingBox())!.y);
     for (const view of ['Month', 'Week', 'Agenda']) {
-      await page.locator('.gc-segmented button', { hasText: view }).click();
-      expect(Math.abs((await top('.gc-cal-new-phone')) - (await top('.gc-calendar-page .gc-nav-toggle'))), view).toBeLessThan(6);
-      expect(Math.abs((await top('.gc-cal-tools .checkbox')) - (await top('.gc-cal-tools .gc-segmented'))), view).toBeLessThan(8);
+      await page.locator('.gc-viewtab', { hasText: view }).click();
+      const tabs = await page.locator('.gc-viewtab').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().y)));
+      expect(new Set(tabs).size, view).toBe(1);
+      // One button that says New; a day's own + is an icon.
+      await expect(page.locator('.gc-main button:visible', { hasText: /^\s*New\s*$/ }), view).toHaveCount(1);
     }
-    await page.locator('.gc-cal-new-phone').click();
+    await page.locator('.gc-new-main').click();
     await expect(page.getByRole('dialog', { name: 'New entry' })).toBeVisible();
   });
 });
@@ -238,7 +240,7 @@ test('the activity graph on Home is laid out from the chosen first day', async (
     const today = cells.find((c) => c.today)!;
     expect(today.col).toBe(Math.max(...cells.map((c) => c.col)));
     expect(cells[cells.length - 1].day).toBe(today.day);
-    // Rows are labelled Monday, Wednesday and Friday, whichever day comes first.
+    // Rows are labeled Monday, Wednesday and Friday, whichever day comes first.
     const mon = new Date(2026, 9, 19).toLocaleDateString(undefined, { weekday: 'short' });
     const wed = new Date(2026, 9, 21).toLocaleDateString(undefined, { weekday: 'short' });
     const fri = new Date(2026, 9, 23).toLocaleDateString(undefined, { weekday: 'short' });

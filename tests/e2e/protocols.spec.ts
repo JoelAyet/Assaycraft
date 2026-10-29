@@ -124,8 +124,9 @@ test('guided template and sub-template creation, with checks', async ({ page }) 
   await openFolderNotebook(page);
   await page.locator('.gc-nav-item', { hasText: 'Templates' }).click();
 
-  // Sub-template from the example.
-  await page.getByRole('button', { name: 'New sub-template' }).first().click();
+  // Sub-template from the example: New makes what the open tab shows.
+  await page.getByRole('group', { name: 'Kind' }).getByRole('button', { name: 'Sub-templates' }).click();
+  await page.getByRole('button', { name: 'New sub-template' }).click();
   await expect(page.locator('.gc-help-panel')).toContainText('How sub-templates work');
   await page.locator('#nt-title').fill('BCA assay');
   await page.getByRole('button', { name: 'Create sub-template' }).click();
@@ -138,7 +139,8 @@ test('guided template and sub-template creation, with checks', async ({ page }) 
 
   // Template from the outline, with a linked sub-template, an entry title and a protocol.
   await page.locator('.gc-nav-item', { hasText: 'Templates' }).click();
-  await page.getByRole('button', { name: 'New template' }).first().click();
+  await page.getByRole('group', { name: 'Kind' }).getByRole('button', { name: 'Entry templates' }).click();
+  await page.getByRole('button', { name: 'New template' }).click();
   await expect(page.locator('.gc-help-panel')).toContainText('How templates work');
   await page.locator('#nt-title').fill('Western blot');
   await page.locator('#nt-entry-title').fill('Western blot of {{Protein}}');

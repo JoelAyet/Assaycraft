@@ -388,7 +388,7 @@ test('a notebook made before Notes gets the folder with its first note', async (
   await expect(page.locator('.gc-main')).toBeVisible();
   await page.goto('/#/notes');
   await expect(page.locator('.gc-notes-empty')).toContainText('No notes yet');
-  await page.locator('.gc-notes-empty').getByRole('button', { name: 'New note' }).click();
+  await page.getByRole('button', { name: 'New note' }).click();
   await expect(page.locator('.gc-title-input')).toBeFocused();
   await page.keyboard.type('First note');
   await page.keyboard.press('Enter');

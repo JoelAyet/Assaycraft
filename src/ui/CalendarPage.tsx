@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type ReactNode } from 'react';
 import { create } from 'zustand';
 import {
   BellRing,
   CalendarDays,
+  CalendarRange,
   CalendarSync,
   CheckSquare,
   ChevronLeft,
   ChevronRight,
   FlaskConical,
+  List,
+  ListFilter,
   ListTodo,
   MapPin,
   Palette,
@@ -22,11 +25,11 @@ import { Popover, usePopover } from './overlay';
 import { openNewEntryDialog } from './NewEntryDialog';
 import { ColorPicker, projectColor, statusOf } from './status';
 import { dirname, join } from '../lib/path';
-import { formatTime, formatTimeRange, formatTimeShort, localDate, minutesOf, LOCALE } from '../lib/dates';
+import { clock, formatTime, formatTimeRange, formatTimeShort, localDate, minutesOf, LOCALE } from '../lib/dates';
 import { eventsBetween, loadCalendar, type ExternalEvent } from '../calendar/external';
 import { openCalendarsDialog } from './CalendarsDialog';
 import { PHONE, useMediaQuery } from '../lib/useMedia';
-import { NavToggle } from './nav';
+import { NewButton, PageHead, PhoneBar, ViewBar, ViewTabs, type ViewTab } from './PageHeader';
 
 const CAL_MIME = 'application/x-assaycraft-cal';
 const MAX_LANES = 4;
@@ -111,7 +114,7 @@ function useCalendarItems(showEntries: boolean, showTasks: boolean, colorBy: Col
   const projectColors = useNotebook((s) => s.config.projectColors);
   return useMemo(() => {
     const out: CalItem[] = [];
-    // By project, everything of a project shares its colour; things outside projects stay gray.
+    // By project, everything of a project shares its color; things outside projects stay gray.
     const tone = (item: CalItem, own: ColorName) => (colorBy === 'project' ? (item.where ? projectColor(item.where, projectColors) : 'gray') : own);
     for (const d of Object.values(docs)) {
       // Reminders in pages show with the tasks.
@@ -285,24 +288,87 @@ function reschedule(item: CalItem, delta: number) {
   }
 }
 
-/** Tick a reminder off (or not), in its page's checklist. */
+/** Check a reminder off (or not), in its page's checklist. */
 function tick(item: CalItem, done: boolean) {
   if (!item.doc || !item.reminder) return;
   void updateReminder(item.doc.path, item.reminder.index, { done }).catch((err: Error) =>
-    toast(`Could not tick the reminder off: ${err.message}`, 'error'),
+    toast(`Could not check the reminder off: ${err.message}`, 'error'),
   );
 }
 
-/** An event dropped on a day moves so that the day it was grabbed by lands there. */
-function dropOnDay(e: DragEvent, day: string, items: CalItem[]) {
-  e.preventDefault();
+/**
+ * What is being dragged: browsers hide a drag's data until the drop, and the week's hours show where
+ * it would land while it moves. `grabDays` is the day of a long bar it was grabbed by; `grabMinutes`
+ * how far below its start a timed event was grabbed.
+ */
+let dragging: { key: string; grabDays: number; grabMinutes: number } | null = null;
+function startDrag(e: DragEvent, item: CalItem, grabDays = 0, grabMinutes = 0) {
+  dragging = { key: item.key, grabDays, grabMinutes };
+  e.dataTransfer.setData(CAL_MIME, JSON.stringify({ key: item.key, offset: grabDays }));
+  e.dataTransfer.effectAllowed = 'move';
+}
+function droppedItem(e: DragEvent, items: CalItem[]): { item: CalItem; grabDays: number; grabMinutes: number } | null {
+  let key = dragging?.key;
+  let grabDays = dragging?.grabDays ?? 0;
   try {
-    const { key, offset: grab } = JSON.parse(e.dataTransfer.getData(CAL_MIME)) as { key: string; offset: number };
-    const item = items.find((i) => i.key === key);
-    if (item?.doc) reschedule(item, diffDays(item.start, addDays(day, -grab)));
+    const data = JSON.parse(e.dataTransfer.getData(CAL_MIME)) as { key: string; offset: number };
+    key = data.key;
+    grabDays = data.offset;
   } catch {
-    /* not ours */
+    /* only the bookkeeping */
   }
+  const item = items.find((i) => i.key === key);
+  const grabMinutes = dragging && dragging.key === key ? dragging.grabMinutes : 0;
+  return item?.doc ? { item, grabDays, grabMinutes } : null;
+}
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+/** Minutes after midnight as HH:MM, kept within the day. */
+const hhmm = (min: number) => {
+  const m = Math.max(0, Math.min(23 * 60 + 45, Math.round(min)));
+  return `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
+};
+
+/**
+ * Move something to a day and a time, or to the day as a whole (time null). Entries keep their
+ * length; tasks and planned steps have a day only.
+ */
+function retime(item: CalItem, day: string, time: string | null) {
+  const doc = item.doc;
+  if (!doc) return;
+  const delta = diffDays(item.start, day);
+  if (item.kind === 'reminder') {
+    void updateReminder(doc.path, item.reminder!.index, { date: day, time }).catch((err: Error) =>
+      toast(`Could not move the reminder: ${err.message}`, 'error'),
+    );
+  } else if (item.kind === 'entry') {
+    const oneDay = item.start === item.end;
+    const length = oneDay && doc.time && doc.endTime ? minutesOf(doc.endTime) - minutesOf(doc.time) : 0;
+    patchMeta(
+      doc.path,
+      {
+        date: day,
+        end: doc.end ? addDays(doc.end, delta) : undefined,
+        time: time ?? undefined,
+        endTime: time === null ? undefined : length > 0 ? hhmm(minutesOf(time) + length) : oneDay ? undefined : doc.endTime,
+      },
+      200,
+    );
+  } else reschedule(item, delta);
+}
+
+/**
+ * An event dropped on a day moves so that the day it was grabbed by lands there. In the week's
+ * all-day row it also loses its time.
+ */
+function dropOnDay(e: DragEvent, day: string, items: CalItem[], allDay = false) {
+  e.preventDefault();
+  const hit = droppedItem(e, items);
+  dragging = null;
+  if (!hit) return;
+  const target = addDays(day, -hit.grabDays);
+  if (allDay && hit.item.time) retime(hit.item, target, null);
+  else reschedule(hit.item, diffDays(hit.item.start, target));
 }
 
 /** An item's icon, time (in full, or short on a month's chip), ID and title. */
@@ -338,10 +404,11 @@ const itemTitle = (item: CalItem) =>
     .filter(Boolean)
     .join(' · ');
 
-function NewOnDay({ day, anchor, onClose }: { day: string; anchor: DOMRect; onClose: () => void }) {
+function NewOnDay({ day, time, anchor, onClose }: { day: string; time?: string; anchor: DOMRect; onClose: () => void }) {
   const docs = useNotebook((s) => s.docs);
   const boards = Object.values(docs).filter((d) => d.kind === 'board' && boardCards(d) === 'tasks');
-  const label = parseYmd(day).toLocaleDateString(LOCALE, { weekday: 'short', month: 'short', day: 'numeric' });
+  const label =
+    parseYmd(day).toLocaleDateString(LOCALE, { weekday: 'short', month: 'short', day: 'numeric' }) + (time ? ` · ${formatTime(time)}` : '');
   return (
     <Popover anchor={anchor} onClose={onClose}>
       <div className="menu-label">{label}</div>
@@ -349,10 +416,10 @@ function NewOnDay({ day, anchor, onClose }: { day: string; anchor: DOMRect; onCl
         className="menu-item"
         onClick={() => {
           onClose();
-          openNewEntryDialog({ date: day, status: day > localDate() ? 'planned' : 'in-progress' });
+          openNewEntryDialog({ date: day, time, status: day > localDate() ? 'planned' : 'in-progress' });
         }}
       >
-        <FlaskConical /> New entry on this day
+        <FlaskConical /> {time ? 'New entry at this time' : 'New entry on this day'}
       </button>
       {boards.map((b) => (
         <button
@@ -426,10 +493,9 @@ function CalBar({
       const col = Math.max(0, Math.min(6, Math.floor(((e.clientX - r.left) / r.width) * 7)));
       grab = diffDays(item.start, addDays(ws, col));
     }
-    e.dataTransfer.setData(CAL_MIME, JSON.stringify({ key: item.key, offset: grab }));
-    e.dataTransfer.effectAllowed = 'move';
+    startDrag(e, item, grab);
   };
-  // A reminder: a box to tick it off, and its words to open its page.
+  // A reminder: a box to check it off, and its words to open its page.
   if (item.kind === 'reminder')
     return (
       <div
@@ -494,9 +560,12 @@ function DayCell({
   onPick,
   onNew,
   children,
+  allDay,
 }: {
   day: string;
   className: string;
+  /** In the week's all-day row: a timed event dropped here loses its time. */
+  allDay?: boolean;
   over: string | null;
   setOver: (fn: (o: string | null) => string | null) => void;
   items: CalItem[];
@@ -517,7 +586,7 @@ function DayCell({
       onDragLeave={() => setOver((o) => (o === day ? null : o))}
       onDrop={(e) => {
         setOver(() => null);
-        dropOnDay(e, day, items);
+        dropOnDay(e, day, items, allDay);
       }}
     >
       {children}
@@ -654,8 +723,12 @@ function MonthView({ month, items, weekStart }: { month: Date; items: CalItem[];
         <section className="gc-month-day" aria-label="Selected day">
           <header className="gc-month-day-head">
             <h3>{parseYmd(picked).toLocaleDateString(LOCALE, { weekday: 'long', month: 'long', day: 'numeric' })}</h3>
-            <button className="btn btn-sm" onClick={(e) => setNewAt({ day: picked, rect: e.currentTarget.getBoundingClientRect() })}>
-              <Plus /> New
+            <button
+              className="icon-btn icon-btn-sm"
+              aria-label={`New on ${parseYmd(picked).toLocaleDateString(LOCALE, { weekday: 'long', month: 'long', day: 'numeric' })}`}
+              onClick={(e) => setNewAt({ day: picked, rect: e.currentTarget.getBoundingClientRect() })}
+            >
+              <Plus />
             </button>
           </header>
           {pickedItems.length ? (
@@ -669,18 +742,12 @@ function MonthView({ month, items, weekStart }: { month: Date; items: CalItem[];
   );
 }
 
-/**
- * One week. On a computer, seven tall columns with every event in full (no "+ more"), each a bar
- * across its days. On a phone, the seven days one under the other, like the agenda.
- */
+/** One week: on a computer, its days by the hour (WeekGrid); on a phone, one under the other, like the agenda. */
 function WeekView({ start, items }: { start: string; items: CalItem[] }) {
   const today = localDate();
   const phone = useMediaQuery(PHONE);
   const [newAt, setNewAt] = useState<{ day: string; rect: DOMRect } | null>(null);
-  const [over, setOver] = useState<string | null>(null);
-  const rowRef = useRef<HTMLDivElement>(null);
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
-  const { we, placed } = placeWeek(items, start);
 
   if (phone)
     return (
@@ -696,11 +763,11 @@ function WeekView({ start, items }: { start: string; items: CalItem[] }) {
                   {name}
                 </h3>
                 <button
-                  className="btn btn-sm"
+                  className="icon-btn icon-btn-sm"
                   aria-label={`New on ${name}`}
                   onClick={(e) => setNewAt({ day, rect: e.currentTarget.getBoundingClientRect() })}
                 >
-                  <Plus /> New
+                  <Plus />
                 </button>
               </header>
               {list.length ? (
@@ -715,42 +782,240 @@ function WeekView({ start, items }: { start: string; items: CalItem[] }) {
       </div>
     );
 
+  return <WeekGrid start={start} days={days} items={items} />;
+}
+
+const HOUR_PX = 44;
+const SNAP = 15;
+/** Timed and within one day: placed at its hours. Everything else goes in the all-day row. */
+const atHours = (i: CalItem) => !!i.time && i.start === i.end;
+/** How long it lasts on the grid: to its end time, or an hour (half an hour for a reminder). */
+function minutesLong(i: CalItem): number {
+  if (i.time && i.endTime) {
+    const d = minutesOf(i.endTime) - minutesOf(i.time);
+    if (d > 0) return d;
+  }
+  return i.kind === 'reminder' ? 30 : 60;
+}
+
+interface Timed {
+  item: CalItem;
+  top: number;
+  height: number;
+  col: number;
+  cols: number;
+}
+/** A day's timed events, side by side where they overlap. */
+function layoutDay(list: CalItem[]): Timed[] {
+  const sorted = [...list].sort((a, b) => minutesOf(a.time!) - minutesOf(b.time!) || minutesLong(b) - minutesLong(a));
+  const out: Timed[] = [];
+  let group: Timed[] = [];
+  let groupEnd = -1;
+  const colEnds: number[] = [];
+  const close = () => {
+    const cols = Math.max(1, ...group.map((t) => t.col + 1));
+    for (const t of group) t.cols = cols;
+    out.push(...group);
+    group = [];
+    colEnds.length = 0;
+  };
+  for (const item of sorted) {
+    const from = minutesOf(item.time!);
+    const to = from + minutesLong(item);
+    if (group.length && from >= groupEnd) close();
+    if (!group.length) groupEnd = -1;
+    let col = colEnds.findIndex((end) => end <= from);
+    if (col === -1) {
+      col = colEnds.length;
+      colEnds.push(to);
+    } else colEnds[col] = to;
+    groupEnd = Math.max(groupEnd, to);
+    group.push({ item, top: (from / 60) * HOUR_PX, height: Math.max(22, ((to - from) / 60) * HOUR_PX - 2), col, cols: 1 });
+  }
+  close();
+  return out;
+}
+
+const hourLabel = (h: number) => new Date(2000, 0, 1, h).toLocaleTimeString(LOCALE, clock({ hour: 'numeric' }));
+const nowMinutes = () => {
+  const d = new Date();
+  return d.getHours() * 60 + d.getMinutes();
+};
+
+/**
+ * The week on a computer: the days across, an all-day row on top (whole-day and multi-day things,
+ * tasks and steps), then the hours. Drag something to another hour or day to move it; drop it in
+ * the all-day row to take its time away, or on an hour to give it one. Click an empty hour to plan
+ * an entry then.
+ */
+function WeekGrid({ start, days, items }: { start: string; days: string[]; items: CalItem[] }) {
+  const today = localDate();
+  const [newAt, setNewAt] = useState<{ day: string; time?: string; rect: DOMRect } | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+  const [ghost, setGhost] = useState<{ day: string; minutes: number; length: number } | null>(null);
+  const [now, setNow] = useState(nowMinutes);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const allDay = items.filter((i) => !atHours(i));
+  const timed = items.filter(atHours);
+  const { we, placed } = placeWeek(allDay, start);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(nowMinutes()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+  // Open on the working day: an hour before the first timed event of the week, 7 AM at the latest.
+  useEffect(() => {
+    const first = Math.min(7 * 60, ...timed.filter((i) => i.start >= start && i.start <= we).map((i) => minutesOf(i.time!) - 60));
+    scrollRef.current?.scrollTo({ top: Math.max(0, (first / 60) * HOUR_PX - 10) });
+    // Only when another week opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start]);
+
+  const minutesAt = (e: { clientY: number }, col: HTMLElement) => ((e.clientY - col.getBoundingClientRect().top) / HOUR_PX) * 60;
+  const snapped = (m: number) => Math.round(m / SNAP) * SNAP;
+
   return (
-    <div className="gc-month gc-weekview">
-      <div className="gc-month-head gc-weekview-head">
+    <div className="gc-month gc-tgrid" style={{ '--hour': `${HOUR_PX}px` } as CSSProperties}>
+      <div className="gc-tgrid-row gc-tgrid-head">
+        <div className="gc-tgrid-gutter" />
         {days.map((day) => {
           const date = parseYmd(day);
           return (
-            <div key={day} className={day === today ? 'is-today' : ''}>
+            <div key={day} className={`gc-tgrid-day ${day === today ? 'is-today' : ''}`}>
               <span className="gc-weekview-dow">{date.toLocaleDateString(LOCALE, { weekday: 'short' })}</span>
               <span className="gc-weekview-date">{date.getDate()}</span>
             </div>
           );
         })}
       </div>
-      <div className="gc-week gc-weekview-body" ref={rowRef}>
-        <div className="gc-week-bg">
-          {days.map((day) => (
-            <DayCell
-              key={day}
-              day={day}
-              className={`${day === today ? 'is-today' : ''} ${isWeekend(day) ? 'is-weekend' : ''}`}
-              over={over}
-              setOver={setOver}
-              items={items}
-              onPick={(e) => setNewAt({ day, rect: new DOMRect(e.clientX, e.clientY, 0, 0) })}
-              onNew={(rect) => setNewAt({ day, rect })}
-            />
-          ))}
+      <div className="gc-tgrid-row gc-tgrid-allday">
+        <div className="gc-tgrid-gutter">All day</div>
+        <div className="gc-week gc-tgrid-allday-week" ref={rowRef}>
+          <div className="gc-week-bg">
+            {days.map((day) => (
+              <DayCell
+                key={day}
+                day={day}
+                allDay
+                className={`${day === today ? 'is-today' : ''} ${isWeekend(day) ? 'is-weekend' : ''}`}
+                over={over}
+                setOver={setOver}
+                items={items}
+                onPick={(e) => setNewAt({ day, rect: new DOMRect(e.clientX, e.clientY, 0, 0) })}
+                onNew={(rect) => setNewAt({ day, rect })}
+              />
+            ))}
+          </div>
+          <div className="gc-week-items">
+            {placed.map((p) => (
+              <CalBar key={p.item.key} p={p} ws={start} we={we} phone={false} row={() => rowRef.current} week />
+            ))}
+          </div>
         </div>
-        <div className="gc-week-items">
-          {placed.map((p) => (
-            <CalBar key={p.item.key} p={p} ws={start} we={we} phone={false} row={() => rowRef.current} week />
-          ))}
-        </div>
-        {placed.length === 0 && <p className="gc-weekview-empty muted">Nothing planned this week. Click a day to add an entry or a task.</p>}
       </div>
-      {newAt && <NewOnDay day={newAt.day} anchor={newAt.rect} onClose={() => setNewAt(null)} />}
+      <div className="gc-tgrid-scroll" ref={scrollRef}>
+        <div className="gc-tgrid-body">
+          <div className="gc-tgrid-gutter gc-tgrid-hours" aria-hidden="true">
+            {Array.from({ length: 23 }, (_, i) => (
+              <span key={i} style={{ top: (i + 1) * HOUR_PX }}>
+                {hourLabel(i + 1)}
+              </span>
+            ))}
+          </div>
+          {days.map((day) => (
+            <div
+              key={day}
+              data-day={day}
+              className={`gc-tgrid-col ${day === today ? 'is-today' : ''} ${isWeekend(day) ? 'is-weekend' : ''}`}
+              onClick={(e) => {
+                if (e.target !== e.currentTarget) return;
+                const m = Math.floor(minutesAt(e, e.currentTarget) / 30) * 30;
+                setNewAt({ day, time: hhmm(m), rect: new DOMRect(e.clientX, e.clientY, 0, 0) });
+              }}
+              onDragOver={(e) => {
+                if (!e.dataTransfer.types.includes(CAL_MIME)) return;
+                e.preventDefault();
+                const item = dragging && items.find((i) => i.key === dragging!.key);
+                const minutes = snapped(minutesAt(e, e.currentTarget) - (dragging?.grabMinutes ?? 0));
+                const length = item ? (atHours(item) ? minutesLong(item) : item.kind === 'reminder' ? 30 : 60) : 60;
+                if (ghost?.day !== day || ghost.minutes !== minutes) setGhost({ day, minutes: Math.max(0, minutes), length });
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setGhost((g) => (g?.day === day ? null : g));
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const hit = droppedItem(e, items);
+                const minutes = snapped(minutesAt(e, e.currentTarget) - (hit?.grabMinutes ?? 0));
+                dragging = null;
+                setGhost(null);
+                if (hit) retime(hit.item, day, hhmm(minutes));
+              }}
+            >
+              {layoutDay(timed.filter((i) => i.start === day)).map((t) => (
+                <TimedEvent key={t.item.key} t={t} />
+              ))}
+              {ghost?.day === day && (
+                <div className="gc-tgrid-ghost" style={{ top: (ghost.minutes / 60) * HOUR_PX, height: (ghost.length / 60) * HOUR_PX - 2 }}>
+                  {formatTime(hhmm(ghost.minutes))}
+                </div>
+              )}
+              {day === today && <div className="gc-tgrid-now" style={{ top: (now / 60) * HOUR_PX }} aria-hidden="true" />}
+            </div>
+          ))}
+        </div>
+      </div>
+      {newAt && <NewOnDay day={newAt.day} time={newAt.time} anchor={newAt.rect} onClose={() => setNewAt(null)} />}
+    </div>
+  );
+}
+
+/** Something with a time, placed at its hours: drag it to move it, click it to open it. */
+function TimedEvent({ t }: { t: Timed }) {
+  const { item } = t;
+  const style: CSSProperties = {
+    top: t.top,
+    height: t.height,
+    left: `calc(${(t.col / t.cols) * 100}% + 2px)`,
+    width: `calc(${100 / t.cols}% - 4px)`,
+  };
+  const movable = !!item.doc;
+  const short = t.height < 40;
+  return (
+    <div
+      className={`gc-tevent tone-${item.color} is-${item.kind === 'card' ? 'task' : item.kind} ${item.done ? 'is-done' : ''} ${short ? 'is-short' : ''}`}
+      style={style}
+      draggable={movable}
+      title={itemTitle(item)}
+      onDragStart={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        startDrag(e, item, 0, Math.max(0, ((e.clientY - r.top) / HOUR_PX) * 60));
+      }}
+      onDragEnd={() => (dragging = null)}
+    >
+      {item.kind === 'reminder' && item.reminder?.checkable && (
+        <input
+          type="checkbox"
+          className="gc-cal-check"
+          checked={item.done}
+          aria-label={`Done: ${item.title}`}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => tick(item, e.target.checked)}
+        />
+      )}
+      <button
+        className="gc-tevent-open"
+        onClick={(e) => {
+          e.stopPropagation();
+          open(item, e.currentTarget);
+        }}
+      >
+        <span className="gc-tevent-time">{formatTimeRange(item.time, item.endTime)}</span>
+        <span className="gc-tevent-title" style={{ WebkitLineClamp: Math.max(1, Math.floor((t.height - 22) / 16)) }}>
+          {item.title}
+        </span>
+      </button>
     </div>
   );
 }
@@ -797,13 +1062,13 @@ function AgendaRow({ item, day }: { item: CalItem; day?: string }) {
   );
 }
 
-/** By project: each project's colour, which can be changed here. */
+/** By project: each project's color, which can be changed here. */
 function ProjectLegend({ items }: { items: CalItem[] }) {
   const projectColors = useNotebook((s) => s.config.projectColors);
   const projects = [...new Set(items.filter((i) => i.kind !== 'event' && i.where).map((i) => i.where!))].sort((a, b) => a.localeCompare(b));
   if (!projects.length) return null;
   return (
-    <div className="gc-cal-legend" aria-label="Project colours">
+    <div className="gc-cal-legend" aria-label="Project colors">
       {projects.map((p) => (
         <LegendItem key={p} project={p} color={projectColor(p, projectColors)} />
       ))}
@@ -815,13 +1080,13 @@ function LegendItem({ project, color }: { project: string; color: ColorName }) {
   const pop = usePopover();
   return (
     <>
-      <button ref={pop.ref} className="gc-cal-legend-item" title={`Colour of ${project}`} onClick={pop.toggle}>
+      <button ref={pop.ref} className="gc-cal-legend-item" title={`Color of ${project}`} onClick={pop.toggle}>
         <span className={`gc-status-dot tone-${color}`} />
         {project}
       </button>
       {pop.open && (
         <Popover anchor={pop.ref.current} onClose={pop.close}>
-          <div className="menu-label">Colour of {project}</div>
+          <div className="menu-label">Color of {project}</div>
           <ColorPicker
             value={color}
             onChange={(c) => {
@@ -883,11 +1148,52 @@ function AgendaView({ items }: { items: CalItem[] }) {
   );
 }
 
+/** What the calendar shows: entries (and planned flow steps), tasks (and reminders), or both. */
+function ShowFilter({
+  entries,
+  tasks,
+  setEntries,
+  setTasks,
+}: {
+  entries: boolean;
+  tasks: boolean;
+  setEntries: (v: boolean) => void;
+  setTasks: (v: boolean) => void;
+}) {
+  const p = usePopover<HTMLButtonElement>();
+  const label = entries && tasks ? 'Everything' : entries ? 'Entries only' : tasks ? 'Tasks only' : 'Nothing';
+  return (
+    <>
+      <button
+        ref={p.ref}
+        className="btn btn-sm gc-cal-show"
+        aria-label={`Show: ${label}`}
+        title="What the calendar shows"
+        aria-expanded={p.open}
+        onClick={p.toggle}
+      >
+        <ListFilter /> <span className="gc-cal-btn-label">{label}</span>
+      </button>
+      {p.open && (
+        <Popover anchor={p.ref.current} onClose={p.close} placement="bottom-end">
+          <div className="menu-label">Show</div>
+          <label className="checkbox gc-menu-check">
+            <input type="checkbox" checked={entries} onChange={(e) => setEntries(e.target.checked)} /> Entries and planned steps
+          </label>
+          <label className="checkbox gc-menu-check">
+            <input type="checkbox" checked={tasks} onChange={(e) => setTasks(e.target.checked)} /> Tasks and reminders
+          </label>
+        </Popover>
+      )}
+    </>
+  );
+}
+
 type View = 'month' | 'week' | 'agenda';
-const VIEWS: { id: View; name: string }[] = [
-  { id: 'month', name: 'Month' },
-  { id: 'week', name: 'Week' },
-  { id: 'agenda', name: 'Agenda' },
+const VIEWS: ViewTab<View>[] = [
+  { id: 'month', label: 'Month', icon: <CalendarDays /> },
+  { id: 'week', label: 'Week', icon: <CalendarRange /> },
+  { id: 'agenda', label: 'Agenda', icon: <List /> },
 ];
 const VIEW_KEY = 'assaycraft:calendarView';
 const COLOR_KEY = 'assaycraft:calendarColor';
@@ -956,83 +1262,79 @@ export function CalendarPage() {
   const atToday = view === 'week' ? ws === startOfWeek(today, weekStart) : cursor.slice(0, 7) === today.slice(0, 7);
   const title = view === 'month' ? month.toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' }) : view === 'week' ? weekTitle(ws) : 'Agenda';
 
+  const toggleColor = () => {
+    const v: ColorBy = colorBy === 'project' ? 'status' : 'project';
+    setColorBy(v);
+    try {
+      localStorage.setItem(COLOR_KEY, v);
+    } catch {
+      /* ignore */
+    }
+  };
+  const docs = useNotebook((s) => s.docs);
+  const taskBoards = useMemo(() => Object.values(docs).filter((d) => d.kind === 'board' && boardCards(d) === 'tasks'), [docs]);
+
   return (
     <div className="gc-page gc-calendar-page">
-      <div className="gc-topbar">
-        <NavToggle />
-        <span className="gc-page-icon">
-          <CalendarDays />
-        </span>
-        {/* Before the title, so they stay in place however long the month's name is. */}
-        {view !== 'agenda' && (
-          <span className="gc-cal-nav">
-            <button className="btn btn-sm" disabled={atToday} onClick={() => setCursor(localDate())}>
-              Today
-            </button>
-            <button className="icon-btn" title={`Previous ${unit}`} onClick={() => shift(-1)}>
-              <ChevronLeft />
-            </button>
-            <button className="icon-btn" title={`Next ${unit}`} onClick={() => shift(1)}>
-              <ChevronRight />
-            </button>
-          </span>
-        )}
-        <h1 className="gc-topbar-title is-display" aria-live="polite">
-          {title}
-        </h1>
-        {/* Phones: the new-entry button sits by the title, leaving the second row to the filters. */}
-        <button className="btn btn-primary btn-sm gc-cal-new-phone" aria-label="New entry" onClick={() => openNewEntryDialog({})}>
-          <Plus />
-        </button>
-        <span className="spacer" />
-        {/* One group: when the bar is too narrow, it moves down whole rather than one button at a time. */}
-        <div className="gc-cal-tools">
-          <label className="checkbox">
-            <input type="checkbox" checked={showEntries} onChange={(e) => setShowEntries(e.target.checked)} /> Entries
-          </label>
-          <label className="checkbox">
-            <input type="checkbox" checked={showTasks} onChange={(e) => setShowTasks(e.target.checked)} /> Tasks
-          </label>
-          <div className="gc-segmented gc-segmented-sm" role="group" aria-label="View">
-            {VIEWS.map((v) => (
-              <button key={v.id} className={view === v.id ? 'active' : ''} aria-pressed={view === v.id} onClick={() => setV(v.id)}>
-                {v.name}
+      <PhoneBar />
+      <div className="gc-page-inner is-wide gc-cal-head">
+        <PageHead title="Calendar" />
+        <ViewBar
+          tools={
+            <>
+              <ShowFilter entries={showEntries} tasks={showTasks} setEntries={setShowEntries} setTasks={setShowTasks} />
+              <button
+                className="btn btn-sm gc-cal-colorby"
+                aria-pressed={colorBy === 'project'}
+                aria-label="Color by project"
+                title={colorBy === 'project' ? 'Colored by project: click to color by status again' : 'Color by project instead of by status'}
+                onClick={toggleColor}
+              >
+                <Palette /> <span className="gc-cal-btn-label">By project</span>
               </button>
-            ))}
+              <button
+                className="btn btn-sm gc-cal-calendars"
+                aria-label="Calendars"
+                title="Calendars: show other calendars here, or this one in your calendar app"
+                onClick={() => openCalendarsDialog()}
+              >
+                <CalendarSync /> <span className="gc-cal-btn-label">Calendars</span>
+              </button>
+              <NewButton
+                what="entry"
+                onClick={() => openNewEntryDialog({})}
+                more={taskBoards.map((b) => ({
+                  label: `New task in ${b.title}`,
+                  icon: <ListTodo />,
+                  onSelect: () => void createCard(dirname(b.path), { due: today, open: true }),
+                }))}
+              />
+            </>
+          }
+        >
+          <ViewTabs label="View" value={view} onChange={setV} tabs={VIEWS} />
+        </ViewBar>
+        {view !== 'agenda' && (
+          <div className="gc-cal-subhead">
+            <h2 className="gc-cal-month-title" aria-live="polite">
+              {title}
+            </h2>
+            <span className="gc-cal-nav">
+              <button className="btn btn-sm" disabled={atToday} onClick={() => setCursor(localDate())}>
+                Today
+              </button>
+              <button className="icon-btn" title={`Previous ${unit}`} aria-label={`Previous ${unit}`} onClick={() => shift(-1)}>
+                <ChevronLeft />
+              </button>
+              <button className="icon-btn" title={`Next ${unit}`} aria-label={`Next ${unit}`} onClick={() => shift(1)}>
+                <ChevronRight />
+              </button>
+            </span>
           </div>
-          <button
-            className="btn btn-sm gc-cal-colorby"
-            aria-pressed={colorBy === 'project'}
-            aria-label="Colour by project"
-            title={colorBy === 'project' ? 'Coloured by project: click to colour by status again' : 'Colour by project instead of by status'}
-            onClick={() => {
-              const v: ColorBy = colorBy === 'project' ? 'status' : 'project';
-              setColorBy(v);
-              try {
-                localStorage.setItem(COLOR_KEY, v);
-              } catch {
-                /* ignore */
-              }
-            }}
-          >
-            <Palette /> <span className="gc-cal-btn-label">By project</span>
-          </button>
-          {/* On a laptop the bar has room for their icons only (the sidebar has its own New entry). */}
-          <button
-            className="btn btn-sm gc-cal-calendars"
-            aria-label="Calendars"
-            title="Calendars: show other calendars here, or this one in your calendar app"
-            onClick={() => openCalendarsDialog()}
-          >
-            <CalendarSync /> <span className="gc-cal-btn-label">Calendars</span>
-          </button>
-          <button className="btn btn-primary btn-sm gc-cal-new" aria-label="New entry" title="New entry" onClick={() => openNewEntryDialog({})}>
-            <Plus /> <span className="gc-cal-btn-label">New entry</span>
-          </button>
-        </div>
+        )}
+        {colorBy === 'project' && <ProjectLegend items={notebookItems} />}
       </div>
       <EventPeek />
-      {colorBy === 'project' && <ProjectLegend items={notebookItems} />}
       <div className="gc-calendar-body">
         {view === 'month' ? (
           <MonthView key={`${ymd(month)}-${weekStart}`} month={month} items={items} weekStart={weekStart} />

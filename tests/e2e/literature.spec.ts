@@ -81,7 +81,7 @@ test('literature: add a paper by DOI, keep notes on it, and see where it is cite
   await expect(jinek).toContainText('A programmable dual-RNA-guided DNA endonuclease');
   await expect(jinek).toContainText('cited in 1');
 
-  await page.getByRole('button', { name: 'Add paper' }).first().click();
+  await page.getByRole('button', { name: 'New paper' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('DOI or PubMed ID').fill('https://doi.org/10.1126/science.1231143');
   await dialog.getByRole('button', { name: 'Look up' }).click();
@@ -106,7 +106,7 @@ test('literature: add a paper by DOI, keep notes on it, and see where it is cite
   expect(md).toContain('## Abstract\n\nFunctional elucidation of causal genetic variants');
 
   // The same DOI again: it is already in the library.
-  await page.getByRole('button', { name: 'Add paper' }).first().click();
+  await page.getByRole('button', { name: 'New paper' }).click();
   await dialog.getByLabel('DOI or PubMed ID').fill('10.1126/science.1231143');
   await dialog.getByRole('button', { name: 'Look up' }).click();
   await expect(dialog.locator('.gc-paper-dup')).toContainText('Already in your library as Cong et al., 2013');
@@ -126,7 +126,7 @@ test('literature: add a paper by DOI, keep notes on it, and see where it is cite
 
   // A DOI that does not exist, and no connection.
   await page.locator('.gc-nav-item', { hasText: 'Literature' }).click();
-  await page.getByRole('button', { name: 'Add paper' }).first().click();
+  await page.getByRole('button', { name: 'New paper' }).click();
   await dialog.getByLabel('DOI or PubMed ID').fill('10.9999/nothing');
   await dialog.getByRole('button', { name: 'Look up' }).click();
   await expect(dialog.getByRole('alert')).toHaveText('No paper found with the DOI 10.9999/nothing.');
@@ -195,7 +195,7 @@ test('cite a paper from an entry: a link to it, listed under "Cited in"', async 
 test('import papers from BibTeX and RIS, and export the library as BibTeX', async ({ page }) => {
   await openFolderNotebook(page);
   await page.locator('.gc-nav-item', { hasText: 'Literature' }).click();
-  await page.getByRole('button', { name: 'Literature options' }).click();
+  await page.getByRole('button', { name: 'More to add' }).click();
   await page.getByRole('menuitem', { name: 'Import BibTeX or RIS…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Add a paper' });
   await dialog.locator('#paper-bib').fill(`% From Zotero

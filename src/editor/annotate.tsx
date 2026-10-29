@@ -134,7 +134,7 @@ const TOOLS: { id: Tool; label: string; icon: React.ReactNode }[] = [
   { id: 'text', label: 'Text', icon: <Type /> },
 ];
 
-/** Drawing on an image: pick a tool and a colour, drag on the image (or click, for text), Done to finish. */
+/** Drawing on an image: pick a tool and a color, drag on the image (or click, for text), Done to finish. */
 export function AnnotationEditor({
   marks,
   aspect,
@@ -263,18 +263,18 @@ export function AnnotationEditor({
             </button>
           ))}
         </div>
-        <div className="gc-ann-colors" role="group" aria-label="Colour">
+        <div className="gc-ann-colors" role="group" aria-label="Color">
           {ANNOTATION_COLORS.map((c) => (
             <button
               key={c}
               className={`gc-ann-color ${color === c ? 'active' : ''}`}
               style={{ background: HEX[c] }}
-              aria-label={`Colour ${c}`}
+              aria-label={`Color ${c}`}
               aria-pressed={color === c}
               title={c}
               onClick={() => {
                 setColor(c);
-                // Recolour the selected mark too.
+                // Recolor the selected mark too.
                 if (picked !== null) commit(marks.map((m, i) => (i === picked ? { ...m, c } : m)));
               }}
             />

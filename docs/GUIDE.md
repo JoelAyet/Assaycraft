@@ -30,17 +30,19 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 **28 October 2026**
 
-- **Reminders.** Type `/reminder` in an entry, note or task: a checklist line with a date and time (“Take the plates out, Fri 2:30 PM”). Reminders show on the calendar, where you drag them to another day and tick them off, and in the private calendar link. [Reminders](#reminders).
-- **Colours and sizes in text.** The toolbar’s _Colour and size_ button (the **A**) highlights in nine colours, colours text, and makes it small, large or huge. [Entries](#entries-the-notebook-itself).
-- **Colour a tag.** Click a tag on an entry to choose its colour, for the whole notebook.
-- **Tables:** right-click a cell for _Cell colour_, and _Freeze columns_ to keep the first columns in view while the table scrolls sideways. [Dynamic tables](#dynamic-tables).
+- **One layout for every page.** Protocols, Stocks, Literature, Templates, Notes, boards, the calendar, folders, the trash and Settings all start the same way, in the same place: the title, a line on what the page holds, then a bar with the page’s views on the left and its tools on the right, ending in **New**. New makes what the page holds (a protocol on Protocols, a paper on Literature); its **▾** has the other ways to add (import PDFs, BibTeX, a new stock collection). The sidebar’s _New entry_ is the one New entry button, and on a board a column’s own _New_ shows when you point at that column.
+- **The week by the hour.** The week view has an _All day_ row and the hours below it. Click an empty hour to plan an entry then; drag an experiment or a reminder to another hour or day; drop it in _All day_ to take its time away, or on an hour to give it one. [Calendar](#calendar).
+- **Reminders.** Type `/reminder` in an entry, note or task: a checklist line for today, with its _Date_ and _Time_ open to change, as at the top of an entry. Write what it is for and you are done. Reminders show on the calendar, where you drag them to another day or hour and check them off, and in the private calendar link. [Reminders](#reminders).
+- **Highlight colors, text color and size.** The highlighter has its colors on its arrow and keeps the last one picked; the **A** next to it colors text and makes it small, large or huge. [Entries](#entries-the-notebook-itself).
+- **Color a tag.** Click a tag on an entry to choose its color, for the whole notebook.
+- **Tables:** right-click a cell for _Cell color_, and _Freeze columns_ to keep the first columns in view while the table scrolls sideways. [Dynamic tables](#dynamic-tables).
 - **Draw on images.** _Annotate_ on an image adds lines, arrows, boxes and text, to label a gel’s lanes or point at a band. The photo itself is not changed. **HEIC photos** from an iPhone are converted to JPEG when added. [Files and images](#files-images-and-snapgene-maps).
 - **A reading board.** Papers have a reading status (_To read_, _Reading_, _Read_), and _Literature_ has a _Board_ view to drag them along. [Literature](#literature).
-- **Calendar by project.** _By project_ colours everything on the calendar by its project, with a colour you can change for each. [Calendar](#calendar).
+- **Calendar by project.** _By project_ colors everything on the calendar by its project, with a color you can change for each. [Calendar](#calendar).
 - **Flows:** _Set date_ on a step picks the day it is planned for on a small calendar; planned steps show on the calendar, and _Start_ uses that day. A started step’s entry sits under its plan in the sidebar. [Flows](#flows-a-series-of-experiments).
-- **/day** inserts today, or another day you pick. Dates and day names are now always in English, whatever your computer’s language (the clock stays 12- or 24-hour as on your computer).
-- **On a computer:** drag in the page’s margin to draw a box and select whole blocks (paragraphs, tables, images) to delete, copy or cut; hover the page’s right edge for its index (headings and days, and recent entries). <kbd>Tab</kbd> in a list now always nests the item.
-- **Tidier pages.** The small blue labels above page titles are gone (except Home’s date), and so are Home’s counters of entries and tasks; Home only mentions tasks that are overdue.
+- **/day** inserts today’s date as a heading; click the date to pick another day on a small calendar. Dates and day names are always in English, whatever your computer’s language (the clock stays 12- or 24-hour as on your computer).
+- **Selecting blocks:** on a computer, drag from around the text to draw a box, or from inside the text into another paragraph: whole blocks (paragraphs, tables, images) are selected, to delete, copy or cut, on every page with text (entries, notes, protocols, templates, papers, cards). Hover the page’s right edge for its index (headings and days, and recent entries). <kbd>Tab</kbd> in a list now always nests the item.
+- **Tidier pages.** The small blue labels above page titles are gone (except Home’s date), and so are Home’s counters of entries and tasks; Home only mentions tasks that are overdue. Texts that said the same thing twice are gone too, the Experiments board’s gear is now _Edit statuses…_ in its **⋯** menu, sub-templates have a building-blocks icon, and everything is in American English.
 
 **24 October 2026**
 
@@ -108,15 +110,15 @@ An **entry** is one experiment or one day's work. Click **New entry** (or press 
 
 - **ID**: each entry gets the next number, `EXP-0001`, `EXP-0002`… IDs never change, even if you rename or move the entry, so you can cite them in a paper notebook or a figure legend. The prefix and number of digits are in _Settings → Notebook_.
 - **Properties** at the top: status (_Planned_, _In progress_, _Completed_, _Failed_, or your own), experiment date or date range, project, tags, author and the protocols it follows.
-- **Projects and folders** keep entries organised in the sidebar, and on disk (`Projects/CRISPR screen/…`).
+- **Projects and folders** keep entries organized in the sidebar, and on disk (`Projects/CRISPR screen/…`).
 - **Lock** an entry when it is finished and signed off: it becomes read-only (and is marked _Completed_) until you unlock it.
 - **The editor** has headings, lists, checklists, quotes, code, sub- and superscript (H₂O, 10⁶), highlights and links, all in the toolbar above the page. **Hover over a toolbar button** to see its name, what it does and its shortcut.
-- **Colour and size**: the **A** in the toolbar highlights the selected text in one of nine colours, colours the text itself, or makes it _Small_, _Large_ or _Huge_. The highlighter next to it is the quick yellow highlight (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>). In the file these are small HTML tags (`<mark data-color="green">`, `<span class="gc-ink" data-color="red">`), with a style so other Markdown viewers show the colours too.
-- **Tags** have a colour from their name; click a tag on an entry to choose another, for every page.
+- **Highlight** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>) marks the selected text in the color picked last; the small arrow beside it picks one of nine colors (or none). The **A** next to it colors the text itself and makes it _Small_, _Large_ or _Huge_. In the file these are small HTML tags (`<mark data-color="green">`, `<span class="gc-ink" data-color="red">`), with a style so Markdown viewers that show HTML show the colors too.
+- **Tags** have a color from their name; click a tag on an entry to choose another, for every page.
 - **Type `/`** anywhere for blocks: _Table_, _Buffer_, _Flow_, _Stock_, _File or image_, _Sequence (SnapGene)_, _Protocol_, _Sub-template_, _Day_, _Reminder_, _Link to entry_, _Cite a paper_, _Plate layout_, _Checklist_ and more. The **+** button in the toolbar lists the same blocks.
-- **/day** adds a heading for a day of work, “2026-10-28 · Wednesday”: today, or pick yesterday, tomorrow or any day.
+- **/day** adds a heading for today’s work, “2026-10-28 · Wednesday”. Its date is underlined with dots: click it to pick another day on a small calendar, and the weekday follows.
 - **Lists:** <kbd>Tab</kbd> nests the item you are in under the one above, <kbd>Shift</kbd>+<kbd>Tab</kbd> takes it out again, in bulleted, numbered and checklists.
-- **On a computer**, drag in the page’s margin (left or right of the text) to draw a light-blue box: the blocks it touches are selected, to delete (<kbd>Delete</kbd>), copy or cut together. Hover the page’s **right edge** for its index: recent entries to jump to, then the page’s headings and days.
+- **Selecting whole blocks**, on a computer: drag from anywhere around the text to draw a light-blue box, and the blocks it touches are selected; or start a drag inside the text and carry it into another paragraph, and it selects whole blocks instead of ragged lines. Delete (<kbd>Delete</kbd>), copy or cut them together. This works on every page with text. Hover the page’s **right edge** for its index: recent entries to jump to, then the page’s headings and days.
 
 ![Hovering over a toolbar button shows what it does and its shortcut](screenshots/tooltip.png)
 
@@ -133,7 +135,7 @@ Type `/table` (or paste a table from Excel or Google Sheets) to get a spreadshee
 - **Results update live**: change a volume and every cell that depends on it follows.
 - **Fill**: <kbd>Ctrl</kbd>+<kbd>D</kbd> fills down, <kbd>Ctrl</kbd>+<kbd>R</kbd> right, or drag the square handle at the corner of the selection. A sequence such as `1, 2` continues as `3, 4…`; formulas shift as they are filled.
 - **Copy and paste** with Excel and Google Sheets in both directions. Right-click for inserting, deleting and sorting rows and columns; drag the column edges to resize. Import or export CSV.
-- **Cell colours:** right-click a cell (or a selection) → _Cell colour_. Colours move with their cells when rows and columns are added, deleted or sorted.
+- **Cell colors:** right-click a cell (or a selection) → _Cell color_. Colors move with their cells when rows and columns are added, deleted or sorted.
 - **Freeze columns:** right-click a cell → _Freeze columns A–C_ keeps the columns up to it in view, with the row numbers, while a wide table scrolls sideways. _Unfreeze columns_ in the same menu, or in the table’s **⋯**.
 - **Variables** from a template (`{{Reactions}}`) work in cells and formulas, so a master-mix table scales itself when the entry is created.
 
@@ -160,7 +162,7 @@ The **×** at the end of a row removes it. The **⋯** menu has _Add component_,
 
 - **From a liquid stock**: C₁V₁ = C₂V₂, so the volume to add is _final volume × final concentration ÷ stock concentration_. Stock and final can be in different units of the same kind: 10 mM → 200 µM, 20 U/µL → 50 U/mL and 10 mg/mL → 100 µg/mL all work.
 - **From a powder**: choose **g/mol** as the stock unit and type the molar mass where the stock goes. The Add column then says how much to **weigh**: _final concentration × final volume × molar mass_ (150 mM NaCl in 50 mL: 0.15 × 0.05 × 58.44 = 438.3 mg). When the final concentration is a mass per volume or a %, the mass follows from that alone (100 µg/mL in 500 mL is 50 mg), and the molar mass is not used.
-- **The solvent** is the final volume minus every liquid you add. Powders do not count towards it.
+- **The solvent** is the final volume minus every liquid you add. Powders do not count toward it.
 - **Amounts are shown as you would pipette them**: in L, mL or µL down to 0.1 µL. Less than 0.1 µL is shown in nL, which is a sign to dilute the stock first. Masses are shown in g, mg or µg.
 - Numbers can be typed `1.5`, `1,5` or `2e-3`.
 
@@ -285,7 +287,7 @@ Each card shows the step's entry as it is now, so the flow is never out of date:
 
 | The card looks…             | Meaning                                                    |
 | --------------------------- | ---------------------------------------------------------- |
-| Dashed, grey                | Not started yet. Shows its template and a **Start** button |
+| Dashed, gray                | Not started yet. Shows its template and a **Start** button |
 | Blue edge                   | Started: its entry has a status other than _Completed_     |
 | Green edge                  | Completed                                                  |
 | Red edge, “Entry not found” | Its entry was moved to the trash or deleted                |
@@ -296,7 +298,7 @@ On a card you also see the entry's **status**, its experiment **date**, a **lock
 
 ![Inside a step: its Result, and the bar that says where it is in the flow](screenshots/flow-step.png)
 
-**Inside a step's entry**, a bar under the properties says _Step 2 of 5 in EXP-0040 Production of GFP_ and lists every step of the flow, with this one highlighted, the ones done ticked and the ones not started dashed. Click the coordinating entry to go back to the plan, or any started step to open it. When this step is done, the button under the steps takes you on: _Next: Expression test_ opens the next step, or, if it has not been started yet, _Start step 3: Expression test_ starts it right there, with its title and template, and adds it to the plan. Click a card's name to open its entry.
+**Inside a step's entry**, a bar under the properties says _Step 2 of 5 in EXP-0040 Production of GFP_ and lists every step of the flow, with this one highlighted, the ones done checked and the ones not started dashed. Click the coordinating entry to go back to the plan, or any started step to open it. When this step is done, the button under the steps takes you on: _Next: Expression test_ opens the next step, or, if it has not been started yet, _Start step 3: Expression test_ starts it right there, with its title and template, and adds it to the plan. Click a card's name to open its entry.
 
 ### 4. Change the plan
 
@@ -350,10 +352,10 @@ A **plate layout** records which sample went in which well: an ELISA, a qPCR run
 ### Making one
 
 1. **Name it** (_ELISA plate 1_) and pick the **format**: 6, 12, 24, 48, 96 or 384 wells. A plate can be made smaller later; Assaycraft asks first if filled wells would not fit.
-2. **Add your samples** on the right: samples, standards, controls, blanks. Each gets a colour and a number. Blanks and no-template controls (_Blank_, _NTC_, _Mock_…) start grey.
+2. **Add your samples** on the right: samples, standards, controls, blanks. Each gets a color and a number. Blanks and no-template controls (_Blank_, _NTC_, _Mock_…) start gray.
 3. **Pick a sample, then place it**: click a well, or **drag** from one well to another to fill the rectangle between them. Click a **row letter** or **column number** to fill the whole row or column. Click a well that already has that sample to empty it, or pick _Empty wells_ to clear several.
 4. The count beside each sample, and _58 of 96 wells_ at the top, keep track as you go.
-5. **Point at a sample** in the list to see its wells: the others fade back. Handy on a 384-well plate, where wells are too small to number. A sample's colour can be changed from its **⋯** menu.
+5. **Point at a sample** in the list to see its wells: the others fade back. Handy on a 384-well plate, where wells are too small to number. A sample's color can be changed from its **⋯** menu.
 
 With the keyboard: the arrow keys move between wells, <kbd>Space</kbd> or <kbd>Enter</kbd> puts the chosen sample in one, <kbd>Delete</kbd> empties it.
 
@@ -372,7 +374,7 @@ With the keyboard: the arrow keys move between wells, <kbd>Space</kbd> or <kbd>E
 
 ### In the file
 
-A plate is a comment with its name, format and samples (colour and link), then an ordinary table with one cell per well, readable in any Markdown app or spreadsheet:
+A plate is a comment with its name, format and samples (color and link), then an ordinary table with one cell per well, readable in any Markdown app or spreadsheet:
 
 ```markdown
 <!-- gc:plate {"name":"ELISA plate 1","format":96,"samples":[{"name":"Blank","color":"gray"},{"name":"Standard 1","color":"blue"},{"name":"pUC19 in NEB 5-alpha","color":"purple","ref":"GS-0001"}]} -->
@@ -407,7 +409,7 @@ A plate table edited by hand is read back: new names in cells become samples.
 
 **Making one**
 
-- **New template** walks you through it: start from a suggested outline, a blank page or an existing entry. The template's _Check_ button finds missing sub-templates, unbalanced `{{` brackets and conflicting defaults.
+- **New** on the Templates page (on the _Entry templates_ or _Sub-templates_ tab) walks you through it: start from a suggested outline, a blank page or an existing entry. The template's _Check_ button finds missing sub-templates, unbalanced `{{` brackets and conflicting defaults.
 - Any entry can be saved as a template, and any selection as a sub-template (**⋯** menu).
 - A template can link protocols, so every entry made from it is linked too, and carry files (a plasmid map, a plate layout) that are copied into each new entry.
 
@@ -416,7 +418,7 @@ A plate table edited by hand is read back: new names in cells become samples.
 Protocols are your lab's reference methods (SOPs), kept apart from the day-to-day entries.
 
 - Each has an ID (`P-0001`), a **version** and a status: _Draft_, _Active_ or _Retired_. **Release new version** asks what changed and adds it to the protocol's history. **Lock** an approved protocol to make it read-only.
-- **Link** a protocol from an entry's _Protocols_ property, or in the text with `/protocol`, which can also insert a copy of the steps to tick off and annotate. **New entry with protocol** does both at once.
+- **Link** a protocol from an entry's _Protocols_ property, or in the text with `/protocol`, which can also insert a copy of the steps to check off and annotate. **New entry with protocol** does both at once.
 - A protocol lists **where it is used**: every entry, template and task that links to it. Clicking a linked protocol opens it in a side panel, so you can read it next to your entry.
 - **Import a PDF** (a kit handbook, a vendor protocol, a colleague's SOP): it is converted in your browser, without uploading it, into an editable protocol with headings, numbered steps, lists, tables, figures and links. Headers, footers and contents pages are dropped, and two-column pages are read in order. The PDF is kept so you can **compare** the two side by side and fix what the conversion missed.
 
@@ -425,7 +427,7 @@ Protocols are your lab's reference methods (SOPs), kept apart from the day-to-da
 The **Stocks** page holds your physical collections, one table each: primers, plasmids, glycerol stocks, seeds, antibodies, cell lines, or your own kind.
 
 - Each stock has an ID (`PR-0001`) and the columns you choose (name, sequence, location, box, date, notes…). Add, rename and remove columns; add rows one by one, paste them from Excel or import a CSV.
-- **Primers** get their length, GC % and melting temperature (Tm) worked out from the sequence, using nearest-neighbour thermodynamics (SantaLucia 1998, 50 mM Na⁺, 250 nM primer).
+- **Primers** get their length, GC % and melting temperature (Tm) worked out from the sequence, using nearest-neighbor thermodynamics (SantaLucia 1998, 50 mM Na⁺, 250 nM primer).
 - In an entry, type `/stock` to link one (`PR-0001 EGFP-fwd`). Clicking it opens the stock with its full details and **every entry that uses it**: useful when a primer stock turns out to be bad.
 - Search (<kbd>Ctrl</kbd> <kbd>K</kbd>) finds single stocks by their ID, name or details.
 
@@ -437,9 +439,9 @@ The **Literature** page is your library of papers: the ones you read, the method
 
 ### Adding papers
 
-- **By DOI or PubMed ID.** _Add paper_, paste a DOI (`10.1126/science.1225829`, or a doi.org link) or a PubMed ID (`22745249`, or a PubMed link) and click _Look up_: the title, authors, journal, year, volume, pages and abstract are filled in from Crossref or PubMed. Only the identifier you typed is sent; check the details and click _Add paper_.
+- **By DOI or PubMed ID.** _New_, paste a DOI (`10.1126/science.1225829`, or a doi.org link) or a PubMed ID (`22745249`, or a PubMed link) and click _Look up_: the title, authors, journal, year, volume, pages and abstract are filled in from Crossref or PubMed. Only the identifier you typed is sent; check the details and click _Add paper_.
 - **By hand**, in the same form: for a thesis, a book chapter or when you are offline.
-- **From a reference manager.** _⋯ → Import BibTeX or RIS_: paste or choose a `.bib` or `.ris` file exported from Zotero, Mendeley, EndNote or Google Scholar, or a journal's _Download citation_. Papers already in the library (same DOI, PubMed ID, or title and year) are skipped.
+- **From a reference manager.** _New ▾ → Import BibTeX or RIS_: paste or choose a `.bib` or `.ris` file exported from Zotero, Mendeley, EndNote or Google Scholar, or a journal's _Download citation_. Papers already in the library (same DOI, PubMed ID, or title and year) are skipped.
 - A paper you already have is pointed out before you add it again.
 
 ![Adding a paper by its DOI](screenshots/paper-add.png)
@@ -499,9 +501,9 @@ Drag and drop or paste anything into an entry. Files are stored next to it, in `
 - **Images** get a caption and a size. **PDFs** preview inline (also on phones). A **CSV** can be turned into a table.
 - **TIFF images** (microscopes, gel imagers, scanners) are shown in any browser, with their size and bit depth under them. A 16- or 32-bit image is stretched from its darkest to its brightest values for display, as Fiji does when it opens one; the pixel values in the file are not changed. A stack or time series shows one page at a time, with arrows to step through. Images over 50 million pixels are not previewed; download them instead.
 - **HEIC photos** (iPhones save these) are converted to JPEG when you add them, so every browser and Markdown viewer shows them. HEIC files already in a page are shown by converting them on the fly; the file stays as it is. (On the website; the single-file version cannot convert them.)
-- **Draw on an image:** hover it and click _Annotate_. Pick _Line_, _Arrow_, _Box_ or _Text_ and a colour, and drag on the image (or click, for text). _Select_ picks a mark to delete or recolour; _Undo_ and _Done_ are there too. Text gets a halo so it reads on a dark gel and a light blot alike. The photo is not changed: the marks are saved in the page, in a comment just above the image, as positions relative to its size.
+- **Draw on an image:** hover it and click _Annotate_. Pick _Line_, _Arrow_, _Box_ or _Text_ and a color, and drag on the image (or click, for text). _Select_ picks a mark to delete or recolor; _Undo_ and _Done_ are there too. Text gets a halo so it reads on a dark gel and a light blot alike. The photo is not changed: the marks are saved in the page, in a comment just above the image, as positions relative to its size.
 - **Formats a browser can't draw** show as a card with the file name and a _Download_ button, instead of a blank space.
-- **SnapGene `.dna`, GenBank and FASTA** files show a plasmid map with SnapGene's feature colours, a feature table, GC % and the sequence. The original stays in the folder, ready to open in SnapGene.
+- **SnapGene `.dna`, GenBank and FASTA** files show a plasmid map with SnapGene's feature colors, a feature table, GC % and the sequence. The original stays in the folder, ready to open in SnapGene.
 
 ## Notes
 
@@ -518,7 +520,8 @@ The **Notes** page (below Templates in the sidebar) is for meeting notes, journa
 
 Boards are Kanban columns, as in Notion or Trello.
 
-- **Experiments** is built in: every entry by status. Drag a card to another column to change the entry's status.
+- **Experiments** is built in: every entry by status. Drag a card to another column to change the entry's status. Its columns are the entry statuses: **⋯ → Edit statuses…** renames, recolors or adds them in Settings.
+- **New** in the board's bar adds a card to the first column (on Experiments, a new entry); point at a column to add straight into it with the column's own _New_.
 - **Your own boards** come in two kinds, chosen when you create one (and switchable later from the board's **⋯** menu):
   - **Things to track** (the default): constructs, samples, orders, mice… moving through stages you name, e.g. _Designed → PCR → Assembled → Sequenced_. Cards have tags, links to entries and protocols, and full notes, but no due date, so they stay off the calendar.
   - **Tasks**: to-dos with a due date and a priority, e.g. _Lab tasks_. They show on the calendar and in Home's next 7 days, and Home warns when one is overdue.
@@ -526,28 +529,28 @@ Boards are Kanban columns, as in Notion or Trello.
 
 ## Calendar
 
-- **Month**, **Week** and **Agenda** views. Entries appear on their experiment dates (including spans over several days) and tasks on their due dates.
-- Drag an item to reschedule it, or click a day to plan an entry or a task on it.
-- **By status or by project.** Entries are coloured by their status and tasks by their column. The _By project_ button (the palette, after Month · Week · Agenda) colours everything of a project alike instead, with each project listed above the calendar: click one to change its colour. Click _By project_ again to go back. Things outside projects stay gray.
-- **Today** and the **‹ ›** arrows stay in the same place whatever the month's name, so you can click through months quickly.
+- **Month**, **Week** and **Agenda** views, in the bar under the title; _Today_ and the **‹ ›** arrows are beside the month. Entries appear on their experiment dates (including spans over several days) and tasks on their due dates. _Show_ (the funnel) hides entries or tasks for a while.
+- **The week by the hour.** Things with a time sit at their hours, as long as they last (an hour when there is no end time, half an hour for a reminder); everything else (whole days, several days, tasks, planned steps) is in the _All day_ row on top. Drag something to another hour or day to move it, in quarter hours; drop a timed one in _All day_ to take its time away, or an all-day entry on an hour to give it one. Click an empty hour to plan an entry then, or a task that day. A red line marks the time now.
+- In the month, drag an item to another day (it keeps its time), or click a day to plan an entry or a task on it.
+- **By status or by project.** Entries are colored by their status and tasks by their column. The _By project_ button (the palette, after Month · Week · Agenda) colors everything of a project alike instead, with each project listed above the calendar: click one to change its color. Click _By project_ again to go back. Things outside projects stay gray.
 - The week starts on **Monday or Sunday**, as set in _Settings → Appearance_. The activity graph on Home follows the same setting.
 
 **Times.** An entry has a _Time_ under its date: a start time and, once that is set, an end time. Click _Add time_ and pick a time in the list (half hours) or type one: “9:30”, “14:30”, “2pm”. When you plan an experiment, _New entry_ has a _Time_ next to the date (leave it empty for none). The end time lists the times after the start with how long that is. On the calendar, the time comes before the title: short on a month’s chip (“9:30am”), on a line of its own in the week, as a range in the agenda. Items of a day are in order of time, those without one first. Drag an item to another day and it keeps its time.
 
-**Other calendars here.** _Calendars_ (top right of the calendar) shows the events of other calendars next to your entries and tasks: the lab’s Google Calendar for the confocal and the FACS, the seminar series, your own calendar.
+**Other calendars here.** _Calendars_ (in the calendar’s bar, by _New_) shows the events of other calendars next to your entries and tasks: the lab’s Google Calendar for the confocal and the FACS, the seminar series, your own calendar.
 
 1. Copy the calendar’s iCal address. In **Google Calendar**, on a computer: Settings → under _Settings for my calendars_, the calendar → _Integrate calendar_ → _Secret address in iCal format_ (or the _Public address_ of a public calendar). In **Apple Calendar** (iCloud): the calendar’s share button → _Public Calendar_ → copy the link. In **Outlook**: Settings → Calendar → Shared calendars → _Publish a calendar_ → the ICS link.
 2. In Assaycraft, _Calendar → Calendars_, paste it under _Calendar address_ and click _Add calendar_.
 
-Its events show with a dashed outline in their own colour; click one for its time, place and notes. They are read-only here: change them in their own app. Repeating events, events moved or cancelled in a series, and other time zones all show as in the calendar’s app, at this device’s time. The list in _Calendars_ renames a calendar, changes its colour, hides it for now (_Show_) or removes it. The calendar is fetched again every ten minutes while the calendar is open. The address is saved in the notebook’s settings (`assaycraft.json`), so a connected phone shows the calendar too; a browser cannot read another site’s calendar directly, so Assaycraft’s website fetches it for the app and keeps nothing.
+Its events show with a dashed outline in their own color; click one for its time, place and notes. They are read-only here: change them in their own app. Repeating events, events moved or cancelled in a series, and other time zones all show as in the calendar’s app, at this device’s time. The list in _Calendars_ renames a calendar, changes its color, hides it for now (_Show_) or removes it. The calendar is fetched again every ten minutes while the calendar is open. The address is saved in the notebook’s settings (`assaycraft.json`), so a connected phone shows the calendar too; a browser cannot read another site’s calendar directly, so Assaycraft’s website fetches it for the app and keeps nothing.
 
 **Your experiments in your calendar app.** In _Calendars_, _Create a private calendar link_ gives an address to subscribe to in Apple, Google or Outlook Calendar (buttons for each), on your phone too. It holds the entries with a date (at their time, or all day) and the open tasks, with their ID, title, project and status; nothing else from the notebook. It is off unless you turn it on, because it is the one thing Assaycraft keeps online: a copy of those events at a long, random address on its website. Only the device that made the link can change it, and it brings it up to date a few seconds after the plan changes, while the notebook is open there. Calendar apps look for changes on their own: Apple Calendar as often as you set, Google Calendar every few hours. Keep the address private, as anyone with it can see these titles and times. _Turn off the link_ deletes the copy; calendars subscribed to it then show nothing.
 
 ### Reminders
 
-Type `/reminder` in an entry, a note or a task and fill in what to remember, the day and (if you like) a time. It becomes a checklist line ending in a chip with the date: click the chip to change the day or time, or remove it. Typed at the end of a line that already has words, `/reminder` adds the date to that line.
+Type `/reminder` in an entry, a note or a task: a checklist line for today appears, with its _Date_ and _Time_ open (the same controls as at the top of an entry) and the cursor ready for what to remember. The line ends in a chip with the date: click it later to change the day or time, or to remove the reminder. Typed at the end of a line that already has words, `/reminder` adds the date to that line.
 
-On the calendar, reminders are rounded chips with a box: tick the box to mark it done (the checklist line in the page is ticked too), drag the chip to another day in the month or week to move it (its time stays), click its words to open the page. With the tasks hidden (_Tasks_ unticked), reminders are hidden too. Reminders still to do are in the private calendar link, at their time, so your phone’s calendar can remind you.
+On the calendar, reminders are rounded chips with a box: check the box to mark it done (the checklist line in the page is checked too), drag the chip to another day in the month (its time stays) or to another hour in the week, click its words to open the page. With the tasks hidden (_Show_ → _Tasks and reminders_ unchecked), reminders are hidden too. Reminders still to do are in the private calendar link, at their time, so your phone’s calendar can remind you.
 
 In the file, a reminder is plain text at the end of its line, `- [ ] Take the plates out (@2026-10-30 14:30)`: the same syntax as Obsidian’s Reminder plugin.
 
@@ -647,7 +650,7 @@ The same notebook on your computer and your phone, without storing it online.
 The notebook menu (top of the sidebar) → _Settings_:
 
 - **Notebook**: its name, your name (the author of new entries; the tour asks for it too), and the ID prefixes and digits for entries (`EXP-`), tasks (`T-`) and protocols (`P-`). Changing a prefix only affects new items; existing IDs never change.
-- **Entry statuses**: rename, recolour, add or remove the statuses of entries.
-- **Appearance**: light or dark, the accent colour, sans or serif font, and the first day of the week (for the calendar and the activity graph). These are kept per browser.
+- **Entry statuses**: rename, recolor, add or remove the statuses of entries.
+- **Appearance**: light or dark, the accent color, sans or serif font, and the first day of the week (for the calendar and the activity graph). These are kept per browser.
 - **Storage**: where this notebook lives and how its files are laid out.
 - **Keyboard shortcuts**, and **About**: the version, whether the offline copy is ready, the tour, this guide and the source code.

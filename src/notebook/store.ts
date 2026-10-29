@@ -35,7 +35,7 @@ export type Accent = 'blue' | 'violet' | 'green' | 'graphite';
 export type PageFont = 'sans' | 'serif';
 /** First day of the week in the calendar and the activity graph. */
 export type WeekStart = 'monday' | 'sunday';
-/** As a day number (0 = Sunday), for date maths. */
+/** As a day number (0 = Sunday), for date math. */
 export const weekStartDay = (w: WeekStart) => (w === 'sunday' ? 0 : 1);
 export const ACCENTS: { id: Accent; name: string; color: string }[] = [
   { id: 'blue', name: 'Blue', color: '#0866ff' },

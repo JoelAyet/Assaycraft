@@ -10,10 +10,9 @@ import {
   LayoutTemplate,
   ListTodo,
   Plus,
-  Puzzle,
-  Search,
+  Blocks,
 } from 'lucide-react';
-import { NavToggle } from './nav';
+import { PhoneBar } from './PageHeader';
 import { Logo } from './Sidebar';
 import { ActivityGraph } from './ActivityGraph';
 import { ABOUT } from '../lib/about';
@@ -77,30 +76,17 @@ export function HomePage() {
 
   return (
     <div className="gc-page gc-home">
-      <div className="gc-topbar gc-mobile-only">
-        <NavToggle />
-        <span className="gc-topbar-title">Home</span>
-        <span className="spacer" />
-        <button className="icon-btn" aria-label="Search" onClick={() => setState({ paletteOpen: true })}>
-          <Search />
+      <PhoneBar>
+        <button className="icon-btn" aria-label="New entry" title="New entry" onClick={() => openNewEntryDialog({})}>
+          <Plus />
         </button>
-      </div>
-      <div className="gc-home-inner">
+      </PhoneBar>
+      <div className="gc-page-inner gc-home-inner">
         <header className="gc-home-hero">
           <div>
             <div className="gc-eyebrow">{longDate()}</div>
-            <h1 className="gc-home-title">{greeting(config.author)}</h1>
+            <h1 className="gc-page-title">{greeting(config.author)}</h1>
             {lede && <p className="gc-lede">{lede}</p>}
-            <div className="gc-home-actions">
-              <button className="btn btn-primary" onClick={() => openNewEntryDialog({})}>
-                <FilePlus2 /> New entry
-              </button>
-              {boards[0] && (
-                <button className="btn" onClick={() => void createCard(dirname(boards[0].path), { open: true })}>
-                  <ListTodo /> New task
-                </button>
-              )}
-            </div>
           </div>
           <ActivityGraph />
         </header>
@@ -149,11 +135,6 @@ export function HomePage() {
                   </button>
                 );
               })}
-              {recent.length < 4 && (
-                <button className="gc-recent-card is-new" onClick={() => openNewEntryDialog({})}>
-                  <Plus /> New entry
-                </button>
-              )}
             </div>
           )}
         </section>
@@ -162,9 +143,16 @@ export function HomePage() {
           <section className="gc-panel">
             <header className="gc-panel-head">
               <h2>Next 7 days</h2>
-              <button className="btn btn-ghost btn-sm" onClick={() => navigate({ name: 'calendar' })}>
-                Calendar <ArrowRight />
-              </button>
+              <span className="gc-panel-actions">
+                {boards[0] && (
+                  <button className="btn btn-ghost btn-sm" onClick={() => void createCard(dirname(boards[0].path), { open: true })}>
+                    <ListTodo /> New task
+                  </button>
+                )}
+                <button className="btn btn-ghost btn-sm" onClick={() => navigate({ name: 'calendar' })}>
+                  Calendar <ArrowRight />
+                </button>
+              </span>
             </header>
             {upcoming.length === 0 && overdue.length === 0 ? (
               <div className="empty-state">
@@ -258,7 +246,7 @@ export function HomePage() {
                 {t.description && <small>{t.description}</small>}
                 {(t.includes?.length ?? 0) > 0 && (
                   <span className="gc-template-uses">
-                    <Puzzle /> {plural(t.includes!.length, 'sub-template')}
+                    <Blocks /> {plural(t.includes!.length, 'sub-template')}
                   </span>
                 )}
               </button>

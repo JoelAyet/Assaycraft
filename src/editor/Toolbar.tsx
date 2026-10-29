@@ -4,6 +4,7 @@ import {
   Baseline,
   Bold,
   CheckSquare,
+  ChevronDown,
   Code,
   Highlighter,
   Italic,
@@ -21,24 +22,118 @@ import {
   Undo2,
   Paperclip,
   Dna,
-  Puzzle,
+  Blocks,
 } from 'lucide-react';
 import { Popover, usePopover, MenuList, type MenuItemSpec } from '../ui/overlay';
 import { blockCommands, insertTable, type InsertHandlers } from './commands';
 import { SEQUENCE_EXTENSIONS } from '../bio/detect';
 import { tip } from '../ui/Tooltip';
 import { isRelativeFileLink, safeDecode } from '../lib/path';
-import { HIGHLIGHT_COLORS, TEXT_COLORS, type TextSize } from './schema';
+import { HIGHLIGHT_COLORS, TEXT_COLORS, type HighlightColor, type TextSize } from './schema';
 
 const SIZE_LABEL: Record<TextSize | 'normal', string> = { small: 'Small', normal: 'Normal', large: 'Large', huge: 'Huge' };
 
-/** Highlight colour, text colour and text size, for the selected text (or what is typed next). */
-function ColorButton({ editor }: { editor: Editor }) {
-  const p = usePopover();
+/** The highlight color last picked: the highlight button uses it, as in Word or Google Docs. */
+const HIGHLIGHT_KEY = 'assaycraft:highlight';
+function lastHighlight(): HighlightColor {
+  try {
+    const v = localStorage.getItem(HIGHLIGHT_KEY) as HighlightColor | null;
+    return v && (HIGHLIGHT_COLORS as readonly string[]).includes(v) ? v : 'yellow';
+  } catch {
+    return 'yellow';
+  }
+}
+const setMarkColor = (h: HighlightColor) => ({ color: h === 'yellow' ? null : h });
+
+/**
+ * Highlight: the button marks the selected text in the last color picked (or takes the highlight
+ * away); the arrow beside it picks another color.
+ */
+function HighlightButton({ editor }: { editor: Editor }) {
+  const p = usePopover<HTMLButtonElement>();
+  const [last, setLast] = useState(lastHighlight);
+  const cur = useEditorState({
+    editor,
+    selector: ({ editor: e }) => (e.isActive('highlight') ? ((e.getAttributes('highlight').color as HighlightColor | null) ?? 'yellow') : null),
+  });
+  const pick = (h: HighlightColor | null) => {
+    if (h) {
+      setLast(h);
+      try {
+        localStorage.setItem(HIGHLIGHT_KEY, h);
+      } catch {
+        /* ignore */
+      }
+      editor.chain().focus().setMark('highlight', setMarkColor(h)).run();
+    } else editor.chain().focus().unsetMark('highlight').run();
+  };
+  return (
+    <span className={`gc-tb-split ${cur ? 'active' : ''}`}>
+      <button
+        className={`icon-btn gc-ink-btn ${cur ? 'active' : ''}`}
+        {...tip('Highlight', `Mark text in ${last === 'gray' ? 'gray' : last}; the arrow picks another color`, 'Mod+Shift+H')}
+        aria-pressed={!!cur}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => (cur ? editor.chain().focus().unsetMark('highlight').run() : pick(last))}
+      >
+        <Highlighter />
+        <span className="gc-ink-bar gc-hl-bar" data-color={last} />
+      </button>
+      <button
+        ref={p.ref}
+        className="icon-btn gc-tb-caret"
+        {...tip('Highlight color', 'Pick the highlight color')}
+        aria-haspopup="dialog"
+        aria-expanded={p.open}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={p.toggle}
+      >
+        <ChevronDown />
+      </button>
+      {p.open && (
+        <Popover anchor={p.ref.current} onClose={p.close}>
+          <div className="gc-ink-menu" onMouseDown={(e) => e.target instanceof HTMLButtonElement && e.preventDefault()}>
+            <div className="gc-ink-label">Highlight</div>
+            <div className="gc-ink-row">
+              <button
+                className={`gc-ink-swatch is-none ${!cur ? 'active' : ''}`}
+                aria-label="No highlight"
+                title="No highlight"
+                onClick={() => {
+                  pick(null);
+                  p.close();
+                }}
+              >
+                ab
+              </button>
+              {HIGHLIGHT_COLORS.map((h) => (
+                <button
+                  key={h}
+                  className={`gc-ink-swatch ${cur === h ? 'active' : ''}`}
+                  aria-label={`Highlight ${h}`}
+                  title={`Highlight ${h}`}
+                  onClick={() => {
+                    pick(h);
+                    p.close();
+                  }}
+                >
+                  <mark data-color={h === 'yellow' ? undefined : h}>ab</mark>
+                </button>
+              ))}
+            </div>
+          </div>
+        </Popover>
+      )}
+    </span>
+  );
+}
+
+/** Text color and size, for the selected text (or what is typed next). */
+function TextStyleButton({ editor }: { editor: Editor }) {
+  const p = usePopover<HTMLButtonElement>();
   const cur = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
-      highlight: e.isActive('highlight') ? ((e.getAttributes('highlight').color as string | null) ?? 'yellow') : null,
       color: e.isActive('textColor') ? (e.getAttributes('textColor').color as string) : null,
       size: e.isActive('textSize') ? (e.getAttributes('textSize').size as TextSize) : 'normal',
     }),
@@ -48,9 +143,10 @@ function ColorButton({ editor }: { editor: Editor }) {
     <>
       <button
         ref={p.ref}
-        className={`icon-btn gc-ink-btn ${cur.color || cur.highlight || cur.size !== 'normal' ? 'active' : ''}`}
-        {...tip('Colour and size', 'Highlight colour, text colour and text size')}
+        className={`icon-btn gc-ink-btn ${cur.color || cur.size !== 'normal' ? 'active' : ''}`}
+        {...tip('Text color and size', 'Color the text, or make it smaller or larger')}
         aria-haspopup="dialog"
+        aria-expanded={p.open}
         onMouseDown={(e) => e.preventDefault()}
         onClick={p.toggle}
       >
@@ -60,33 +156,11 @@ function ColorButton({ editor }: { editor: Editor }) {
       {p.open && (
         <Popover anchor={p.ref.current} onClose={p.close}>
           <div className="gc-ink-menu" onMouseDown={(e) => e.target instanceof HTMLButtonElement && e.preventDefault()}>
-            <div className="gc-ink-label">Highlight</div>
-            <div className="gc-ink-row">
-              <button
-                className={`gc-ink-swatch is-none ${!cur.highlight ? 'active' : ''}`}
-                aria-label="No highlight"
-                title="No highlight"
-                onClick={() => run((c) => c.unsetMark('highlight'))}
-              >
-                ab
-              </button>
-              {HIGHLIGHT_COLORS.map((h) => (
-                <button
-                  key={h}
-                  className={`gc-ink-swatch ${cur.highlight === h ? 'active' : ''}`}
-                  aria-label={`Highlight ${h}`}
-                  title={`Highlight ${h}`}
-                  onClick={() => run((c) => c.setMark('highlight', { color: h === 'yellow' ? null : h }))}
-                >
-                  <mark data-color={h === 'yellow' ? undefined : h}>ab</mark>
-                </button>
-              ))}
-            </div>
-            <div className="gc-ink-label">Text colour</div>
+            <div className="gc-ink-label">Text color</div>
             <div className="gc-ink-row">
               <button
                 className={`gc-ink-swatch is-none ${!cur.color ? 'active' : ''}`}
-                aria-label="Default text colour"
+                aria-label="Default text color"
                 title="Default"
                 onClick={() => run((c) => c.unsetMark('textColor'))}
               >
@@ -232,7 +306,6 @@ export function Toolbar({ editor, handlers, inTemplate }: { editor: Editor; hand
       strike: e.isActive('strike'),
       sub: e.isActive('subscript'),
       sup: e.isActive('superscript'),
-      highlight: e.isActive('highlight'),
       code: e.isActive('code'),
       link: e.isActive('link'),
       bullet: e.isActive('bulletList'),
@@ -310,14 +383,14 @@ export function Toolbar({ editor, handlers, inTemplate }: { editor: Editor; hand
       {btn(s.strike, ['Strikethrough', 'Cross text out', 'Mod+Shift+S'], <Strikethrough />, () => c().toggleStrike().run(), true)}
       {btn(s.sub, ['Subscript', 'Lowered text, as in H₂O', 'Mod+,'], <Subscript />, () => c().toggleSubscript().run())}
       {btn(s.sup, ['Superscript', 'Raised text, as in 10⁶ or µm²', 'Mod+.'], <Superscript />, () => c().toggleSuperscript().run())}
-      {btn(s.highlight, ['Highlight', 'Mark text in colour', 'Mod+Shift+H'], <Highlighter />, () => c().toggleMark('highlight').run(), true)}
-      <ColorButton editor={editor} />
+      <HighlightButton editor={editor} />
+      <TextStyleButton editor={editor} />
       {btn(s.code, ['Inline code', 'Monospace text, for sequences and commands', 'Mod+E'], <Code />, () => c().toggleCode().run(), true)}
       <LinkButton editor={editor} active={s.link} />
       <span className="gc-tb-sep" />
       {btn(s.bullet, ['Bulleted list', undefined, 'Mod+Shift+8'], <List />, () => c().toggleBulletList().run())}
       {btn(s.ordered, ['Numbered list', 'For steps', 'Mod+Shift+7'], <ListOrdered />, () => c().toggleOrderedList().run())}
-      {btn(s.task, ['Checklist', 'Boxes to tick off as you go', 'Mod+Shift+9'], <CheckSquare />, () => c().toggleTaskList().run())}
+      {btn(s.task, ['Checklist', 'Boxes to check off as you go', 'Mod+Shift+9'], <CheckSquare />, () => c().toggleTaskList().run())}
       {btn(s.quote, ['Quote', 'Set text apart, e.g. a note or a warning', 'Mod+Shift+B'], <Quote />, () => c().toggleBlockquote().run(), true)}
       <span className="gc-tb-sep" />
       <button
@@ -350,7 +423,7 @@ export function Toolbar({ editor, handlers, inTemplate }: { editor: Editor; hand
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => handlers.insertSubtemplate()}
       >
-        <Puzzle /> <span className="gc-tb-label">Sub-template</span>
+        <Blocks /> <span className="gc-tb-label">Sub-template</span>
       </button>
       <button
         ref={insert.ref}

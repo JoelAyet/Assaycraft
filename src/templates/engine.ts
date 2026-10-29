@@ -243,7 +243,7 @@ function warning(text: string): JSONContent {
 
 /**
  * Replace sub-template references by their (recursively expanded) content.
- * File references are marked so they can be relocated afterwards.
+ * File references are marked so they can be relocated afterward.
  */
 export async function expandIncludes(json: JSONContent, folder: string, resolve: IncludeResolver, stack: string[] = []): Promise<JSONContent> {
   const root = markAssets(json, folder);

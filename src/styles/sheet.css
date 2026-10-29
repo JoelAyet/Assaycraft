@@ -246,7 +246,7 @@
   height: 12px;
 }
 
-/* Cell colours (right-click a cell › Cell colour). */
+/* Cell colors (right-click a cell › Cell color). */
 .gc-sheet-grid td[data-bg='yellow'],
 .gc-cell-swatch[data-bg='yellow'] {
   background: var(--c-yellow-bg);

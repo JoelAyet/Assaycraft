@@ -35,7 +35,7 @@ describe('reminders', () => {
     ]);
   });
 
-  it('move to another day keeping their time, and tick off in the file', () => {
+  it('move to another day keeping their time, and check off in the file', () => {
     const moved = moveReminder(body, 0, '2026-11-04')!;
     expect(moved).toContain('- [ ] Order more Q5 (@2026-11-04 14:00)');
     expect(setReminderDone(moved, 0, true)).toContain('- [x] Order more Q5 (@2026-11-04 14:00)');
@@ -64,7 +64,7 @@ describe('reminders', () => {
   });
 });
 
-describe('colours and sizes in text', () => {
+describe('colors and sizes in text', () => {
   it('keep their names in the file, with a style for other viewers', () => {
     const md =
       'A <mark data-color="green" style="background:#dcf1e3">green</mark> and a <mark>yellow</mark> highlight, ' +
@@ -84,14 +84,14 @@ describe('colours and sizes in text', () => {
 });
 
 describe('tables', () => {
-  it('keep cell colours and frozen columns in their comment', () => {
+  it('keep cell colors and frozen columns in their comment', () => {
     const md = '<!-- gc:table {"bg":{"A2":"yellow","B3":"green"},"freeze":1} -->\n| Sample | OD |\n| --- | ---: |\n| WT | 0.5 |\n| KO | 0.7 |\n';
     const json = JSON.stringify(parseMarkdown(md).toJSON());
     expect(json).toContain('"colors":{"A2":"yellow","B3":"green"},"freeze":1');
     expect(roundTrip(md)).toBe(md);
   });
 
-  it('move cell colours with their cells', () => {
+  it('move cell colors with their cells', () => {
     const d = setCellColor(
       {
         rows: [
@@ -108,7 +108,7 @@ describe('tables', () => {
     expect(deleteRows(d, 1).colors).toBeUndefined();
     expect(insertCols(d, 0).colors).toEqual({ B2: 'yellow', C2: 'yellow' });
     expect(deleteCols(d, 0).colors).toEqual({ A2: 'yellow' });
-    // Sorted A→Z by the first column, the coloured row ("b") goes last.
+    // Sorted A→Z by the first column, the colored row ("b") goes last.
     expect(sortByColumn(d, 0, 1, d.rows).colors).toEqual({ A3: 'yellow', B3: 'yellow' });
   });
 });

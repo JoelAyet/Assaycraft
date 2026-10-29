@@ -214,7 +214,10 @@ const nodes: Record<string, NodeFn> = {
     state.text(String(node.attrs.content ?? ''), false);
   },
   reminder(state, node) {
-    state.text(reminderMark(String(node.attrs.date), (node.attrs.time as string | null) ?? undefined), false);
+    // Words typed right before it stay a word apart from it in the file.
+    const out = (state as unknown as { out: string }).out;
+    const sep = out && !/[\s([]$/.test(out) ? ' ' : '';
+    state.text(sep + reminderMark(String(node.attrs.date), (node.attrs.time as string | null) ?? undefined), false);
   },
 };
 
@@ -227,7 +230,7 @@ const marks = {
   underline: { open: '<u>', close: '</u>', mixable: true, expelEnclosingWhitespace: true },
   subscript: { open: '<sub>', close: '</sub>', mixable: true },
   superscript: { open: '<sup>', close: '</sup>', mixable: true },
-  // Colours and sizes go by name for Assaycraft, with a style for other Markdown viewers.
+  // Colors and sizes go by name for Assaycraft, with a style for other Markdown viewers.
   highlight: {
     open: (_s: MarkdownSerializerState, mark: Mark) => {
       const c = mark.attrs.color as keyof typeof HIGHLIGHT_HEX | null;

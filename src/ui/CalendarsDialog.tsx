@@ -37,8 +37,8 @@ function ColorButton({ cal, onChange }: { cal: CalendarLink; onChange: (c: Color
       <button
         ref={p.ref}
         className={`gc-color-swatch tone-${cal.color}`}
-        title={`Colour of ${cal.name}`}
-        aria-label={`Colour of ${cal.name}`}
+        title={`Color of ${cal.name}`}
+        aria-label={`Color of ${cal.name}`}
         onClick={p.toggle}
       />
       {p.open && (
@@ -127,7 +127,7 @@ function OtherCalendars() {
       return;
     }
     const used = new Set(calendars.map((c) => c.color));
-    // Colours that stand apart from the entry statuses first.
+    // Colors that stand apart from the entry statuses first.
     const color = CALENDAR_COLORS.find((c) => !used.has(c)) ?? 'teal';
     const name = l.parsed.name?.trim() || new URL(url).hostname;
     await saveCalendars([...calendars, { id: newSecret().slice(0, 8), name, url, color }]);

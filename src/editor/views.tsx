@@ -17,7 +17,7 @@ import {
   FileType2,
   MoreHorizontal,
   PenLine,
-  Puzzle,
+  Blocks,
   Table2,
   Trash2,
 } from 'lucide-react';
@@ -443,7 +443,7 @@ export function IncludeView({ node, selected, editor, deleteNode, getPos }: Node
   };
 
   const menu: MenuItemSpec[] = [
-    ...(target ? [{ label: 'Open sub-template', icon: <Puzzle />, onSelect: () => navigate({ name: 'doc', path: target.path }) }] : []),
+    ...(target ? [{ label: 'Open sub-template', icon: <Blocks />, onSelect: () => navigate({ name: 'doc', path: target.path }) }] : []),
     ...(editable && target ? [{ label: 'Replace with an editable copy', icon: <Copy />, onSelect: () => void inline() }] : []),
     ...(editable ? (['sep', { label: 'Remove', icon: <Trash2 />, danger: true, onSelect: () => deleteNode() }] as MenuItemSpec[]) : []),
   ];
@@ -456,7 +456,7 @@ export function IncludeView({ node, selected, editor, deleteNode, getPos }: Node
         <button className="icon-btn icon-btn-sm" onClick={() => setOpen((o) => !o)} title={open ? 'Collapse' : 'Preview'}>
           {open ? <ChevronDown /> : <ChevronRight />}
         </button>
-        <Puzzle className="gc-include-icon" />
+        <Blocks className="gc-include-icon" />
         <span className="gc-include-label">Sub-template</span>
         <button className="gc-include-name" onClick={() => (target ? navigate({ name: 'doc', path: target.path }) : undefined)}>
           {target?.title ?? name}

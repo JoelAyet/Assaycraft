@@ -186,9 +186,10 @@ test('tables behave like a spreadsheet and are saved as Markdown with formulas',
   expect(md).toContain('"B5":"=B2+B3"');
 });
 
-test('improving a sub-template updates entries created afterwards', async ({ page }) => {
+test('improving a sub-template updates entries created afterward', async ({ page }) => {
   await openFolderNotebook(page);
   await page.locator('.gc-nav-item', { hasText: 'Templates' }).click();
+  await page.getByRole('group', { name: 'Kind' }).getByRole('button', { name: 'Sub-templates' }).click();
   await page.locator('.gc-tpl-card', { hasText: 'Agarose gel' }).click();
   await expect(page.locator('.gc-title-input')).toHaveValue('Agarose gel');
   await page.locator('.ProseMirror p').last().click();
@@ -199,6 +200,7 @@ test('improving a sub-template updates entries created afterwards', async ({ pag
   expect(await readFile(page, 'Templates/Sub-templates/Agarose gel.md')).toContain('Image on the blue-light transilluminator.');
 
   await page.locator('.gc-nav-item', { hasText: 'Templates' }).click();
+  await page.getByRole('group', { name: 'Kind' }).getByRole('button', { name: 'Entry templates' }).click();
   await page.locator('.gc-tpl-card', { hasText: 'Molecular cloning' }).getByRole('button', { name: 'Use' }).click();
   await page.getByRole('button', { name: 'Create entry' }).click();
   await expect(page.locator('.ProseMirror')).toContainText('Image on the blue-light transilluminator.');

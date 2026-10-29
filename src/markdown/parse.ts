@@ -9,7 +9,7 @@
  *  - a flow is a numbered list of steps (titles, or links to their entries) under <!-- gc:flow -->
  *  - a paragraph that is just a link to a local file is a file attachment
  *  - <sub>, <sup>, <mark>, <u> are used for sub/superscript, highlight and underline;
- *    <mark data-color=…> for other highlight colours, <span class="gc-ink"> for coloured text, <span class="gc-size"> for sizes
+ *    <mark data-color=…> for other highlight colors, <span class="gc-ink"> for colored text, <span class="gc-size"> for sizes
  *  - sub-template references (templates only): <!-- gc:include {"id":"…","name":"…"} -->
  *  - anything else that is raw HTML is preserved verbatim
  */
@@ -218,7 +218,7 @@ function transformInline(state: StateCore, children: Token[]): Token[] {
           ? { name: INLINE_TAGS[tag], group: INLINE_TAGS[tag], close, attrs: [] }
           : null;
     const attrs = htmlAttrs(m[3] ?? '');
-    // Coloured text and sizes: <span class="gc-ink" data-color="red">, <span class="gc-size" data-size="large">.
+    // Colored text and sizes: <span class="gc-ink" data-color="red">, <span class="gc-size" data-size="large">.
     if (tag === 'span') {
       const cls = (attrs.class ?? '').split(/\s+/);
       if (cls.includes('gc-ink') && attrs['data-color']) return { name: 'text_color', group: 'span', close, attrs: [['color', attrs['data-color']]] };

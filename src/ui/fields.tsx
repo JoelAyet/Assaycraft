@@ -21,7 +21,7 @@ import {
   LayoutTemplate,
   Link2,
   Plus,
-  Puzzle,
+  Blocks,
   Tag,
   Target,
   ClipboardCheck,
@@ -54,7 +54,7 @@ const PROP_ICONS: Record<string, LucideIcon> = {
   Result: ClipboardCheck,
   'Entry title': Type,
   'Asks for': Braces,
-  Uses: Puzzle,
+  Uses: Blocks,
   'Used by': LayoutTemplate,
   'Used in': Link2,
   Check: CheckCheck,
@@ -70,7 +70,7 @@ const PROP_ICONS: Record<string, LucideIcon> = {
   'Cited in': Quote,
 };
 
-/** A labelled row in a doc's property header (with an icon, like Notion's page properties). */
+/** A labeled row in a doc's property header (with an icon, like Notion's page properties). */
 export function Prop({ label, children }: { label: string; children: ReactNode }) {
   const Icon = PROP_ICONS[label.replace(/\s*\(.*\)$/, '')];
   return (
@@ -161,12 +161,15 @@ export function DateField({
   disabled,
   placeholder = 'Set date',
   min,
+  clearable = true,
 }: {
   value?: string;
   onChange: (v: string | undefined) => void;
   disabled?: boolean;
   placeholder?: string;
   min?: string;
+  /** False where a date is required (a reminder's). */
+  clearable?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [local, setLocal] = useState(value ?? '');
@@ -204,7 +207,7 @@ export function DateField({
           onChange(e.target.value || undefined);
         }}
       />
-      {value && !disabled && (
+      {value && !disabled && clearable && (
         <button className="gc-date-clear" title="Clear date" onClick={() => onChange(undefined)}>
           <X />
         </button>

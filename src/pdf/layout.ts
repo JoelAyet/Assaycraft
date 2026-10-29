@@ -1005,7 +1005,7 @@ function inlineFromLines(lines: Line[], strip: number, bodyMono: boolean, headin
             if (nodes[k].text || !t) break;
           }
         } else if (m && /^\p{Ll}/u.test(text)) {
-          // A word split at the end of the line: keep the hyphen if the word is spelt with one elsewhere,
+          // A word split at the end of the line: keep the hyphen if the word is spelled with one elsewhere,
           // or looks like a compound ("DNA-binding", "double-stranded").
           const n = text.match(/^\p{L}+/u)![0];
           const joined = (m[1] + n).toLowerCase();

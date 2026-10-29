@@ -9,16 +9,16 @@ export interface SheetData {
   rows: string[][];
   /** Column widths in px (null = automatic). */
   widths?: (number | null)[];
-  /** Cell background colours, by cell ("B2": "yellow"), from the notebook's palette. */
+  /** Cell background colors, by cell ("B2": "yellow"), from the notebook's palette. */
   colors?: Record<string, string>;
   /** How many columns from the left stay in view when the table scrolls sideways. */
   freeze?: number;
 }
 
-/** Colours a cell can be filled with. */
+/** Colors a cell can be filled with. */
 export const CELL_COLORS = ['yellow', 'green', 'teal', 'blue', 'purple', 'pink', 'red', 'orange', 'gray'] as const;
 
-/** Move cell colours with their cells when rows or columns are inserted, deleted or reordered. */
+/** Move cell colors with their cells when rows or columns are inserted, deleted or reordered. */
 function remapColors(
   colors: Record<string, string> | undefined,
   fn: (r: number, c: number) => { r: number; c: number } | null,
@@ -34,7 +34,7 @@ function remapColors(
   return Object.keys(out).length ? out : undefined;
 }
 
-/** Fill a block of cells with a colour (or clear it). */
+/** Fill a block of cells with a color (or clear it). */
 export function setCellColor(d: SheetData, rect: { r1: number; c1: number; r2: number; c2: number }, color: string | null): SheetData {
   const colors = { ...d.colors };
   for (let r = rect.r1; r <= rect.r2; r++)
@@ -151,7 +151,7 @@ export function sortByColumn(d: SheetData, col: number, dir: 1 | -1, display: st
     if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
     return a.key.localeCompare(b.key, undefined, { numeric: true, sensitivity: 'base' }) * dir;
   });
-  // Cell colours go with their rows.
+  // Cell colors go with their rows.
   const to = new Map(body.map((x, k) => [x.i, k + 1]));
   return { ...d, rows: [header.r, ...body.map((x) => x.r)], colors: remapColors(d.colors, (r, c) => ({ r: to.get(r) ?? r, c })) };
 }

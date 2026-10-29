@@ -21,7 +21,7 @@ import {
   Minus,
   Paperclip,
   Pilcrow,
-  Puzzle,
+  Blocks,
   Quote,
   Table2,
   TestTubes,
@@ -34,7 +34,7 @@ import { newBuffer } from '../buffer/calc';
 import { focusNextInsertedFlow } from '../flow/FlowView';
 import { focusNextInsertedPlate } from '../plate/PlateView';
 import { newPlate } from '../plate/model';
-import { openDayDialog, openReminderDialog } from './datePrompts';
+import { insertDateHeading, insertReminder } from './datePrompts';
 import { SEQUENCE_EXTENSIONS } from '../bio/detect';
 import { insertBlocks } from './insertion';
 
@@ -142,7 +142,7 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
     {
       id: 'task',
       title: 'Checklist',
-      description: 'Tick off protocol steps',
+      description: 'Check off protocol steps',
       icon: <CheckSquare />,
       keywords: 'todo task checkbox [ ]',
       group: 'Basic',
@@ -251,7 +251,7 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
       id: 'subtemplate',
       title: 'Sub-template',
       description: opts.inTemplate ? 'Reusable block (stays in sync)' : 'Insert a reusable protocol block',
-      icon: <Puzzle />,
+      icon: <Blocks />,
       keywords: 'template protocol block snippet reuse include',
       group: 'Lab',
       run: () => h.insertSubtemplate(),
@@ -272,16 +272,16 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
       icon: <CalendarDays />,
       keywords: 'today day date timestamp heading',
       group: 'Lab',
-      run: (e) => openDayDialog(e),
+      run: (e) => insertDateHeading(e),
     },
     {
       id: 'reminder',
       title: 'Reminder',
-      description: 'A date and time that shows on the calendar, to tick off there',
+      description: 'A date and time that shows on the calendar, to check off there',
       icon: <BellRing />,
       keywords: 'reminder remind alarm due deadline todo calendar time',
       group: 'Lab',
-      run: (e) => openReminderDialog(e),
+      run: (e) => insertReminder(e),
     },
     {
       id: 'link',

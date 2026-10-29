@@ -45,7 +45,7 @@ test('make a buffer: what to add of each stock, and how much to weigh', async ({
   await cell(page, 2, 'final').fill('10');
   await row(page, 2).getByLabel('Final unit of Glycerol').selectOption('%');
   await expect(amount(page, 2)).toHaveText('5 mL');
-  // Water brings it up to the final volume (the powder does not count towards it).
+  // Water brings it up to the final volume (the powder does not count toward it).
   await expect(page.locator('.gc-buffer-fill .col-add')).toHaveText('42.5 mL');
 
   // A different final volume recalculates everything.

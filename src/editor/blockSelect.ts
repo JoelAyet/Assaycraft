@@ -1,6 +1,7 @@
 /**
- * Box selection: drag from the page's margin and a light-blue box selects the blocks it touches
- * (paragraphs, tables, images, buffers…), to delete, cut or copy them together.
+ * Block selection, to delete, cut or copy whole blocks (paragraphs, tables, images, buffers…)
+ * together: drag from anywhere around the text and a light-blue box selects the blocks it touches;
+ * or drag from inside the text into another block.
  */
 import { Extension, type Editor } from '@tiptap/core';
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
@@ -16,11 +17,65 @@ export const blockSelectKey = new PluginKey<Range | null>('blockSelect');
 
 const selectedRange = (view: EditorView) => blockSelectKey.getState(view.state) ?? null;
 
+/** The top-level block holding `pos`, or the nearest one. */
+function blockAt(view: EditorView, pos: number): Range | null {
+  const { doc } = view.state;
+  const $p = doc.resolve(Math.max(0, Math.min(pos, doc.content.size)));
+  if ($p.depth > 0) return { from: $p.before(1), to: $p.after(1) };
+  const after = doc.childAfter($p.pos);
+  if (after.node) return { from: after.offset, to: after.offset + after.node.nodeSize };
+  const before = doc.childBefore($p.pos);
+  return before.node ? { from: before.offset, to: before.offset + before.node.nodeSize } : null;
+}
+
 export const BlockSelect = Extension.create({
   name: 'blockSelect',
   // Before the editor's own keys, so Delete removes the selected blocks rather than a letter.
   priority: 1000,
   addProseMirrorPlugins() {
+    // A drag that starts in the text and reaches another block selects whole blocks (as in Notion);
+    // while it lasts, the text selection the browser keeps changing does not end it.
+    let crossing = false;
+    const startCrossing = (view: EditorView, event: MouseEvent) => {
+      if (event.button !== 0 || event.shiftKey || !view.editable) return;
+      const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
+      const first = at && blockAt(view, at.pos);
+      if (!first) return;
+      const move = (e: MouseEvent) => {
+        const here = view.posAtCoords({ left: e.clientX, top: e.clientY });
+        // Past the end of the text: the last block.
+        const block = here
+          ? blockAt(view, here.pos)
+          : e.clientY > view.dom.getBoundingClientRect().bottom
+            ? blockAt(view, view.state.doc.content.size)
+            : null;
+        if (!block || (!crossing && block.from === first.from)) return;
+        if (!crossing) {
+          crossing = true;
+          view.dom.classList.add('is-block-dragging');
+        }
+        window.getSelection()?.removeAllRanges();
+        const range = { from: Math.min(first.from, block.from), to: Math.max(first.to, block.to) };
+        const cur = blockSelectKey.getState(view.state);
+        if (!cur || cur.from !== range.from || cur.to !== range.to) view.dispatch(view.state.tr.setMeta(blockSelectKey, range));
+      };
+      const up = () => {
+        window.removeEventListener('mousemove', move);
+        window.removeEventListener('mouseup', up);
+        if (!crossing) return;
+        const range = blockSelectKey.getState(view.state);
+        crossing = false;
+        view.dom.classList.remove('is-block-dragging');
+        // After the browser's last word on the selection.
+        setTimeout(() => {
+          if (!range) return;
+          const tr = view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(range.from + 1))).setMeta(blockSelectKey, range);
+          view.dispatch(tr);
+        });
+      };
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
+    };
     return [
       new Plugin<Range | null>({
         key: blockSelectKey,
@@ -30,8 +85,9 @@ export const BlockSelect = Extension.create({
             const meta = tr.getMeta(blockSelectKey) as Range | null | undefined;
             if (meta !== undefined) return meta;
             if (!value) return null;
-            // Any edit or cursor move ends it.
-            if (tr.docChanged || tr.selectionSet) return null;
+            if (tr.docChanged) return null;
+            // Any cursor move ends it, except the browser's own while a drag crosses blocks.
+            if (tr.selectionSet && !crossing) return null;
             return value;
           },
         },
@@ -65,8 +121,9 @@ export const BlockSelect = Extension.create({
           handleDOMEvents: {
             copy: (view, event) => copyBlocks(view, event, false),
             cut: (view, event) => copyBlocks(view, event, true),
-            mousedown: (view) => {
+            mousedown: (view, event) => {
               if (selectedRange(view)) view.dispatch(view.state.tr.setMeta(blockSelectKey, null));
+              startCrossing(view, event);
               return false;
             },
           },

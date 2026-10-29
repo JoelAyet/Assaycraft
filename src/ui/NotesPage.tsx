@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { MoreHorizontal, NotebookPen, Plus, Search, Trash2 } from 'lucide-react';
+import { MoreHorizontal, NotebookPen, Trash2 } from 'lucide-react';
 import { navigate, useNotebook } from '../notebook/store';
 import { createNote, trashDoc } from '../notebook/actions';
 import type { DocMeta } from '../notebook/model';
@@ -7,7 +7,7 @@ import { excerpt } from '../notebook/text';
 import { formatDate, formatRelative, LOCALE } from '../lib/dates';
 import { MenuButton, confirmDialog } from './overlay';
 import { TagPill } from './status';
-import { NavToggle } from './nav';
+import { FilterField, NewButton, PageHead, PhoneBar, ViewBar } from './PageHeader';
 
 /** Newest first: by the note's date, then by when it was created and last edited. */
 const sortKey = (d: DocMeta) => `${d.date ?? (d.created ?? '').slice(0, 10)} ${d.created ?? ''} ${d.modified ?? ''}`;
@@ -100,45 +100,30 @@ export function NotesPage() {
 
   return (
     <div className="gc-page gc-notes-page">
-      <div className="gc-topbar">
-        <NavToggle />
-        <span className="gc-page-icon">
-          <NotebookPen />
-        </span>
-        <span className="gc-topbar-title">Notes</span>
-        <span className="spacer" />
-        <button className="btn btn-primary btn-sm" onClick={add}>
-          <Plus /> New note
-        </button>
-      </div>
-      <div className="gc-folder-inner gc-notes-inner">
-        <header className="gc-page-head">
-          <h1 className="gc-page-title">Notes</h1>
-          <p className="gc-lede">
-            Meeting notes, ideas and brainstorming. A note is written like an entry but has no ID, project or status, and stays off the calendar and
-            boards.
-          </p>
-        </header>
-        {notes.length > 0 && (
-          <div className="gc-table-tools">
-            <label className="gc-filter">
-              <Search />
-              <input value={q} placeholder="Filter notes…" aria-label="Filter notes" onChange={(e) => setQ(e.target.value)} />
-            </label>
-            {tags.length > 0 && (
-              <div className="gc-status-filters">
-                <button className={`pill ${tag === null ? 'is-selected' : 'gc-pill-empty'}`} onClick={() => setTag(null)}>
-                  All {notes.length}
+      <PhoneBar />
+      <div className="gc-page-inner">
+        <PageHead title="Notes" lede="Meeting notes, journal clubs and ideas, written like entries but without an ID, project or status." />
+        <ViewBar
+          tools={
+            <>
+              {notes.length > 0 && <FilterField value={q} onChange={setQ} placeholder="Filter notes…" />}
+              <NewButton what="note" onClick={add} />
+            </>
+          }
+        >
+          {tags.length > 0 && (
+            <div className="gc-status-filters">
+              <button className={`pill ${tag === null ? 'is-selected' : 'gc-pill-empty'}`} onClick={() => setTag(null)}>
+                All {notes.length}
+              </button>
+              {tags.map((t) => (
+                <button key={t} className={`pill ${tag === t ? 'is-selected' : 'gc-pill-empty'}`} onClick={() => setTag(tag === t ? null : t)}>
+                  {t}
                 </button>
-                {tags.map((t) => (
-                  <button key={t} className={`pill ${tag === t ? 'is-selected' : 'gc-pill-empty'}`} onClick={() => setTag(tag === t ? null : t)}>
-                    {t}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </ViewBar>
         {groups.map((g) => (
           <section key={g.month} className="gc-notes-group" aria-label={g.month}>
             <h2 className="gc-notes-month">{g.month}</h2>
@@ -154,10 +139,7 @@ export function NotesPage() {
           <div className="empty-state gc-notes-empty">
             <NotebookPen />
             <h3>No notes yet</h3>
-            <p>Keep lab meetings, journal clubs and ideas here, apart from your experiments.</p>
-            <button className="btn btn-primary" onClick={add}>
-              <Plus /> New note
-            </button>
+            <p>Notes are sorted by month here as you add them.</p>
           </div>
         )}
       </div>

@@ -5,7 +5,7 @@
  *   - [ ] Order more Q5 polymerase (@2026-10-30 14:00)
  *
  * The same syntax as Obsidian's Reminder plugin, so the file reads well anywhere. The calendar lists
- * them, moves them (rewriting the date in the file) and ticks them off (the line's checkbox).
+ * them, moves them (rewriting the date in the file) and checks them off (the line's checkbox).
  */
 import { timeOfDay } from '../lib/dates';
 
@@ -122,7 +122,7 @@ export function moveReminder(body: string, index: number, date: string, time?: s
   return lines.join('\n');
 }
 
-/** The body with reminder `index`'s checkbox ticked or not (undefined if its line has no checkbox). */
+/** The body with reminder `index`'s checkbox checked or not (undefined if its line has no checkbox). */
 export function setReminderDone(body: string, index: number, done: boolean): string | undefined {
   const where = locate(body, index);
   if (!where) return undefined;

@@ -67,7 +67,7 @@ test('on a phone the sidebar is a drawer, and every page fits the screen', async
 
   // The calendar starts as an agenda, which suits a small screen.
   await go(page, 'Calendar');
-  await expect(page.locator('.gc-segmented button.active')).toHaveText('Agenda');
+  await expect(page.locator('.gc-viewtab.active')).toHaveText('Agenda');
   await expectFits(page, 'Calendar');
 
   await page.goto('/#/settings');
@@ -84,7 +84,7 @@ test('the month view on a phone lists the events of the day you tap', async ({ p
   await page.getByRole('button', { name: 'Create entry' }).click();
   await waitForSave(page);
   await go(page, 'Calendar');
-  await page.locator('.gc-segmented button', { hasText: 'Month' }).click();
+  await page.locator('.gc-viewtab', { hasText: 'Month' }).click();
 
   // Events are bars in the grid; today's are listed below it.
   const today = ymd(new Date());

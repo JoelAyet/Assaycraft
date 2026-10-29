@@ -344,15 +344,16 @@ export const RawInline = Node.create({
   },
 });
 
-// ───────────── Text colour, highlight colour and text size ─────────────
+// ───────────── Text color, highlight color and text size ─────────────
 
-/** Colours a text or a highlight can take: the notebook's palette, by name, so they suit both themes. */
+/** Colors a text or a highlight can take: the notebook's palette, by name, so they suit both themes. */
 export const TEXT_COLORS = ['red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', 'gray'] as const;
 export const HIGHLIGHT_COLORS = ['yellow', 'green', 'teal', 'blue', 'purple', 'pink', 'red', 'orange', 'gray'] as const;
 export const TEXT_SIZES = ['small', 'large', 'huge'] as const;
 export type TextColor = (typeof TEXT_COLORS)[number];
+export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number];
 export type TextSize = (typeof TEXT_SIZES)[number];
-/** What other Markdown viewers show for each colour and size (Assaycraft styles them by name, for both themes). */
+/** What other Markdown viewers show for each color and size (Assaycraft styles them by name, for both themes). */
 export const INK_HEX: Record<TextColor, string> = {
   red: '#c62828',
   orange: '#b4530f',
@@ -379,7 +380,7 @@ export const SIZE_EM: Record<TextSize, string> = { small: '0.85em', large: '1.25
 
 const oneOf = <T extends string>(list: readonly T[], v: unknown): T | null => ((list as readonly string[]).includes(String(v)) ? (v as T) : null);
 
-/** A highlight in any palette colour; plain <mark> is yellow. */
+/** A highlight in any palette color; plain <mark> is yellow. */
 export const ColorHighlight = Mark.create({
   name: 'highlight',
   excludes: 'highlight',

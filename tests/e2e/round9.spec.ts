@@ -25,16 +25,17 @@ test('labels and counters that said nothing are gone, except the date on Home', 
   }
 });
 
-test('text gets a highlight colour, a colour and a size; tags get a colour', async ({ page }) => {
+test('text gets a highlight color, a color and a size; tags get a color', async ({ page }) => {
   const errors = trackErrors(page);
   await openFolderNotebook(page);
-  await newBlankEntry(page, 'Colours');
+  await newBlankEntry(page, 'Colors');
   await page.locator('.ProseMirror').click();
   await page.keyboard.type('Band at 1 kb');
   await page.keyboard.press('Shift+Home');
-  // One menu for all three; it stays open to pick several.
-  await page.getByRole('button', { name: 'Colour and size' }).click();
+  // The highlight's colors are by its button; text color and size have a button of their own.
+  await page.getByRole('button', { name: 'Highlight color' }).click();
   await page.getByRole('button', { name: 'Highlight green' }).click();
+  await page.getByRole('button', { name: 'Text color and size' }).click();
   await page.getByRole('button', { name: 'Text red' }).click();
   await page.getByRole('group', { name: 'Text size' }).getByRole('button', { name: 'Large' }).click();
   await page.keyboard.press('Escape');
@@ -45,12 +46,12 @@ test('text gets a highlight colour, a colour and a size; tags get a colour', asy
   ).toBeVisible();
   await expect(page.locator('.ProseMirror .gc-size[data-size="large"]')).toBeVisible();
 
-  // A tag's colour, chosen from the tag itself, for the whole notebook.
+  // A tag's color, chosen from the tag itself, for the whole notebook.
   await page.getByRole('button', { name: 'Add tag' }).click();
   await page.keyboard.type('gel');
   await page.keyboard.press('Enter');
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Colour of tag gel' }).click();
+  await page.getByRole('button', { name: 'Color of tag gel' }).click();
   await page.getByRole('button', { name: 'red', exact: true }).click();
   await expect(page.locator('.gc-tag', { hasText: 'gel' })).toHaveClass(/tone-red/);
   await waitForSave(page);
@@ -62,18 +63,24 @@ test('text gets a highlight colour, a colour and a size; tags get a colour', asy
   expect(errors).toEqual([]);
 });
 
-test('/day puts in today or another day, in English; Tab nests list items', async ({ page }) => {
+test('/day puts in today, and its date opens a calendar to pick another day, in English; Tab nests list items', async ({ page }) => {
   await openFolderNotebook(page);
   await newBlankEntry(page, 'Diary');
   await page.locator('.ProseMirror').click();
   await slash(page, 'day', 'Day');
-  const dialog = page.getByRole('dialog', { name: 'Date heading' });
-  await dialog.getByRole('button', { name: 'Yesterday' }).click();
+  const weekday = (ymd: string) => new Date(ymd + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+  const heading = page.locator('.ProseMirror h2');
+  await expect(heading).toHaveText(`${day(0)} · ${weekday(day(0))}`);
+
+  // Its date is a button: a small calendar changes the day, weekday included.
+  await page.locator('.gc-date-chip').click();
+  const cal = page.getByRole('group', { name: 'Day of this heading' });
   const yesterday = day(-1);
-  const name = new Date(yesterday + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-  await expect(dialog).toContainText(`${yesterday} · ${name}`);
-  await dialog.getByRole('button', { name: 'Insert date' }).click();
-  await expect(page.locator('.ProseMirror h2')).toHaveText(`${yesterday} · ${name}`);
+  if (yesterday.slice(0, 7) !== day(0).slice(0, 7)) await cal.getByRole('button', { name: 'Previous month' }).click();
+  const label = new Date(yesterday + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  await cal.getByRole('button', { name: label }).click();
+  await expect(heading).toHaveText(`${yesterday} · ${weekday(yesterday)}`);
+  await page.locator('.ProseMirror > p').last().click();
   await expect(page.locator('.ProseMirror')).toBeFocused();
 
   // Tab nests the item it is in, in any list, and never leaves the page.
@@ -88,24 +95,28 @@ test('/day puts in today or another day, in English; Tab nests list items', asyn
   await expect(page.locator('.ProseMirror ul ul')).toHaveCount(0);
 });
 
-test('a reminder goes on the calendar, moves there and is ticked off there', async ({ page }) => {
+test('a reminder goes on the calendar, moves there and is checked off there', async ({ page }) => {
   const errors = trackErrors(page);
   await openFolderNotebook(page);
   await newBlankEntry(page, 'Westerns');
   const path = pathOf(page);
   await page.locator('.ProseMirror').click();
   await slash(page, 'reminder', 'Reminder');
-  const dialog = page.getByRole('dialog', { name: 'Reminder' });
-  await dialog.getByLabel('Remind me to').fill('Take the membrane out');
-  await dialog.getByRole('button', { name: 'Tomorrow' }).click();
-  await dialog.getByLabel('Time (optional)').fill('14:30');
-  await dialog.getByRole('button', { name: 'Add reminder' }).click();
+  // It goes in at once, for today, with its Date and Time open as on an entry; the cursor waits before it.
+  const edit = page.getByRole('group', { name: 'Reminder' });
+  await expect(edit).toBeVisible();
+  await page.keyboard.type('Take the membrane out');
+  await edit.locator('.gc-date-native').fill(day(1), { force: true });
+  await edit.getByRole('button', { name: 'Add time' }).click();
+  await page.getByLabel('Type a time').fill('14:30');
+  await page.getByLabel('Type a time').press('Enter');
   await expect(page.locator('.gc-reminder-btn')).toContainText(/2:30\sPM|14:30/);
+  await page.keyboard.press('Escape');
   await waitForSave(page);
   expect(await readFile(page, path)).toContain(`- [ ] Take the membrane out (@${day(1)} 14:30)`);
 
   await page.locator('.gc-nav-item', { hasText: 'Calendar' }).click();
-  await page.locator('.gc-segmented button', { hasText: 'Agenda' }).click();
+  await page.locator('.gc-viewtab', { hasText: 'Agenda' }).click();
   const row = page.locator('.gc-agenda-reminder', { hasText: 'Take the membrane out' });
   await expect(row).toContainText(/2:30\sPM|14:30/);
   await row.getByRole('checkbox', { name: 'Done: Take the membrane out' }).click();
@@ -113,7 +124,7 @@ test('a reminder goes on the calendar, moves there and is ticked off there', asy
   await expect.poll(() => readFile(page, path)).toContain(`- [x] Take the membrane out (@${day(1)} 14:30)`);
 
   // Dragged to another day in the month, it moves in the file (keeping its time).
-  await page.locator('.gc-segmented button', { hasText: 'Month' }).click();
+  await page.locator('.gc-viewtab', { hasText: 'Month' }).click();
   const chip = page.locator('.gc-cal-item.is-reminder', { hasText: 'Take the membrane out' });
   const target = day(1) === day(2).slice(0, 8) + '01' ? day(0) : day(2);
   const cell = page.locator(`.gc-day[data-day="${target}"]`);
@@ -124,11 +135,11 @@ test('a reminder goes on the calendar, moves there and is ticked off there', asy
   expect(errors).toEqual([]);
 });
 
-test('calendar entries can be coloured by project', async ({ page }) => {
+test('calendar entries can be colored by project', async ({ page }) => {
   await openFolderNotebook(page);
   await page.locator('.gc-nav-item', { hasText: 'Calendar' }).click();
-  await page.getByRole('button', { name: 'Colour by project' }).click();
-  const legend = page.getByLabel('Project colours');
+  await page.getByRole('button', { name: 'Color by project' }).click();
+  const legend = page.getByLabel('Project colors');
   await expect(legend).toContainText('Getting started');
   await legend.getByRole('button', { name: /Getting started/ }).click();
   await page.getByRole('button', { name: 'purple', exact: true }).click();
@@ -136,7 +147,7 @@ test('calendar entries can be coloured by project', async ({ page }) => {
   expect(await readFile(page, 'assaycraft.json')).toContain('"Getting started": "purple"');
 });
 
-test('table cells get a colour, and columns can be frozen', async ({ page }) => {
+test('table cells get a color, and columns can be frozen', async ({ page }) => {
   await openFolderNotebook(page);
   await newBlankEntry(page, 'Plate readings');
   await page.locator('.ProseMirror').click();
@@ -224,7 +235,7 @@ test('a flow step gets a day on a small calendar, shows on the calendar, and its
   expect(await readFile(page, plan)).toContain(`<!-- gc:flow {"dates":{"1":"${target}"}} -->`);
 
   await page.locator('.gc-nav-item', { hasText: 'Calendar' }).click();
-  await page.locator('.gc-segmented button', { hasText: 'Agenda' }).click();
+  await page.locator('.gc-viewtab', { hasText: 'Agenda' }).click();
   await expect(page.locator('.gc-agenda-item.is-step', { hasText: 'Expression' })).toBeVisible();
   await page.locator('.gc-agenda-item.is-step', { hasText: 'Expression' }).click();
 

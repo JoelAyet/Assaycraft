@@ -109,14 +109,14 @@ export function ColorPicker({ value, onChange }: { value: ColorName; onChange: (
 
 const NAME_PALETTE: ColorName[] = ['blue', 'green', 'purple', 'orange', 'teal', 'pink', 'yellow', 'brown', 'red'];
 
-/** A colour that follows from a name, so a tag or project keeps its colour everywhere until one is chosen. */
+/** A color that follows from a name, so a tag or project keeps its color everywhere until one is chosen. */
 export function nameColor(name: string): ColorName {
   let h = 0;
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return NAME_PALETTE[h % NAME_PALETTE.length];
 }
 
-/** A tag's colour: the one chosen for it in this notebook, or one from its name. */
+/** A tag's color: the one chosen for it in this notebook, or one from its name. */
 export function tagColor(tag: string, chosen?: Record<string, ColorName>): ColorName {
   return chosen?.[tag] ?? nameColor(tag);
 }
@@ -126,19 +126,19 @@ export function useTagColor(tag: string): ColorName {
   return chosen ?? nameColor(tag);
 }
 
-/** A project's colour on the calendar. */
+/** A project's color on the calendar. */
 export function projectColor(project: string, chosen?: Record<string, ColorName>): ColorName {
   return chosen?.[project] ?? nameColor(project);
 }
 
-/** A tag in its colour. Where `onRemove` is given (an entry's own tags), its name also opens a colour choice. */
+/** A tag in its color. Where `onRemove` is given (an entry's own tags), its name also opens a color choice. */
 export function TagPill({ tag, onRemove }: { tag: string; onRemove?: () => void }) {
   const color = useTagColor(tag);
   const p = usePopover();
   return (
     <span className={`pill pill-sq tone-${color} gc-tag`}>
       {onRemove ? (
-        <button ref={p.ref} className="gc-tag-name" title={`Colour of “${tag}”`} aria-label={`Colour of tag ${tag}`} onClick={p.toggle}>
+        <button ref={p.ref} className="gc-tag-name" title={`Color of “${tag}”`} aria-label={`Color of tag ${tag}`} onClick={p.toggle}>
           {tag}
         </button>
       ) : (
@@ -151,7 +151,7 @@ export function TagPill({ tag, onRemove }: { tag: string; onRemove?: () => void 
       )}
       {p.open && (
         <Popover anchor={p.ref.current} onClose={p.close}>
-          <div className="menu-label">Colour of “{tag}” everywhere</div>
+          <div className="menu-label">Color of “{tag}” everywhere</div>
           <ColorPicker
             value={color}
             onChange={(c) => {
