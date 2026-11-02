@@ -10,6 +10,7 @@ import { newSecret } from '../sync/crypto';
 import { formatRelative } from '../lib/dates';
 import { ColorPicker } from './status';
 import { Dialog, Popover, confirmDialog, openDialog, usePopover } from './overlay';
+import { writeClipboard } from '../lib/clipboard';
 
 /** Calendar → Calendars: other calendars shown in Assaycraft's, and this notebook in calendar apps. */
 export function openCalendarsDialog() {
@@ -197,7 +198,7 @@ function CopyButton({ text }: { text: string }) {
     <button
       className="btn"
       onClick={() =>
-        void navigator.clipboard?.writeText(text).then(() => {
+        void writeClipboard(text).then(() => {
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
         })

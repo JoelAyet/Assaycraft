@@ -28,6 +28,14 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 ## What's new
 
+**2 November 2026**
+
+- **Files no longer go missing from entries.** A file whose name had a `#` or `?` in it (“Western blot #3.tif”) showed as _File not found_ the next time the entry was opened, although the file was still in the attachments folder. It now opens as it should, and entries saved by an earlier version are repaired when you open them: the link is found again and saved right.
+- **Copied files follow their block.** Copy an image or a file from one entry and paste it into another: the file is copied into the new entry's own `attachments` folder, so each entry keeps its files even if the first one is moved or trashed. Links to other entries and files are rewritten to work from the new entry's folder. [Files and images](#files-images-and-snapgene-maps).
+- **Copying selected blocks.** Blocks selected with the mouse (drag from around the text, or from one paragraph into another) are now copied with <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>C</kbd> as a whole, tables and files included; before, only selected text was.
+- **Code blocks** (type ` ``` ` or pick _Code block_) are colored by language: Python, R, Bash, MATLAB, Julia, SQL, JSON, YAML and more, picked from the bar above the code, or guessed when none is set. _Copy_ puts the code on the clipboard. Code longer than 15 lines starts small, scrolling inside the block; _Expand_ shows all of it and _Collapse_ makes it small again.
+- **Excel previews.** An attached Excel workbook (`.xlsx`) has a _Preview_ like a PDF: its sheets as tabs, the cells with Excel's column letters and row numbers, dates and percentages as Excel shows them. _Insert as table_ turns a sheet into a table in the entry.
+
 **28 October 2026**
 
 - **One layout for every page.** Protocols, Stocks, Literature, Templates, Notes, boards, the calendar, folders, the trash and Settings all start the same way, in the same place: the title, a line on what the page holds, then a bar with the page’s views on the left and its tools on the right, ending in **New**. New makes what the page holds (a protocol on Protocols, a paper on Literature); its **▾** has the other ways to add (import PDFs, BibTeX, a new stock collection). The sidebar’s _New entry_ is the one New entry button, and on a board a column’s own _New_ shows when you point at that column.
@@ -117,8 +125,9 @@ An **entry** is one experiment or one day's work. Click **New entry** (or press 
 - **Tags** have a color from their name; click a tag on an entry to choose another, for every page.
 - **Type `/`** anywhere for blocks: _Table_, _Buffer_, _Flow_, _Stock_, _File or image_, _Sequence (SnapGene)_, _Protocol_, _Sub-template_, _Day_, _Reminder_, _Link to entry_, _Cite a paper_, _Plate layout_, _Checklist_ and more. The **+** button in the toolbar lists the same blocks.
 - **/day** adds a heading for today’s work, “2026-10-28 · Wednesday”. Its date is underlined with dots: click it to pick another day on a small calendar, and the weekday follows.
+- **Code blocks** (type three backticks and the language, as in ` ```python `, then a space; or _Code block_ in the toolbar's text style) color the code by its language. The bar above the code has the language (or _Auto-detect_), _Copy_, and for code longer than 15 lines _Expand_ / _Collapse_: long code starts small and scrolls inside the block. In the file, it is a fenced code block with the language after the fence.
 - **Lists:** <kbd>Tab</kbd> nests the item you are in under the one above, <kbd>Shift</kbd>+<kbd>Tab</kbd> takes it out again, in bulleted, numbered and checklists.
-- **Selecting whole blocks**, on a computer: drag from anywhere around the text to draw a light-blue box, and the blocks it touches are selected; or start a drag inside the text and carry it into another paragraph, and it selects whole blocks instead of ragged lines. Delete (<kbd>Delete</kbd>), copy or cut them together. This works on every page with text. Hover the page’s **right edge** for its index: recent entries to jump to, then the page’s headings and days.
+- **Selecting whole blocks**, on a computer: drag from anywhere around the text to draw a light-blue box, and the blocks it touches are selected; or start a drag inside the text and carry it into another paragraph, and it selects whole blocks instead of ragged lines. Delete (<kbd>Delete</kbd>), copy (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>C</kbd>) or cut them together; pasted into another entry, their files are copied into that entry's folder. This works on every page with text. Hover the page’s **right edge** for its index: recent entries to jump to, then the page’s headings and days.
 
 ![Hovering over a toolbar button shows what it does and its shortcut](screenshots/tooltip.png)
 
@@ -499,6 +508,8 @@ A citation in an entry is an ordinary Markdown link: `[Jinek et al., 2012](../..
 Drag and drop or paste anything into an entry. Files are stored next to it, in `attachments/<entry ID>/`.
 
 - **Images** get a caption and a size. **PDFs** preview inline (also on phones). A **CSV** can be turned into a table.
+- **Excel workbooks** (`.xlsx`, `.xlsm`) preview inline too: _Preview_ shows each sheet in a tab, with column letters and row numbers, the first 200 rows and 40 columns. Dates, times and percentages read as in Excel, and a formula shows its last result. _Insert as table_ copies the sheet into the entry as a table. (Old `.xls` files cannot be previewed; download them.)
+- **Copying a file or image to another entry** (copy the block, paste it there) copies the file into that entry's `attachments/<entry ID>/` folder, so it is stored with the entry that shows it.
 - **TIFF images** (microscopes, gel imagers, scanners) are shown in any browser, with their size and bit depth under them. A 16- or 32-bit image is stretched from its darkest to its brightest values for display, as Fiji does when it opens one; the pixel values in the file are not changed. A stack or time series shows one page at a time, with arrows to step through. Images over 50 million pixels are not previewed; download them instead.
 - **HEIC photos** (iPhones save these) are converted to JPEG when you add them, so every browser and Markdown viewer shows them. HEIC files already in a page are shown by converting them on the fly; the file stays as it is. (On the website; the single-file version cannot convert them.)
 - **Draw on an image:** hover it and click _Annotate_. Pick _Line_, _Arrow_, _Box_ or _Text_ and a color, and drag on the image (or click, for text). _Select_ picks a mark to delete or recolor; _Undo_ and _Done_ are there too. Text gets a halo so it reads on a dark gel and a light blot alike. The photo is not changed: the marks are saved in the page, in a comment just above the image, as positions relative to its size.

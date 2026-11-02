@@ -1,6 +1,6 @@
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from '@tiptap/react';
 import { generateHTML } from '@tiptap/core';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronLeft,
@@ -23,9 +23,10 @@ import {
 } from 'lucide-react';
 import { useDocContext } from './context';
 import { useVaultBlob } from './useVaultBlob';
+import type { Vault } from '../fs/types';
 import { SequenceCard } from '../bio/SequenceCard';
 import { isSequenceFile } from '../bio/detect';
-import { extname, formatBytes, isRelativeFileLink, resolveLink } from '../lib/path';
+import { extname, formatBytes, isRelativeFileLink, join, legacySpellings, resolveLink } from '../lib/path';
 import { MenuButton, type MenuItemSpec } from '../ui/overlay';
 import { navigate, toast, useNotebook } from '../notebook/store';
 import { parseMarkdown } from '../markdown/parse';
@@ -38,6 +39,8 @@ import { PdfView } from '../ui/PdfView';
 import { decodeTiff, isTiffName, type TiffPreview } from '../lib/tiff';
 import { heicToJpeg, isHeicName } from '../lib/heic';
 import { AnnotationEditor, AnnotationLayer, normalizeAnnotations, type Annotation } from './annotate';
+import { writeClipboard } from '../lib/clipboard';
+import { columnName, isXlsxName, openXlsx, type XlsxBook, type XlsxSheet } from '../lib/xlsx';
 
 function useEditable(editor: NodeViewProps['editor']) {
   return useEditorState({ editor, selector: (s) => s.editor.isEditable });
@@ -45,6 +48,30 @@ function useEditable(editor: NodeViewProps['editor']) {
 
 function vaultPathOf(folder: string, src: string): string | null {
   return src && isRelativeFileLink(src) ? resolveLink(folder, src) : null;
+}
+
+/**
+ * A file that is not at its link: if it was added before November 2026 with "#" or "?" in its name, the
+ * link may have been saved under an older spelling. Find the file and put the link right.
+ */
+function useRepairLink(vault: Vault, folder: string, src: string, missing: boolean, setSrc: (src: string) => void) {
+  const set = useRef(setSrc);
+  set.current = setSrc;
+  useEffect(() => {
+    if (!missing || !isRelativeFileLink(src)) return;
+    let cancelled = false;
+    void (async () => {
+      for (const alt of legacySpellings(src)) {
+        if (await vault.exists(join(folder, alt)).catch(() => false)) {
+          if (!cancelled) set.current(alt);
+          return;
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [vault, folder, src, missing]);
 }
 
 // ───────────── Image ─────────────
@@ -121,6 +148,7 @@ export function ImageView({ node, updateAttributes, selected, editor, deleteNode
   const name = src.split('/').pop() ?? src;
   const path = vaultPathOf(ctx.folder, src);
   const { blob, url, error } = useVaultBlob(ctx.vault, path);
+  useRepairLink(ctx.vault, ctx.folder, src, !!error, (fixed) => updateAttributes({ src: fixed }));
   const fileUrl = path ? url : src;
   const tiff = isTiffName(src);
   const [page, setPage] = useState(0);
@@ -295,16 +323,129 @@ function CsvPreview({ blob, name, onInsert }: { blob: Blob; name: string; onInse
   );
 }
 
-export function AttachmentView({ node, selected, editor, deleteNode, getPos }: NodeViewProps) {
+/** An Excel workbook: its sheets as tabs, each shown like a spreadsheet (the first rows and columns). */
+function XlsxPreview({ blob, onInsert }: { blob: Blob; onInsert: (rows: string[][]) => void }) {
+  const [book, setBook] = useState<XlsxBook | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    let live = true;
+    setBook(null);
+    setFailed(null);
+    void blob.arrayBuffer().then((buf) => {
+      if (!live) return;
+      try {
+        setBook(openXlsx(new Uint8Array(buf)));
+        setIndex(0);
+      } catch (err) {
+        setFailed((err as Error).message || 'The workbook could not be read');
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, [blob]);
+  const sheet = useMemo((): XlsxSheet | null => {
+    if (!book) return null;
+    try {
+      return book.read(index);
+    } catch {
+      return { name: '', rows: [], numeric: [], truncated: false, tooLarge: true };
+    }
+  }, [book, index]);
+  if (failed) return <p className="gc-xlsx-note">Can’t preview this workbook: {failed}.</p>;
+  if (!book || !sheet) return <p className="gc-xlsx-note">Reading the workbook…</p>;
+  const rows = sheet.rows.slice(0, XLSX_SHOWN_ROWS);
+  const cols = Math.min(sheet.rows[0]?.length ?? 0, XLSX_SHOWN_COLS);
+  const more = sheet.rows.length > rows.length || (sheet.rows[0]?.length ?? 0) > cols;
+  return (
+    <div className="gc-csv gc-xlsx">
+      {book.sheets.length > 1 && (
+        <div className="gc-xlsx-tabs" role="tablist" aria-label="Sheets">
+          {book.sheets.map((s, i) => (
+            <button
+              key={i}
+              type="button"
+              role="tab"
+              aria-selected={i === index}
+              className={`gc-xlsx-tab ${i === index ? 'is-active' : ''}`}
+              onClick={() => setIndex(i)}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+      {sheet.tooLarge ? (
+        <p className="gc-xlsx-note">This sheet can’t be previewed here (it is very large or damaged). Download the file to open it in Excel.</p>
+      ) : !rows.length ? (
+        <p className="gc-xlsx-note">This sheet is empty.</p>
+      ) : (
+        <div className="gc-csv-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th className="gc-xlsx-corner" aria-hidden="true" />
+                {Array.from({ length: cols }, (_, c) => (
+                  <th key={c} scope="col">
+                    {columnName(c)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <th scope="row" className="gc-xlsx-rn">
+                    {i + 1}
+                  </th>
+                  {r.slice(0, cols).map((cell, j) => (
+                    <td key={j} className={sheet.numeric[i]?.[j] ? 'is-num' : undefined}>
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="gc-csv-foot">
+        <span className="muted">
+          {sheet.rows.length} rows × {sheet.rows[0]?.length ?? 0} columns
+          {more ? ` · showing the first ${rows.length} rows and ${cols} columns` : ''}
+          {sheet.truncated ? ' (the file has more)' : ''}
+        </span>
+        {rows.length > 0 && (
+          <button className="btn btn-sm" onClick={() => onInsert(sheet.rows)}>
+            <Table2 /> Insert as table
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const XLSX_SHOWN_ROWS = 200;
+const XLSX_SHOWN_COLS = 40;
+
+export function AttachmentView({ node, selected, editor, deleteNode, getPos, updateAttributes }: NodeViewProps) {
   const ctx = useDocContext();
   const editable = useEditable(editor);
   const src = String(node.attrs.src ?? '');
-  const name = String(node.attrs.name || src.split('/').pop() || 'file');
   const path = vaultPathOf(ctx.folder, src);
   const { blob, url, error } = useVaultBlob(ctx.vault, path);
+  useRepairLink(ctx.vault, ctx.folder, src, !!error, (fixed) => {
+    // The name shown was taken from the old spelling too.
+    const oldName = src.split('/').pop();
+    const name = String(node.attrs.name ?? '');
+    updateAttributes({ src: fixed, ...(name && name === oldName ? { name: fixed.split('/').pop() } : {}) });
+  });
+  const name = String(node.attrs.name || src.split('/').pop() || 'file');
   const ext = extname(name || src);
   const isSeq = isSequenceFile(name) || isSequenceFile(src);
-  const canPreview = ext === '.pdf' || ext === '.csv' || ext === '.tsv' || ext === '.txt';
+  const xlsx = isXlsxName(name) || isXlsxName(src);
+  const canPreview = ext === '.pdf' || ext === '.csv' || ext === '.tsv' || ext === '.txt' || xlsx;
   const [preview, setPreview] = useState(false);
   const [text, setText] = useState<string | null>(null);
 
@@ -319,7 +460,7 @@ export function AttachmentView({ node, selected, editor, deleteNode, getPos }: N
           {
             label: 'Copy file location',
             icon: <Copy />,
-            onSelect: () => void navigator.clipboard.writeText(path).then(() => toast('File location copied', 'success')),
+            onSelect: () => void writeClipboard(path).then(() => toast('File location copied', 'success')),
           },
         ]
       : []),
@@ -394,6 +535,7 @@ export function AttachmentView({ node, selected, editor, deleteNode, getPos }: N
         </div>
       )}
       {preview && (ext === '.csv' || ext === '.tsv') && blob && <CsvPreview blob={blob} name={name} onInsert={insertTable} />}
+      {preview && xlsx && blob && <XlsxPreview blob={blob} onInsert={insertTable} />}
       {preview && ext === '.txt' && text !== null && <pre className="gc-text-preview">{text}</pre>}
     </NodeViewWrapper>
   );

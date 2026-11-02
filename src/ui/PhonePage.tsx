@@ -6,6 +6,7 @@ import { PageHead, PhoneBar } from './PageHeader';
 import { confirmDialog } from './overlay';
 import { cancelPendingPairing, forgetPairing, newPairing, syncSupported, unlinkFromComputer, useSync, type PeerStatus } from '../sync/manager';
 import { QrCode } from '../sync/qr';
+import { writeClipboard } from '../lib/clipboard';
 
 /** How a connected device is doing, in a few words. */
 export function peerStatus(p: PeerStatus, other: 'phone' | 'computer'): { text: string; tone: 'live' | 'busy' | 'idle' } {
@@ -31,7 +32,7 @@ function CopyLink({ url }: { url: string }) {
       className="btn btn-sm"
       data-url={url}
       onClick={() =>
-        void navigator.clipboard?.writeText(url).then(() => {
+        void writeClipboard(url).then(() => {
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
         })

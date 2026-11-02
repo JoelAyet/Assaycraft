@@ -17,6 +17,8 @@ import { serializeMarkdown } from '../markdown/serialize';
 import { parseDelimited } from '../sheet/tsv';
 import { normalizeSheet } from '../sheet/model';
 import { dirname, extname, isRelativeFileLink, resolveLink, splitFragment, stem } from '../lib/path';
+import { CodeBlockView } from './CodeBlockView';
+import { adoptPastedFiles, markCopiedFiles, resolvePastedFiles } from './clipboardFiles';
 import { pickFiles } from '../lib/download';
 import { readDoc, registerOpenDoc, saveBody, setLoadedBody, takeQuietReload, touchDoc } from '../notebook/actions';
 import { getState, navigate, toast, useNotebook } from '../notebook/store';
@@ -36,6 +38,7 @@ const stopAllButDrag = ({ event }: { event: Event }) => !event.type.startsWith('
 function buildExtensions(placeholder: string, commands: () => ReturnType<typeof blockCommands>) {
   return [
     ...schemaExtensions({
+      codeBlock: () => ReactNodeViewRenderer(CodeBlockView),
       spreadsheet: () => ReactNodeViewRenderer(SheetView, { stopEvent: stopAllButDrag }),
       buffer: () => ReactNodeViewRenderer(BufferView, { stopEvent: stopAllButDrag }),
       plate: () => ReactNodeViewRenderer(PlateView, { stopEvent: stopAllButDrag }),
@@ -147,6 +150,26 @@ export function DocEditor({ path, meta, initialBody, readOnly, placeholder, comp
     shouldRerenderOnTransaction: false,
     editorProps: {
       attributes: { class: `gc-prose ${compact ? 'is-compact' : ''}`, spellcheck: 'true' },
+      // Files in copied blocks follow them into another entry (see clipboardFiles).
+      transformCopied: (slice) => markCopiedFiles(slice, ctxRef.current),
+      transformPasted: (slice, view) => {
+        const ctx = ctxRef.current;
+        const { slice: out, copies } = resolvePastedFiles(slice, ctx);
+        if (copies.length && view.editable)
+          setTimeout(
+            () =>
+              void adoptPastedFiles(view, ctx, copies).then((lost) => {
+                if (lost)
+                  toast(
+                    lost === 1
+                      ? 'A file pasted from another notebook could not be copied here. Attach it again.'
+                      : `${lost} files pasted from another notebook could not be copied here. Attach them again.`,
+                    'error',
+                  );
+              }),
+          );
+        return out;
+      },
       handleDrop: (view, event, _slice, moved) => {
         if (moved || !view.editable) return false;
         const files = Array.from(event.dataTransfer?.files ?? []);

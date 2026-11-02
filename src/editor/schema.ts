@@ -5,6 +5,7 @@
 import { Mark, Node, getSchema, type Extensions, type NodeViewRenderer } from '@tiptap/core';
 import type { DOMOutputSpec } from '@tiptap/pm/model';
 import { StarterKit } from '@tiptap/starter-kit';
+import { CodeBlock, CodeHighlight } from './codeBlock';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Subscript } from '@tiptap/extension-subscript';
 import { Superscript } from '@tiptap/extension-superscript';
@@ -475,7 +476,7 @@ export const Reminder = Node.create({
   },
 });
 
-export type NodeViewKey = 'spreadsheet' | 'buffer' | 'plate' | 'flow' | 'attachment' | 'image' | 'include' | 'rawBlock' | 'reminder';
+export type NodeViewKey = 'codeBlock' | 'spreadsheet' | 'buffer' | 'plate' | 'flow' | 'attachment' | 'image' | 'include' | 'rawBlock' | 'reminder';
 export type NodeViews = Partial<Record<NodeViewKey, () => NodeViewRenderer>>;
 
 /** Extensions that define the document schema. Node views (UI) can be attached by the editor. */
@@ -491,11 +492,15 @@ export function schemaExtensions(views: NodeViews = {}): Extensions {
         openOnClick: false,
         autolink: true,
         linkOnPaste: true,
+        // Links to notebook files, while on the clipboard (see editor/clipboardFiles).
+        protocols: ['gcvault'],
         HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: '_blank' },
       },
-      codeBlock: { HTMLAttributes: { spellcheck: 'false' } },
+      codeBlock: false,
       dropcursor: { color: 'var(--accent)', width: 2 },
     }),
+    v(CodeBlock.configure({ HTMLAttributes: { spellcheck: 'false' } }), 'codeBlock'),
+    CodeHighlight,
     TaskList,
     TaskItem.configure({ nested: true }),
     Subscript,

@@ -160,6 +160,11 @@ function collectListItems(tokens: Token[], start: number): { items: { text: stri
   return { items, end: j };
 }
 
+/** An image's description as text: markdown-it keeps the source in `content` (with its "\\[" escapes). */
+function altText(t: Token): string {
+  return t.children ? t.children.map((c) => (c.type === 'softbreak' || c.type === 'hardbreak' ? ' ' : c.content)).join('') : (t.content ?? '');
+}
+
 /** A paragraph consisting only of a local file link or only of images becomes block nodes. */
 function paragraphBlocks(b: Builder, inline: Token): Token[] | null {
   const kids = (inline.children ?? []).filter((t) => !isBlank(t));
@@ -168,7 +173,7 @@ function paragraphBlocks(b: Builder, inline: Token): Token[] | null {
     return kids.map((t) =>
       b.token('image_block', {
         src: localSrc(t.attrGet('src') ?? ''),
-        alt: t.content ?? '',
+        alt: altText(t),
         title: t.attrGet('title') || null,
         width: null,
       }),
@@ -178,7 +183,10 @@ function paragraphBlocks(b: Builder, inline: Token): Token[] | null {
     const inner = kids.slice(1, -1);
     if (inner.some((t) => t.type === 'link_open' || t.type === 'image')) return null;
     const href = kids[0].attrGet('href') ?? '';
-    if (!isRelativeFileLink(href) || extname(safeDecode(href.split('#')[0])) === '.md') return null;
+    // A link to a page is a link; a Markdown file added to an entry (in its attachments folder) is a file.
+    if (!isRelativeFileLink(href)) return null;
+    const file = safeDecode(href.split('#')[0]);
+    if (extname(file) === '.md' && !/(^|\/)attachments\//.test(file)) return null;
     const name = inner.map((t) => t.content).join('');
     return [b.token('attachment', { src: safeDecode(href), name })];
   }
@@ -274,7 +282,7 @@ function transformInline(state: StateCore, children: Token[]): Token[] {
       const open = new state.Token('link_open', 'a', 1);
       open.attrs = [['href', t.attrGet('src') ?? '']];
       const text = new state.Token('text', '', 0);
-      text.content = t.content || 'image';
+      text.content = altText(t) || 'image';
       out.push(open, text, new state.Token('link_close', 'a', -1));
       return;
     }

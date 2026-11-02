@@ -9,6 +9,7 @@ import { FilterField, NewButton, PageHead, PhoneBar, ViewBar, ViewTabs } from '.
 import { downloadBlob } from '../lib/download';
 import { READING_STATUSES, fullCitation, readingStatus, refFromMeta, shortCitation, toBibtex } from './model';
 import { openPaperDialog } from './PaperDialog';
+import { writeClipboard } from '../lib/clipboard';
 
 /** What a paper's row shows and is searched by. */
 interface Row {
@@ -21,7 +22,7 @@ interface Row {
 }
 
 function copy(text: string, what: string) {
-  void navigator.clipboard.writeText(text).then(
+  void writeClipboard(text).then(
     () => toast(`${what} copied`, 'success'),
     () => toast('Could not copy (the browser did not allow it)', 'error'),
   );

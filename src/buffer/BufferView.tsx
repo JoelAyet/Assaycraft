@@ -18,6 +18,7 @@ import {
   type BufferRow,
   type RowResult,
 } from './calc';
+import { writeClipboard } from '../lib/clipboard';
 
 /** Set by the "insert buffer" command so the new buffer starts with the cursor in its first row. */
 let focusNextBuffer = false;
@@ -178,7 +179,7 @@ export function BufferView({ node, updateAttributes, editor, getPos, deleteNode 
 
   const copyText = async () => {
     try {
-      await navigator.clipboard.writeText(toDelimited(bufferTable(current())));
+      await writeClipboard(toDelimited(bufferTable(current())));
       toast('Copied. Paste it into Excel or a table.');
     } catch {
       toast('Could not copy to the clipboard.', 'error');

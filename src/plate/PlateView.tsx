@@ -29,6 +29,7 @@ import {
   type PlateSample,
   type SampleColor,
 } from './model';
+import { writeClipboard } from '../lib/clipboard';
 
 /** Set by the "insert plate" command so the new plate starts in its "Add sample" field. */
 let focusNextPlate = false;
@@ -239,7 +240,7 @@ export function PlateView({ node, updateAttributes, editor, getPos, deleteNode }
 
   const copy = async (rows: string[][], what: string) => {
     try {
-      await navigator.clipboard.writeText(toDelimited(rows));
+      await writeClipboard(toDelimited(rows));
       toast(`${what} copied. Paste it into Excel or a plate reader’s layout.`);
     } catch {
       toast('Could not copy to the clipboard.', 'error');
