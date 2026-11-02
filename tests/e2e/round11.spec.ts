@@ -145,12 +145,15 @@ test('code blocks are colored, copy their code, and long code can be made small 
   expect(await readFile(page, pathOf(page))).toContain('```python\nimport numpy as np\n\ndef mean(xs):');
 
   // Long code starts small (it scrolls inside the block); Expand shows all of it.
-  await block.locator('pre').click();
-  await page.keyboard.press('Control+End');
+  // At the end of the code's last line (an empty line may follow the block).
+  const box = (await block.locator('code').boundingBox())!;
+  await page.mouse.click(box.x + box.width - 4, box.y + box.height - 6);
+  await page.keyboard.press('End');
   for (let i = 0; i < 30; i++) {
     await page.keyboard.press('Enter');
     await page.keyboard.type(`print(${i})`);
   }
+  await expect(block.locator('code')).toContainText('print(29)');
   await expect(block).toHaveClass(/is-collapsed/);
   const small = (await block.locator('pre').boundingBox())!.height;
   await block.getByRole('button', { name: 'Expand' }).click();
