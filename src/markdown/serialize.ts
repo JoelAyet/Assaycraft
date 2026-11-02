@@ -21,8 +21,9 @@ function escAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/** A file's name as link text: every character Markdown could read as formatting is escaped. */
 function escLinkText(s: string): string {
-  return s.replace(/[\\[\]]/g, '\\$&');
+  return s.replace(/[\\[\]*_`~<&]/g, '\\$&');
 }
 
 function linkDest(src: string): string {

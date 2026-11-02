@@ -4,6 +4,7 @@ import { readSequence } from './detect';
 import { PlasmidMap } from './PlasmidMap';
 import { featureColor, gcContent, spanLength, type SeqRecord } from './types';
 import { toast } from '../notebook/store';
+import { writeClipboard } from '../lib/clipboard';
 
 interface Props {
   blob: Blob;
@@ -83,7 +84,7 @@ export function SequenceCard({ blob, fileName, url, vaultPath, storage, actions 
             className="icon-btn"
             title="Copy sequence"
             onClick={() => {
-              void navigator.clipboard.writeText(record.seq).then(() => toast('Sequence copied', 'success'));
+              void writeClipboard(record.seq).then(() => toast('Sequence copied', 'success'));
             }}
           >
             <Copy />
@@ -99,9 +100,7 @@ export function SequenceCard({ blob, fileName, url, vaultPath, storage, actions 
             className="icon-btn"
             title="Copy file location (to open it in SnapGene)"
             onClick={() => {
-              void navigator.clipboard
-                .writeText(vaultPath)
-                .then(() => toast('File location copied: open it from your notebook folder in SnapGene', 'success'));
+              void writeClipboard(vaultPath).then(() => toast('File location copied: open it from your notebook folder in SnapGene', 'success'));
             }}
           >
             <FolderOpen />

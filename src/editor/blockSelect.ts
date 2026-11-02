@@ -114,6 +114,8 @@ export const BlockSelect = Extension.create({
               return true;
             }
             // Copy and cut go through the clipboard events below; any other key ends the selection.
+            // Ctrl, ⌘, Shift and Alt pressed on their own (the first half of Ctrl+C) keep it.
+            if (MODIFIER_KEYS.has(event.key)) return false;
             if ((event.metaKey || event.ctrlKey) && ['c', 'x', 'a'].includes(event.key.toLowerCase())) return false;
             view.dispatch(view.state.tr.setMeta(blockSelectKey, null));
             return false;
@@ -132,6 +134,8 @@ export const BlockSelect = Extension.create({
     ];
   },
 });
+
+const MODIFIER_KEYS = new Set(['Control', 'Meta', 'Shift', 'Alt', 'AltGraph', 'CapsLock', 'Fn', 'OS']);
 
 function copyBlocks(view: EditorView, event: ClipboardEvent, cut: boolean): boolean {
   const r = selectedRange(view);

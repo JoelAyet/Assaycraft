@@ -55,6 +55,7 @@ import {
   type ColumnRole,
   type StockTable,
 } from './model';
+import { writeClipboard } from '../lib/clipboard';
 
 const TYPE_ICONS: Record<string, ReactNode> = {
   primer: <Dna />,
@@ -376,7 +377,7 @@ function StockDetail({
   const usedIn = useMemo(() => Object.values(docs).filter((d) => d.kind !== 'stocks' && d.refs?.includes(id)), [docs, id]);
   const copy = async (text: string, what: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await writeClipboard(text);
       toast(`${what} copied.`);
     } catch {
       toast('Could not copy to the clipboard.', 'error');

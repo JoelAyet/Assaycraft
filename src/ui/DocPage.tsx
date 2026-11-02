@@ -72,6 +72,7 @@ import { entriesById, flowOfStep } from '../flow/model';
 import { NavToggle } from './nav';
 import { READING_STATUSES, fullCitation, readingStatus, refFromMeta, toBibtex } from '../literature/model';
 import { openPaperDialog } from '../literature/PaperDialog';
+import { writeClipboard } from '../lib/clipboard';
 
 function useTitle(meta: DocMeta) {
   const [title, setTitle] = useState(meta.title);
@@ -321,7 +322,7 @@ function NoteProps({ meta }: { meta: DocMeta }) {
 }
 
 function copyText(text: string, what: string) {
-  void navigator.clipboard.writeText(text).then(
+  void writeClipboard(text).then(
     () => toast(`${what} copied`, 'success'),
     () => toast('Could not copy (the browser did not allow it)', 'error'),
   );
@@ -814,7 +815,7 @@ export function docMenu(meta: DocMeta, editor: Editor | null): MenuItemSpec[] {
     {
       label: 'Copy file location',
       icon: <Copy />,
-      onSelect: () => void navigator.clipboard.writeText(meta.path).then(() => toast('Copied: ' + meta.path, 'success')),
+      onSelect: () => void writeClipboard(meta.path).then(() => toast('Copied: ' + meta.path, 'success')),
     },
     'sep',
     {

@@ -742,6 +742,179 @@
   color: inherit;
   font-size: inherit;
 }
+
+/* ───────────── Code blocks: a bar (language, Expand, Copy) over colored code ───────────── */
+.gc-prose .gc-code {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-subtle);
+  overflow: hidden;
+}
+.gc-prose .gc-code pre {
+  margin: 0;
+  padding: 2px 16px 14px;
+  border: none;
+  border-radius: 0;
+  background: none;
+}
+/* The editable part sits in a wrapper of Tiptap's own, which the rule for blocks above would give the interface font. */
+.gc-prose .gc-code pre [data-node-view-wrapper] {
+  font-family: inherit;
+}
+/* Small: about fifteen lines, the rest scrolls inside the block. */
+.gc-prose .gc-code.is-collapsed pre {
+  max-height: 24em;
+  overflow-y: auto;
+}
+.gc-code-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 34px;
+  padding: 4px 6px 0 8px;
+  font-family: var(--font);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-3);
+  user-select: none;
+}
+.gc-code-spacer {
+  flex: 1;
+}
+.gc-code-lang {
+  field-sizing: content;
+  height: 26px;
+  max-width: 50%;
+  padding: 0 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.gc-code-lang.is-static {
+  display: inline-flex;
+  align-items: center;
+  cursor: default;
+}
+select.gc-code-lang:hover,
+select.gc-code-lang:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.gc-code-lines {
+  margin-right: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.gc-code-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.gc-code-btn svg {
+  width: 14px;
+  height: 14px;
+}
+.gc-code-btn:hover,
+.gc-code-btn:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+@media (pointer: coarse) {
+  .gc-code-lang,
+  .gc-code-btn {
+    height: 32px;
+  }
+}
+@media print {
+  .gc-code-bar {
+    display: none;
+  }
+  .gc-prose .gc-code.is-collapsed pre {
+    max-height: none;
+  }
+}
+
+/* Syntax colors (highlight.js classes), from the text colors entries already use. */
+.gc-code .hljs-comment,
+.gc-code .hljs-quote {
+  color: var(--text-3);
+  font-style: italic;
+}
+.gc-code .hljs-keyword,
+.gc-code .hljs-selector-tag,
+.gc-code .hljs-doctag,
+.gc-code .hljs-template-tag {
+  color: var(--ink-purple);
+}
+.gc-code .hljs-string,
+.gc-code .hljs-regexp,
+.gc-code .hljs-selector-attr,
+.gc-code .hljs-selector-pseudo,
+.gc-code .hljs-char\.escape_ {
+  color: var(--ink-green);
+}
+.gc-code .hljs-number,
+.gc-code .hljs-literal,
+.gc-code .hljs-symbol,
+.gc-code .hljs-bullet,
+.gc-code .hljs-link {
+  color: var(--ink-orange);
+}
+.gc-code .hljs-title,
+.gc-code .hljs-section,
+.gc-code .hljs-name,
+.gc-code .hljs-selector-id,
+.gc-code .hljs-selector-class {
+  color: var(--ink-blue);
+}
+.gc-code .hljs-built_in,
+.gc-code .hljs-type,
+.gc-code .hljs-title.class_,
+.gc-code .hljs-class .hljs-title {
+  color: var(--ink-teal);
+}
+.gc-code .hljs-attr,
+.gc-code .hljs-attribute,
+.gc-code .hljs-property {
+  color: var(--ink-pink);
+}
+.gc-code .hljs-variable,
+.gc-code .hljs-template-variable {
+  color: var(--ink-red);
+}
+.gc-code .hljs-meta,
+.gc-code .hljs-meta .hljs-keyword {
+  color: var(--ink-yellow);
+}
+.gc-code .hljs-meta .hljs-string {
+  color: var(--ink-green);
+}
+.gc-code .hljs-addition {
+  background: var(--c-green-bg);
+  color: var(--c-green-fg);
+}
+.gc-code .hljs-deletion {
+  background: var(--c-red-bg);
+  color: var(--c-red-fg);
+}
+.gc-code .hljs-emphasis {
+  font-style: italic;
+}
+.gc-code .hljs-strong {
+  font-weight: 650;
+}
 .gc-prose hr {
   border: none;
   border-top: 1px solid var(--border-strong);
@@ -1284,6 +1457,92 @@ mark[data-color='gray'] {
   padding: 6px 10px;
   background: var(--bg-subtle);
   font-size: 12.5px;
+}
+
+/* An Excel workbook: sheet tabs over the cells, with Excel's letters and row numbers. */
+.gc-xlsx .gc-csv-scroll {
+  max-height: 420px;
+}
+.gc-xlsx thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-width: 48px;
+  font-weight: 500;
+  color: var(--text-3);
+  text-align: center;
+}
+.gc-xlsx .gc-xlsx-rn,
+.gc-xlsx .gc-xlsx-corner {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 0;
+  width: 1%;
+  padding: 4px 8px;
+  background: var(--bg-muted);
+  color: var(--text-3);
+  font-weight: 500;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.gc-xlsx .gc-xlsx-corner {
+  z-index: 2;
+}
+.gc-xlsx td {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gc-xlsx td.is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.gc-xlsx-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 6px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+.gc-xlsx-tab {
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.gc-xlsx-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.gc-xlsx-tab.is-active {
+  margin-bottom: -1px;
+  border-color: var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 600;
+}
+.gc-xlsx-note {
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-subtle);
+  color: var(--text-2);
+  font-size: 13px;
+}
+.gc-xlsx .gc-xlsx-note {
+  margin: 0;
+  border-radius: 0;
 }
 
 /* ───────── Sub-template reference ───────── */

@@ -54,9 +54,9 @@ export function isInside(path: string, dir: string): boolean {
   return p === d || p.startsWith(d + '/');
 }
 
-/** Resolve a relative link (as written in a Markdown file) against the file's folder. */
+/** Resolve a stored relative link (already decoded, as the editor keeps it) against the file's folder. */
 export function resolveLink(fromDir: string, href: string): string {
-  return join(fromDir, safeDecode(href));
+  return join(fromDir, href);
 }
 
 /** Relative path from directory `fromDir` to `to`. */
@@ -68,12 +68,40 @@ export function relative(fromDir: string, to: string): string {
   return [...a.slice(i).map(() => '..'), ...b.slice(i)].join('/');
 }
 
+/**
+ * A link destination as written in Markdown, back to the path it names. Each part is decoded in
+ * full, so "%23" and "%3F" (how encodeLinkPath writes "#" and "?") are a file's "#" and "?" again.
+ * A part that is not valid percent-encoding (a bare "%", as in "50% glycerol.pdf") is kept as it is.
+ */
 export function safeDecode(s: string): string {
-  try {
-    return decodeURI(s);
-  } catch {
-    return s;
+  if (!s.includes('%')) return s;
+  return s
+    .split('/')
+    .map((seg) => {
+      try {
+        return decodeURIComponent(seg);
+      } catch {
+        return seg;
+      }
+    })
+    .join('/');
+}
+
+/**
+ * Other spellings of a stored path, for a file that cannot be found at it. Until November 2026, "#" and
+ * "?" in a file name came back from the Markdown file as "%23" and "%3F", and each later save
+ * encoded the "%" once more ("%2523"…). Each spelling decodes one level further.
+ */
+export function legacySpellings(path: string): string[] {
+  const out: string[] = [];
+  let cur = path;
+  for (let i = 0; i < 4 && /%[0-9A-Fa-f]{2}/.test(cur); i++) {
+    const next = safeDecode(cur);
+    if (next === cur) break;
+    out.push(next);
+    cur = next;
   }
+  return out;
 }
 
 /** Encode a vault-relative path for use as a Markdown link destination. */

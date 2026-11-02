@@ -139,7 +139,9 @@ describe('body facts', () => {
 describe('paths', () => {
   it('normalizes, resolves and encodes', () => {
     expect(splitPath('a/./b/../c//d')).toEqual(['a', 'c', 'd']);
-    expect(resolveLink('Projects/A', 'attachments/GC-0001/gel%201.png')).toBe('Projects/A/attachments/GC-0001/gel 1.png');
+    // Links are kept decoded in the editor: a "%" in a stored link is part of the file's name.
+    expect(resolveLink('Projects/A', 'attachments/GC-0001/gel 1.png')).toBe('Projects/A/attachments/GC-0001/gel 1.png');
+    expect(resolveLink('Projects/A', 'attachments/GC-0001/pct%20.png')).toBe('Projects/A/attachments/GC-0001/pct%20.png');
     expect(relative('Projects/A', 'Projects/B/GC-0002 x.md')).toBe('../B/GC-0002 x.md');
     expect(encodeLinkPath('attachments/GC-0001/gel (1) #2.png')).toBe('attachments/GC-0001/gel%20%281%29%20%232.png');
   });
