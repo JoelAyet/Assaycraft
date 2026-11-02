@@ -127,6 +127,46 @@ function occurrence(cal: CalendarLink, ev: ICALEvent, start: ICALTime, end: ICAL
   return { ...base, start: ymdOf(a), end: ymdOf(last), time: hmOf(a), endTime: b > a ? hmOf(b) : undefined };
 }
 
+const DAY_MS = 86_400_000;
+/** How far before the visible days a repeating series is read from (events moved or lasting into them). */
+const LEAD_MS = 31 * DAY_MS;
+/** Occurrences read per series and range, at most: a safety limit for rules that repeat every minute. */
+const MAX_OCCURRENCES = 5000;
+
+const STEP_DAYS: Record<string, number> = { SECONDLY: 1 / 86_400, MINUTELY: 1 / 1_440, HOURLY: 1 / 24, DAILY: 1, WEEKLY: 7 };
+
+/**
+ * Where to start reading a repeating series that began long before `rangeStart`: a whole number of
+ * repeats after its first event, a month before the range, so the series keeps its rhythm. Null to
+ * read it from the start: a rule with COUNT (counted from the first event), several rules, or a
+ * monthly or yearly rule (whose few repeats are quick to read).
+ */
+export function seriesJumpStart(ev: ICALEvent, rangeStart: Date): ICALTime | null {
+  const rules = ev.component.getAllProperties('rrule').map((p) => p.getFirstValue() as InstanceType<ICAL['Recur']>);
+  if (rules.length !== 1) return null;
+  const rule = rules[0];
+  const unit = STEP_DAYS[String(rule.freq)];
+  if (!unit || rule.count) return null;
+  const interval = Math.max(1, rule.interval || 1);
+  const start = ev.startDate;
+  const startMs = start.isDate ? new Date(start.year, start.month - 1, start.day).getTime() : start.toJSDate().getTime();
+  const endMs = ev.endDate
+    ? (ev.endDate.isDate ? new Date(ev.endDate.year, ev.endDate.month - 1, ev.endDate.day) : ev.endDate.toJSDate()).getTime()
+    : startMs;
+  const lead = Math.max(LEAD_MS, endMs - startMs);
+  const steps = Math.floor((rangeStart.getTime() - lead - startMs) / (unit * interval * DAY_MS));
+  if (steps <= 0) return null;
+  const t = start.clone();
+  const n = steps * interval;
+  // In the event's own wall-clock time, so a 9:00 event stays at 9:00 across daylight-saving changes.
+  if (rule.freq === 'WEEKLY') t.adjust(n * 7, 0, 0, 0);
+  else if (rule.freq === 'DAILY') t.adjust(n, 0, 0, 0);
+  else if (rule.freq === 'HOURLY') t.adjust(0, n, 0, 0);
+  else if (rule.freq === 'MINUTELY') t.adjust(0, 0, n, 0);
+  else t.adjust(0, 0, 0, n);
+  return t;
+}
+
 /** The events of a calendar that touch the days from `from` to `to` (YYYY-MM-DD), repeating ones included. */
 export async function eventsBetween(cal: CalendarLink, parsed: Parsed, from: string, to: string): Promise<ExternalEvent[]> {
   const ICAL = await ical();
@@ -142,9 +182,14 @@ export async function eventsBetween(cal: CalendarLink, parsed: Parsed, from: str
       if (o.end >= from && o.start <= to) out.push(o);
       continue;
     }
-    const it = ev.iterator();
-    // Long-running series: stop at the end of the range, or after many occurrences.
-    for (let n = 0, next = it.next(); next && n < 5000; n++, next = it.next()) {
+    // A series that began long ago is read from shortly before the range, not from its first event.
+    const jump = seriesJumpStart(ev, rangeStart);
+    const it = jump ? ev.iterator(jump) : ev.iterator();
+    const counted = ev.component.getFirstPropertyValue('rrule') as InstanceType<ICAL['Recur']> | null;
+    const limit = jump ? MAX_OCCURRENCES : Math.max(MAX_OCCURRENCES, Math.min((counted?.count ?? 0) + 10, 200_000));
+    // Stop at the end of the range, or at the safety limit.
+    let n = 0;
+    for (let next = it.next(); next && n < limit; n++, next = it.next()) {
       const at = next.isDate ? new Date(next.year, next.month - 1, next.day) : next.toJSDate();
       if (at >= rangeEnd) break;
       const det = ev.getOccurrenceDetails(next);
@@ -152,6 +197,7 @@ export async function eventsBetween(cal: CalendarLink, parsed: Parsed, from: str
       const o = occurrence(cal, det.item, det.startDate, det.endDate, `${cal.id}:${ev.uid}:${next.toString()}`);
       if (o.end >= from && o.start <= to && (det.endDate ?? det.startDate).toJSDate() >= rangeStart) out.push(o);
     }
+    if (n >= limit) console.warn(`Calendar “${cal.name}”: “${ev.summary}” repeats too often to show every time between ${from} and ${to}.`);
   }
   void ICAL;
   return out;

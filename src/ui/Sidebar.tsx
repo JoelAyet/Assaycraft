@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import {
   BookMarked,
   BookOpen,
@@ -53,8 +53,10 @@ import {
   importZip,
   moveDoc,
   renameFolder,
+  retryFailedWrites,
   trashDoc,
   trashFolder,
+  UnsavedChangesError,
 } from '../notebook/actions';
 import { MenuButton, openContextMenu, openDialog, promptDialog, confirmDialog, type MenuItemSpec } from './overlay';
 import { openNewBoardDialog } from './NewBoardDialog';
@@ -90,6 +92,23 @@ export function Logo({ size = 22 }: { size?: number }) {
   );
 }
 
+/**
+ * A sidebar row is a place to go: reachable with Tab, opened with Enter or Space, and marked as the
+ * current page when it is. (A row holds buttons of its own, so it cannot be a button itself.)
+ */
+function goTo(open: () => void, current?: boolean) {
+  return {
+    role: 'link',
+    tabIndex: 0,
+    'aria-current': current ? ('page' as const) : undefined,
+    onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
+      if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+      e.preventDefault();
+      open();
+    },
+  };
+}
+
 function NavItem({
   icon,
   label,
@@ -113,6 +132,7 @@ function NavItem({
   return (
     <div
       className={`gc-nav-item ${active ? 'active' : ''} ${over ? 'drop-over' : ''}`}
+      {...goTo(onClick, active)}
       onClick={onClick}
       title={title}
       onDragOver={
@@ -306,6 +326,10 @@ function TreeFolder({
       <div
         className={`gc-tree-row is-folder ${active ? 'active' : ''} ${over ? 'drop-over' : ''}`}
         style={{ paddingLeft: 6 + depth * 14 }}
+        {...goTo(() => {
+          toggle(node.path, true);
+          navigate({ name: 'folder', path: node.path });
+        }, active)}
         onClick={() => {
           toggle(node.path, true);
           navigate({ name: 'folder', path: node.path });
@@ -379,6 +403,7 @@ function TreeEntry({ doc, depth, route, steps }: { doc: DocMeta; depth: number; 
         e.dataTransfer.setData(DOC_MIME, doc.path);
         e.dataTransfer.effectAllowed = 'move';
       }}
+      {...goTo(() => navigate({ name: 'doc', path: doc.path }), active)}
       onClick={() => navigate({ name: 'doc', path: doc.path })}
       onContextMenu={(e) => openContextMenu(e, entryMenu(doc))}
       title={`${doc.id} ${doc.title}`}
@@ -402,6 +427,23 @@ function TreeEntry({ doc, depth, route, steps }: { doc: DocMeta; depth: number; 
   );
 }
 
+/** Switch notebook, but not past changes that could not be saved without asking. */
+async function switchNotebook() {
+  try {
+    await closeNotebook();
+  } catch (err) {
+    if (!(err instanceof UnsavedChangesError)) throw err;
+    const discard = await confirmDialog({
+      title: 'Some changes are not saved',
+      message:
+        'The last changes to some pages could not be saved, and Assaycraft is still trying. If you switch notebook now, they are lost. Export the notebook (.zip) or copy them elsewhere first, or wait and try again.',
+      confirmLabel: 'Switch and lose them',
+      danger: true,
+    });
+    if (discard) await closeNotebook({ discard: true });
+  }
+}
+
 function SaveIndicator() {
   const saveState = useNotebook((s) => s.saveState);
   const map = {
@@ -413,6 +455,19 @@ function SaveIndicator() {
   } as const;
   const m = map[saveState];
   if (!m) return null;
+  // A failed save keeps trying by itself; a click tries now.
+  if (saveState === 'error')
+    return (
+      <button
+        type="button"
+        className="gc-save gc-save-error"
+        title="Changes could not be saved. Click to try again."
+        onClick={() => void retryFailedWrites()}
+      >
+        {m.icon}
+        {m.text}
+      </button>
+    );
   return (
     <span className={`gc-save gc-save-${saveState}`} title={'title' in m ? m.title : undefined}>
       {m.icon}
@@ -523,7 +578,7 @@ export function Sidebar() {
         }),
     },
     'sep',
-    { label: 'Switch notebook', icon: <LogOut />, onSelect: () => void closeNotebook() },
+    { label: 'Switch notebook', icon: <LogOut />, onSelect: () => void switchNotebook() },
   ];
 
   const themeIcon = theme === 'dark' ? <Moon /> : theme === 'light' ? <Sun /> : <Monitor />;

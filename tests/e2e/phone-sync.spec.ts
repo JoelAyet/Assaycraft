@@ -1,6 +1,6 @@
 import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { join } from 'node:path';
-import { newBlankEntry, openFolderNotebook, readFile, skipTour, trackErrors, waitForSave } from './helpers';
+import { newBlankEntry, openFolderNotebook, readFile, skipTour, trackErrors, waitForSave, KEYS } from './helpers';
 
 /**
  * Connect a phone: a "computer" and a "phone", each a browser context of its own (separate storage,
@@ -53,7 +53,7 @@ async function connectPhone(page: Page, url: string) {
 }
 
 async function openEntry(page: Page, title: string) {
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+k');
   await page.keyboard.type(title);
   await page.keyboard.press('Enter');
   await expect(page.locator('.gc-title-input')).toHaveValue(title);
@@ -81,7 +81,7 @@ test('a phone connects with the code, gets the notebook, and edits go both ways 
     // Written at the bench, it shows up on the computer while it is open there.
     await openEntry(computer.page, 'Bench log');
     await phone.page.locator('.ProseMirror').click();
-    await phone.page.keyboard.press('End');
+    await phone.page.keyboard.press(KEYS.lineEnd);
     await phone.page.keyboard.type(' Added at the bench.');
     await expect(computer.page.locator('.ProseMirror')).toContainText('Added at the bench.', { timeout: 15_000 });
     await expect(computer.page.locator('.toast', { hasText: 'outside Assaycraft' })).toHaveCount(0);
@@ -95,7 +95,7 @@ test('a phone connects with the code, gets the notebook, and edits go both ways 
 
     // And the other way.
     await computer.page.locator('.ProseMirror').click();
-    await computer.page.keyboard.press('Control+End');
+    await computer.page.keyboard.press(KEYS.docEnd);
     await computer.page.keyboard.type(' Then on the computer again.');
     await expect(phone.page.locator('.ProseMirror')).toContainText('Then on the computer again.', { timeout: 15_000 });
 
@@ -125,7 +125,7 @@ test('the phone keeps its copy, reconnects by itself, and catches up on what cha
     await computer.page.goto('about:blank');
     await openEntry(phone.page, 'Bench log');
     await phone.page.locator('.ProseMirror').click();
-    await phone.page.keyboard.press('End');
+    await phone.page.keyboard.press(KEYS.lineEnd);
     await phone.page.keyboard.type(' Done while the computer was off.');
     await waitForSave(phone.page);
     await phone.page.reload();
@@ -153,7 +153,7 @@ test('the two connect directly (WebRTC) when the network allows it', async ({ br
     await expect(computer.page.locator('.gc-peer')).toContainText('Connected directly', { timeout: 30_000 });
     await openEntry(phone.page, 'Bench log');
     await phone.page.locator('.ProseMirror').click();
-    await phone.page.keyboard.press('End');
+    await phone.page.keyboard.press(KEYS.lineEnd);
     await phone.page.keyboard.type(' Sent directly.');
     await openEntry(computer.page, 'Bench log');
     await expect(computer.page.locator('.ProseMirror')).toContainText('Sent directly.', { timeout: 15_000 });
@@ -198,7 +198,7 @@ test('a folder notebook on the computer, with an image, syncs to the phone and b
 
     // Written on the phone, it lands in the Markdown file in the computer's folder.
     await phone.page.locator('.ProseMirror').click();
-    await phone.page.keyboard.press('Control+End');
+    await phone.page.keyboard.press(KEYS.docEnd);
     await phone.page.keyboard.type('Band at 1.2 kb.');
     await expect.poll(() => readFile(computer.page, 'Projects/EXP-0001 Gel of the PCR.md'), { timeout: 15_000 }).toContain('Band at 1.2 kb.');
     expect(computer.errors).toEqual([]);

@@ -115,7 +115,7 @@ test('link a primer from an entry; clicking it shows the primer in its table', a
 
 test('search finds a single stock and opens it', async ({ page }) => {
   await openFolderNotebook(page);
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+k');
   await page.keyboard.type('M13');
   const hit = page.locator('.gc-pal-item', { has: page.locator('.id-chip', { hasText: 'PR-0003' }) });
   await expect(hit).toContainText('M13-fwd (-20)');

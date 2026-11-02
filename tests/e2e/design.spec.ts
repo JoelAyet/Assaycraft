@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { newBlankEntry, openFolderNotebook, skipTour, trackErrors, waitForSave } from './helpers';
+import { newBlankEntry, openFolderNotebook, skipTour, trackErrors, waitForSave, KEYS } from './helpers';
 
 const PHONE_UA = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36';
 
@@ -422,11 +422,11 @@ for (const s of SETUPS) {
       await page.getByRole('img', { name: /QR code/ }).waitFor();
       await check('Connect a phone');
       await page.goto('/#/');
-      await page.keyboard.press('Control+k');
+      await page.keyboard.press('ControlOrMeta+k');
       await page.keyboard.type('gib');
       await check('Search');
       await page.keyboard.press('Escape');
-      await page.keyboard.press('Control+k');
+      await page.keyboard.press('ControlOrMeta+k');
       await page.keyboard.type('take the tour');
       await page.keyboard.press('Enter');
       await page.locator('#gc-tour-name').waitFor();
@@ -627,7 +627,7 @@ for (const s of SETUPS) {
       await newBlankEntry(page, 'Western blot, day 2');
       await page.locator('.ProseMirror').click();
       await page.keyboard.type('Transfer at 100 V');
-      await page.keyboard.press('Shift+Home');
+      await page.keyboard.press(KEYS.selectToLineStart);
       await page.getByRole('button', { name: 'Highlight color' }).click();
       await check('Highlight colors');
       await page.getByRole('button', { name: 'Highlight green' }).click();
@@ -635,7 +635,7 @@ for (const s of SETUPS) {
       await page.getByRole('button', { name: 'Text red' }).click();
       await check('Text color and size menu');
       await page.keyboard.press('Escape');
-      await page.locator('.ProseMirror').press('End');
+      await page.locator('.ProseMirror').press(KEYS.lineEnd);
       await page.keyboard.press('Enter');
       await slash('day', 'Day');
       await expect(page.locator('.ProseMirror h2')).toBeVisible();

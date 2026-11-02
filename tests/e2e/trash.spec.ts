@@ -120,7 +120,7 @@ test('pages trashed before the trash kept track go back to their usual folder', 
   await row(page, 'Old miniprep').getByRole('button', { name: 'Restore' }).click();
   await expect.poll(() => listFiles(page, 'Protocols')).toContain('P-0009 Old miniprep.md');
   // Search finds it again.
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+k');
   await page.keyboard.type('old miniprep');
   await expect(page.locator('.gc-pal-item').first()).toContainText('Old miniprep');
 });

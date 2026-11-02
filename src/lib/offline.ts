@@ -23,7 +23,12 @@ export function registerOffline() {
   const sw = navigator.serviceWorker;
   const hadCopy = !!sw.controller;
   let updating = false;
-  const reload = () => void flushAllWrites().finally(() => location.reload());
+  // Not while changes could not be saved: reloading would lose them.
+  const reload = () =>
+    void flushAllWrites().then(
+      (saved) => (saved ? location.reload() : toast('Assaycraft will update once your changes are saved.', 'error')),
+      () => toast('Assaycraft will update once your changes are saved.', 'error'),
+    );
 
   sw.addEventListener('controllerchange', () => {
     if (updating) reload();

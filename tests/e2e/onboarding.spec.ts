@@ -136,7 +136,7 @@ test('the tour can be skipped, and taken again from Settings, the menu or search
   await expect(title(page)).toHaveText('Welcome to your notebook');
   await page.keyboard.press('Escape');
 
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+k');
   await page.keyboard.type('tour');
   await page.keyboard.press('Enter');
   await expect(title(page)).toHaveText('Welcome to your notebook');

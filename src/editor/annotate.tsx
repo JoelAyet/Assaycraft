@@ -166,8 +166,11 @@ export function AnnotationEditor({
     commit(marks.filter((_, i) => i !== picked));
     setPicked(null);
   };
-  // The tools sit under the image: bring them into view with it.
-  useEffect(() => toolsRef.current?.scrollIntoView({ block: 'nearest' }), []);
+  // The tools sit under the image: bring them into view with it. (A block body: newer browsers
+  // return a Promise from scrollIntoView, which React would take for a cleanup function.)
+  useEffect(() => {
+    toolsRef.current?.scrollIntoView({ block: 'nearest' });
+  }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (typing) return;

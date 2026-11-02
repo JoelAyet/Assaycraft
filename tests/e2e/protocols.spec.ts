@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { listFiles, newBlankEntry, openFolderNotebook, readFile, trackErrors, waitForSave } from './helpers';
+import { listFiles, newBlankEntry, openFolderNotebook, readFile, trackErrors, waitForSave, KEYS } from './helpers';
 
 let errors: string[] = [];
 test.beforeEach(({ page }) => {
@@ -162,7 +162,7 @@ test('guided template and sub-template creation, with checks', async ({ page }) 
   await expect(page.locator('.gc-guide-inline')).toContainText('Put {{double brackets}} where the value changes');
   await expect(page.locator('.gc-guide-inline .gc-howto-demo')).toContainText('Digest pUC19 with EcoRI');
   await page.locator('.ProseMirror p', { hasText: 'What question' }).click();
-  await page.keyboard.press('End');
+  await page.keyboard.press(KEYS.lineEnd);
   await page.keyboard.type(' Antibody: {{Antibody');
   await expect(page.locator('.gc-issue.is-warning')).toContainText('Check the braces', { timeout: 15_000 });
   await page.keyboard.type('}}');
