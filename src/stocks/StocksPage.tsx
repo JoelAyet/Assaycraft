@@ -1,4 +1,15 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -521,12 +532,27 @@ function Collection({ meta, target, tabs }: { meta: DocMeta; target?: string; ta
   const idCol = roles.indexOf('id');
   const editable = useMemo(() => roles.map((r, i) => (r !== 'id' && !isComputed(r) ? i : -1)).filter((i) => i >= 0), [roles]);
 
-  const focusCell = (r: number, c: number) =>
-    requestAnimationFrame(() => {
-      const el = rootRef.current?.querySelector<HTMLInputElement>(`[data-cell="${r}:${c}"]`);
-      el?.focus();
-      el?.select();
-    });
+  /**
+   * The cell to put the cursor in once it is on screen: right after the render that shows it (a new
+   * row), not a frame later, when on a slower computer the row may not be there yet and what is
+   * typed meanwhile would be lost.
+   */
+  const focusAfterRender = useRef<{ r: number; c: number } | null>(null);
+  const focusNow = (r: number, c: number) => {
+    const el = rootRef.current?.querySelector<HTMLInputElement>(`[data-cell="${r}:${c}"]`);
+    if (!el) return false;
+    el.focus();
+    el.select();
+    return true;
+  };
+  const focusCell = (r: number, c: number) => {
+    focusAfterRender.current = focusNow(r, c) ? null : { r, c };
+  };
+  useLayoutEffect(() => {
+    const want = focusAfterRender.current;
+    // Not on screen yet: the next render.
+    if (want && focusNow(want.r, want.c)) focusAfterRender.current = null;
+  });
 
   const newRow = (t: StockTable, ids: string[]) => {
     const row = t.columns.map(() => '');

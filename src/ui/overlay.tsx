@@ -246,6 +246,64 @@ export function DialogHost() {
   );
 }
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+
+/** Dialogs open now: while there is one, the page behind it cannot be reached (inert). */
+let openModals = 0;
+function setBackgroundInert(on: boolean) {
+  // Everything the app shows, except the toasts (whose Undo or Try again stay at hand).
+  for (const el of document.querySelectorAll<HTMLElement>('#root > *:not(.toasts)')) el.inert = on;
+}
+
+/**
+ * Keyboard focus belongs to the dialog on top: it starts there, Tab and Shift+Tab go round inside it
+ * (a menu opened from it keeps its own), and on closing it goes back to what opened the dialog.
+ */
+function useModalFocus(backdrop: RefObject<HTMLDivElement | null>, dialog: RefObject<HTMLDivElement | null>) {
+  // What had focus before the dialog (read while it renders, before a field of it takes focus).
+  const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null));
+  useEffect(() => {
+    const d = dialog.current;
+    if (!d) return;
+    openModals++;
+    setBackgroundInert(true);
+    // A field with autoFocus already has it; otherwise the dialog itself.
+    if (!d.contains(document.activeElement)) d.focus({ preventScroll: true });
+    const onTop = () => {
+      const all = document.querySelectorAll('.dialog-backdrop');
+      return all[all.length - 1] === backdrop.current;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !onTop()) return;
+      const active = document.activeElement;
+      if (active instanceof Element && !d.contains(active) && active.closest('.popover, .gc-palette, .gc-tour, .toasts')) return;
+      const items = [...d.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.getClientRects().length > 0);
+      e.preventDefault();
+      if (!items.length) return d.focus();
+      const at = active instanceof HTMLElement ? items.indexOf(active) : -1;
+      const next = at < 0 ? (e.shiftKey ? items.length - 1 : 0) : (at + (e.shiftKey ? -1 : 1) + items.length) % items.length;
+      items[next].focus();
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      openModals = Math.max(0, openModals - 1);
+      if (!openModals) setBackgroundInert(false);
+      // Back to what opened it, unless the dialog's work already put focus somewhere (a new page's
+      // title). Not into the text of a page: its editor puts the cursor back where it was itself
+      // (focusing the text from here would move the cursor to its start).
+      // After the key or click that closed it is done: back on the opener during that Enter, the
+      // same keystroke would press it again.
+      setTimeout(() => {
+        const now = document.activeElement;
+        const lost = !now || now === document.body || !now.isConnected || d.contains(now);
+        if (lost && opener?.isConnected && !opener.isContentEditable && !opener.closest('[inert]')) opener.focus({ preventScroll: true });
+      });
+    };
+  }, [backdrop, dialog, opener]);
+}
+
 export function Dialog({
   title,
   onClose,
@@ -264,7 +322,9 @@ export function Dialog({
   icon?: ReactNode;
 }) {
   const backdrop = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  useModalFocus(backdrop, box);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
@@ -284,7 +344,14 @@ export function Dialog({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className={`dialog ${wide ? 'dialog-wide' : ''} ${className ?? ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div
+        ref={box}
+        tabIndex={-1}
+        className={`dialog ${wide ? 'dialog-wide' : ''} ${className ?? ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
         <div className="dialog-header">
           {icon}
           <h2 id={titleId}>{title}</h2>

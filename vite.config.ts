@@ -134,6 +134,9 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'jsdom',
       include: ['tests/unit/**/*.test.ts'],
+      // The same results on every computer: tests are written for UTC, and those about other
+      // time zones set one themselves (see "in Madrid" in calendar.test.ts).
+      env: { TZ: 'UTC' },
     },
   };
 });

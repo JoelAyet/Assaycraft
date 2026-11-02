@@ -252,8 +252,22 @@ export async function openNotebook(opened: Vault, opts: { seed?: boolean } = {})
   }
 }
 
-export async function closeNotebook() {
-  await flushAllWrites();
+/** Thrown when changes could not be saved before something that would lose them. */
+export class UnsavedChangesError extends Error {
+  constructor() {
+    super('Some changes could not be saved');
+    this.name = 'UnsavedChangesError';
+  }
+}
+
+/** Close the notebook (Switch notebook). Refuses while changes could not be saved, unless `discard` is set. */
+export async function closeNotebook(opts: { discard?: boolean } = {}) {
+  if (!(await flushAllWrites()) && !opts.discard) throw new UnsavedChangesError();
+  for (const r of retries.values()) clearTimeout(r.timer);
+  retries.clear();
+  failedWrites.clear();
+  unsavedBodies.clear();
+  metaDirty.clear();
   stopSync();
   stopFeed();
   await loadActivity(null);
@@ -321,9 +335,11 @@ function serialized<T>(path: string, fn: () => Promise<T>): Promise<T> {
   const prev = chains.get(path) ?? Promise.resolve();
   const next = prev.catch(() => undefined).then(fn);
   chains.set(path, next);
-  void next.finally(() => {
+  const done = () => {
     if (chains.get(path) === next) chains.delete(path);
-  });
+  };
+  // The caller handles a failure; the cleanup must not leave a second, unhandled one.
+  next.then(done, done);
   return next;
 }
 
@@ -333,9 +349,21 @@ const externalListeners = new Map<string, () => void>();
 const lastWritten = new Map<string, number>();
 /** Body known to be on disk (as the editor would write it), to skip writes when nothing changed. */
 const lastBodies = new Map<string, string>();
-/** Docs whose metadata changed since their last write. */
-const metaDirty = new Set<string>();
+/**
+ * Docs whose metadata changed since their last successful write, with a count of the changes: a
+ * write clears the mark only if nothing changed while it ran, and a failed write leaves it.
+ */
+const metaDirty = new Map<string, number>();
+function markMetaDirty(path: string) {
+  metaDirty.set(path, (metaDirty.get(path) ?? 0) + 1);
+}
 const pending = new Map<string, ReturnType<typeof setTimeout>>();
+/** Docs whose last write failed: their changes are kept (in the store and here) until a write succeeds. */
+const failedWrites = new Set<string>();
+/** The body an editor handed over as it closed, kept while it could not be written. */
+const unsavedBodies = new Map<string, string>();
+/** Automatic retries of failed writes. */
+const retries = new Map<string, { timer: ReturnType<typeof setTimeout>; attempt: number }>();
 
 export function registerOpenDoc(path: string, getBody: () => string, onExternalChange: () => void, loadedBody?: string) {
   openBodies.set(path, getBody);
@@ -364,7 +392,15 @@ function rekeyOpenDoc(from: string, to: string) {
   move(externalListeners);
   move(lastWritten);
   move(lastBodies);
-  if (metaDirty.delete(from)) metaDirty.add(to);
+  move(metaDirty);
+  move(unsavedBodies);
+  if (failedWrites.delete(from)) failedWrites.add(to);
+  const retry = retries.get(from);
+  if (retry) {
+    clearTimeout(retry.timer);
+    retries.delete(from);
+    scheduleRetry(to, retry.attempt);
+  }
 }
 
 async function writeNow(path: string, bodyOverride?: string) {
@@ -372,18 +408,23 @@ async function writeNow(path: string, bodyOverride?: string) {
   await serialized(path, async () => {
     const meta = getState().docs[path];
     if (!meta) return;
-    const live = bodyOverride ?? openBodies.get(path)?.();
+    const live = bodyOverride ?? openBodies.get(path)?.() ?? unsavedBodies.get(path);
     const known = lastBodies.get(path);
     const bodyChanged = live !== undefined && live !== known;
-    if (!bodyChanged && !metaDirty.has(path)) return; // nothing new to write
+    const metaMark = metaDirty.get(path);
+    if (!bodyChanged && metaMark === undefined) return; // nothing new to write
+    // Kept until it is written, should this write fail after its editor has closed.
+    if (bodyOverride !== undefined) unsavedBodies.set(path, bodyOverride);
     let body = live;
     if (body === undefined) body = splitFrontMatter(await v.readText(path)).body;
     const edited = bodyChanged && known !== undefined;
     const written: DocMeta = edited ? { ...meta, modified: localIso() } : meta;
-    const metaChanged = metaDirty.delete(path);
     await versionBeforeWrite(v, path, meta);
     await v.write(path, joinFrontMatter(frontMatterFromMeta(written), body));
-    if (edited || metaChanged) recordEdit(written);
+    // Written: only now are the changes off the books (unless more came in meanwhile).
+    if (metaMark !== undefined && metaDirty.get(path) === metaMark) metaDirty.delete(path);
+    if (unsavedBodies.get(path) === body) unsavedBodies.delete(path);
+    if (edited || metaMark !== undefined) recordEdit(written);
     lastBodies.set(path, body);
     const stat = await v.stat(path);
     const mtime = stat?.lastModified ?? Date.now();
@@ -453,6 +494,33 @@ function anyPending() {
   return pending.size > 0 || chains.size > 0;
 }
 
+/** The save indicator after a write: Saved only when nothing is waiting and nothing failed. */
+function settleSaveState() {
+  if (failedWrites.size) setSave('error');
+  else if (!anyPending()) setSave('saved');
+}
+
+/** Try a failed write again, sooner at first (3 s, 10 s, 30 s), then every minute. */
+function scheduleRetry(path: string, attempt: number) {
+  const prev = retries.get(path);
+  if (prev) clearTimeout(prev.timer);
+  const delay = [3_000, 10_000, 30_000][attempt] ?? 60_000;
+  retries.set(path, {
+    attempt,
+    timer: setTimeout(() => {
+      retries.delete(path);
+      if (failedWrites.has(path) && !pending.has(path)) void runWrite(path, undefined, attempt + 1);
+    }, delay),
+  });
+}
+
+/** Try every failed write again now (the toast's and the save indicator's Try again). */
+export async function retryFailedWrites(): Promise<boolean> {
+  const paths = [...failedWrites];
+  const results = await Promise.all(paths.map((p) => runWrite(p)));
+  return results.every(Boolean);
+}
+
 /** Debounced save of a doc (metadata from the store, body from the open editor or the file). */
 export function scheduleWrite(path: string, delay = 600) {
   const t = pending.get(path);
@@ -467,37 +535,59 @@ export function scheduleWrite(path: string, delay = 600) {
   );
 }
 
-async function runWrite(path: string, body?: string) {
+/** Write a doc; true when it is saved. A failure keeps the changes, says so, and tries again later. */
+async function runWrite(path: string, body?: string, attempt = 0): Promise<boolean> {
   setSave('saving');
+  const retry = retries.get(path);
+  if (retry) {
+    clearTimeout(retry.timer);
+    retries.delete(path);
+  }
   try {
     await writeNow(path, body);
-    if (!anyPending()) setSave('saved');
+    const recovered = failedWrites.delete(path);
+    settleSaveState();
+    if (recovered && !failedWrites.size) toast('Saved. The changes that could not be saved before are saved now.', 'success');
+    return true;
   } catch (err) {
     console.error(err);
+    const first = !failedWrites.has(path);
+    failedWrites.add(path);
     setSave('error');
-    toast(`Could not save ${basename(path)}: ${(err as Error).message}`, 'error');
+    if (first)
+      toast(`Could not save ${basename(path)}: ${(err as Error).message}. Your changes are kept here, and Assaycraft keeps trying.`, 'error', {
+        label: 'Try again',
+        run: () => void retryFailedWrites(),
+      });
+    if (getState().docs[path]) scheduleRetry(path, attempt);
+    return false;
   }
 }
 
-export async function flushWrite(stalePath: string) {
+/** Save a doc's waiting changes now. True when everything of it is saved (false if a write failed). */
+export async function flushWrite(stalePath: string): Promise<boolean> {
   const path = currentPath(stalePath);
   const t = pending.get(path);
-  if (t) {
-    clearTimeout(t);
+  if (t || failedWrites.has(path)) {
+    if (t) clearTimeout(t);
     pending.delete(path);
     await runWrite(path);
   }
   await chains.get(path)?.catch(() => undefined);
+  return !failedWrites.has(path);
 }
 
-export async function flushAllWrites() {
-  await Promise.all([...pending.keys()].map(flushWrite));
+/** Save every waiting change now. True when everything is saved. */
+export async function flushAllWrites(): Promise<boolean> {
+  await Promise.all([...new Set([...pending.keys(), ...failedWrites])].map(flushWrite));
   await Promise.all([...chains.values()].map((p) => p.catch(() => undefined)));
   await flushActivity();
+  return failedWrites.size === 0;
 }
 
+/** Changes not yet saved, waiting or failed (leaving the page should warn). */
 export function hasPendingWrites() {
-  return anyPending();
+  return anyPending() || failedWrites.size > 0;
 }
 
 export function hasPendingWrite(path: string) {
@@ -566,7 +656,7 @@ export function patchMeta(stalePath: string, patch: Partial<DocMeta>, delay = 50
   if (!cur) return;
   const next: DocMeta = { ...cur, ...patch, modified: localIso() };
   setState((s) => ({ docs: { ...s.docs, [path]: next } }));
-  metaDirty.add(path);
+  markMetaDirty(path);
   scheduleWrite(path, delay);
 }
 
@@ -581,7 +671,7 @@ export function touchDoc(stalePath: string) {
 async function createDoc(path: string, meta: Omit<DocMeta, 'path' | 'mtime' | 'text'>, body: string): Promise<string> {
   const full: DocMeta = { ...meta, path, mtime: 0, ...bodyFacts(body, meta.kind) };
   setState((s) => ({ docs: { ...s.docs, [path]: full } }));
-  metaDirty.add(path);
+  markMetaDirty(path);
   await writeNow(path, body);
   return path;
 }
@@ -1543,7 +1633,9 @@ export async function trashBoard(folder: string) {
 // ───────────────────────────── import / export ─────────────────────────────
 
 export async function exportZip(): Promise<{ blob: Blob; name: string }> {
-  await flushAllWrites();
+  // A notebook whose last changes could not be saved is still exported (it may be the way out),
+  // as it is in its folder: the toast says what it lacks.
+  if (!(await flushAllWrites())) toast('Some recent changes could not be saved, so they are not in this export.', 'error');
   const v = vault();
   const files: Record<string, Uint8Array> = {};
   for (const e of await walk(v, '', (x) => x.name === '.trash')) {

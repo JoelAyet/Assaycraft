@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { newBlankEntry, openFolderNotebook, readFile, trackErrors, waitForSave } from './helpers';
+import { newBlankEntry, openFolderNotebook, readFile, trackErrors, waitForSave, KEYS } from './helpers';
 
 const pathOf = (page: Page) => decodeURIComponent(new URL(page.url()).hash.replace('#/doc/', ''));
 
@@ -159,12 +159,12 @@ test('the highlight button uses the last color picked', async ({ page }) => {
   await page.keyboard.type('first band');
   await page.keyboard.press('Enter');
   await page.keyboard.type('second band');
-  await page.keyboard.press('Shift+Home');
+  await page.keyboard.press(KEYS.selectToLineStart);
   await page.getByRole('button', { name: 'Highlight color' }).click();
   await page.getByRole('button', { name: 'Highlight blue' }).click();
   await page.locator('.ProseMirror > p').first().click();
-  await page.keyboard.press('End');
-  await page.keyboard.press('Shift+Home');
+  await page.keyboard.press(KEYS.lineEnd);
+  await page.keyboard.press(KEYS.selectToLineStart);
   await page.getByRole('button', { name: 'Highlight', exact: true }).click();
   await expect(page.locator('.ProseMirror mark[data-color="blue"]')).toHaveCount(2);
 });

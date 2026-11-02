@@ -57,7 +57,7 @@ test('a new board tracks things by default: no due dates, off the calendar and H
 
   // Not a task anywhere else.
   await page.locator('.gc-nav-item', { hasText: 'Home' }).click();
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+k');
   await page.keyboard.type('new card');
   await expect(page.locator('.gc-pal-item', { hasText: 'New card in Cloning status' })).toBeVisible();
   await page.keyboard.press('Escape');
@@ -74,7 +74,7 @@ test('a new board tracks things by default: no due dates, off the calendar and H
   await waitForSave(page);
   expect(await readFile(page, 'Boards/Cloning status/_board.md')).toContain('cards: tasks');
   await page.locator('.gc-nav-item', { hasText: 'Home' }).click();
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+k');
   await page.keyboard.type('new task');
   await expect(page.locator('.gc-pal-item', { hasText: 'New task in Cloning status' })).toBeVisible();
   await page.keyboard.press('Escape');

@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { newBlankEntry, openFolderNotebook, readFile, trackErrors, waitForSave, ymd } from './helpers';
+import { newBlankEntry, openFolderNotebook, readFile, trackErrors, waitForSave, ymd, KEYS } from './helpers';
 
 const day = (n: number) => {
   const d = new Date();
@@ -31,7 +31,7 @@ test('text gets a highlight color, a color and a size; tags get a color', async 
   await newBlankEntry(page, 'Colors');
   await page.locator('.ProseMirror').click();
   await page.keyboard.type('Band at 1 kb');
-  await page.keyboard.press('Shift+Home');
+  await page.keyboard.press(KEYS.selectToLineStart);
   // The highlight's colors are by its button; text color and size have a button of their own.
   await page.getByRole('button', { name: 'Highlight color' }).click();
   await page.getByRole('button', { name: 'Highlight green' }).click();

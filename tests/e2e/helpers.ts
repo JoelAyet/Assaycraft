@@ -27,8 +27,30 @@ export async function skipTour(page: Page) {
  * Opens a "folder" notebook. The native folder picker is replaced by a directory in the
  * browser's origin-private file system, which implements the same File System Access API.
  */
+/**
+ * Newer browsers return a Promise from scrollIntoView, scrollTo and scrollBy (CSSOM View, in progress);
+ * the tests' Chromium may not yet. Behave like them, so code that returns one by mistake (where React
+ * expects a cleanup function, say) fails here too.
+ */
+export async function promiseScrolling(page: Page) {
+  await page.addInitScript(() => {
+    const wrap = (proto: object, name: string) => {
+      const target = proto as Record<string, (...args: unknown[]) => unknown>;
+      const original = target[name];
+      if (typeof original !== 'function') return;
+      target[name] = function (this: unknown, ...args: unknown[]) {
+        const result = original.apply(this, args);
+        return result === undefined ? Promise.resolve() : result;
+      };
+    };
+    for (const name of ['scrollIntoView', 'scrollTo', 'scrollBy']) wrap(Element.prototype, name);
+    for (const name of ['scrollTo', 'scrollBy']) wrap(window, name);
+  });
+}
+
 export async function openFolderNotebook(page: Page, opts: { seed?: boolean; tour?: boolean } = {}) {
   if (!opts.tour) await skipTour(page);
+  await promiseScrolling(page);
   await page.addInitScript((name) => {
     (window as unknown as { showDirectoryPicker: () => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker = async () =>
       (await navigator.storage.getDirectory()).getDirectoryHandle(name, { create: true });
@@ -117,3 +139,16 @@ export function ymd(d: Date) {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
+
+/**
+ * Keys for moving in text, as on the computer the tests run on: on a Mac, Home and End scroll
+ * the page, and ⌘ with the arrows moves to the start or end of a line or of the page.
+ * (For Ctrl/⌘ shortcuts, the tests use Playwright's ControlOrMeta.)
+ */
+const MAC = process.platform === 'darwin';
+export const KEYS = {
+  lineStart: MAC ? 'Meta+ArrowLeft' : 'Home',
+  lineEnd: MAC ? 'Meta+ArrowRight' : 'End',
+  selectToLineStart: MAC ? 'Shift+Meta+ArrowLeft' : 'Shift+Home',
+  docEnd: MAC ? 'Meta+ArrowDown' : 'Control+End',
+};

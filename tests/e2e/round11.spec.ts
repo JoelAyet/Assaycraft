@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { strToU8, zipSync } from 'fflate';
-import { listFiles, newBlankEntry, openFolderNotebook, readFile, trackErrors, waitForSave, writeFile } from './helpers';
+import { listFiles, newBlankEntry, openFolderNotebook, readFile, trackErrors, waitForSave, writeFile, KEYS } from './helpers';
 
 const pathOf = (page: Page) => decodeURIComponent(new URL(page.url()).hash.replace('#/doc/', ''));
 
@@ -40,11 +40,11 @@ test('blocks selected with the mouse are copied whole, and paste back as blocks'
   await page.mouse.up();
   await expect(page.locator('.gc-block-selected')).toHaveCount(2);
   // Ctrl (pressed first) does not end the selection, so Ctrl+C copies the blocks.
-  await page.keyboard.press('Control+c');
+  await page.keyboard.press('ControlOrMeta+c');
   await expect(page.locator('.gc-block-selected')).toHaveCount(2);
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('one\n\ntwo');
   await ps.last().click();
-  await page.keyboard.press('Control+v');
+  await page.keyboard.press('ControlOrMeta+v');
   // (The empty line the blocks were pasted on is replaced by them.)
   await expect(ps).toHaveText(['one', 'two', 'three', 'one', 'two']);
   expect(errors).toEqual([]);
@@ -100,11 +100,11 @@ test('a file block copied into another entry brings its file into that entry’s
   // Select the file block (a click on its card) and copy it.
   await page.locator('.gc-file-card .gc-file-meta').click();
   await expect(page.locator('.gc-file.is-selected')).toBeVisible();
-  await page.keyboard.press('Control+c');
+  await page.keyboard.press('ControlOrMeta+c');
 
   // Into a note: the Notes folder, not the entry's.
   await newNote(page, 'Counts summary');
-  await page.keyboard.press('Control+v');
+  await page.keyboard.press('ControlOrMeta+v');
   await expect(page.locator('.gc-file-name')).toHaveText('colony counts.csv');
   await waitForSave(page);
   const note = pathOf(page);
@@ -148,7 +148,7 @@ test('code blocks are colored, copy their code, and long code can be made small 
   // At the end of the code's last line (an empty line may follow the block).
   const box = (await block.locator('code').boundingBox())!;
   await page.mouse.click(box.x + box.width - 4, box.y + box.height - 6);
-  await page.keyboard.press('End');
+  await page.keyboard.press(KEYS.lineEnd);
   for (let i = 0; i < 30; i++) {
     await page.keyboard.press('Enter');
     await page.keyboard.type(`print(${i})`);

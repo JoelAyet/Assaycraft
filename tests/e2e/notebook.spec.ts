@@ -1,7 +1,19 @@
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { writeSnapGene } from '../../src/bio/snapgene';
-import { listFiles, NOTEBOOK, newBlankEntry, openFolderNotebook, readFile, trackErrors, waitForSave, writeFile, ymd, skipTour } from './helpers';
+import {
+  listFiles,
+  NOTEBOOK,
+  newBlankEntry,
+  openFolderNotebook,
+  readFile,
+  trackErrors,
+  waitForSave,
+  writeFile,
+  ymd,
+  skipTour,
+  KEYS,
+} from './helpers';
 
 let errors: string[] = [];
 test.beforeEach(({ page }) => {
@@ -158,14 +170,14 @@ test('tables behave like a spreadsheet and are saved as Markdown with formulas',
   // fill down C2 → C3
   await cell(1, 2).click();
   await cell(2, 2).click({ modifiers: ['Shift'] });
-  await page.keyboard.press('Control+d');
+  await page.keyboard.press('ControlOrMeta+d');
   await expect(cell(2, 2)).toHaveText('1.2');
   // copy two rows and paste below: formulas shift like Excel
   await cell(1, 0).click();
   await cell(2, 2).click({ modifiers: ['Shift'] });
-  await page.keyboard.press('Control+c');
+  await page.keyboard.press('ControlOrMeta+c');
   await cell(3, 0).click();
-  await page.keyboard.press('Control+v');
+  await page.keyboard.press('ControlOrMeta+v');
   await expect(cell(4, 2)).toHaveText('1.2');
   // formula by clicking cells
   await cell(4, 1).click();
@@ -193,7 +205,7 @@ test('improving a sub-template updates entries created afterward', async ({ page
   await page.locator('.gc-tpl-card', { hasText: 'Agarose gel' }).click();
   await expect(page.locator('.gc-title-input')).toHaveValue('Agarose gel');
   await page.locator('.ProseMirror p').last().click();
-  await page.keyboard.press('End');
+  await page.keyboard.press(KEYS.lineEnd);
   await page.keyboard.press('Enter');
   await page.keyboard.type('Image on the blue-light transilluminator.');
   await waitForSave(page);

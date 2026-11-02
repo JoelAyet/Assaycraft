@@ -121,6 +121,20 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
     setEditingState(e);
   };
 
+  /**
+   * Where the caret goes once a change to the cell's text is on screen. It is placed right after
+   * that render, before the next key or click: placed a frame later, it could land behind a "+"
+   * typed meanwhile, and the next clicked cell would not be added to the formula.
+   */
+  const caretAfterRender = useRef<{ el: HTMLInputElement | HTMLTextAreaElement; at: number } | null>(null);
+  useLayoutEffect(() => {
+    const c = caretAfterRender.current;
+    if (!c) return;
+    caretAfterRender.current = null;
+    c.el.focus({ preventScroll: true });
+    c.el.setSelectionRange(c.at, c.at);
+  });
+
   /** Latest data straight from the document (props may lag behind a just-dispatched change). */
   const current = useCallback((): SheetData => {
     const pos = getPos();
@@ -392,7 +406,7 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
       const s = el.selectionStart ?? ed.value.length;
       const v = ed.value.slice(0, s) + '\n' + ed.value.slice(el.selectionEnd ?? s);
       setEditing({ ...ed, value: v });
-      requestAnimationFrame(() => el.setSelectionRange(s + 1, s + 1));
+      caretAfterRender.current = { el, at: s + 1 };
       return;
     }
     if (e.key === 'Enter') {
@@ -424,10 +438,7 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
     const end = to ?? el.selectionEnd ?? start;
     const v = ed.value.slice(0, start) + text + ed.value.slice(end);
     setEditing({ ...ed, value: v, mode: 'edit' });
-    requestAnimationFrame(() => {
-      el.focus({ preventScroll: true });
-      el.setSelectionRange(start + text.length, start + text.length);
-    });
+    caretAfterRender.current = { el, at: start + text.length };
     return { start, len: text.length };
   };
 

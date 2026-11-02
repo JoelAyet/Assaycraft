@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { unzipSync } from 'fflate';
 import { readFileSync } from 'node:fs';
-import { listFiles, newBlankEntry, openFolderNotebook, readFile, trackErrors, waitForSave, skipTour } from './helpers';
+import { listFiles, newBlankEntry, openFolderNotebook, readFile, trackErrors, waitForSave, skipTour, KEYS } from './helpers';
 
 let errors: string[] = [];
 test.beforeEach(({ page }) => {
@@ -44,12 +44,12 @@ test('entries keep a version per editing session, and an old one can be restored
 
   // Edits within the same session don't add versions; after a break they do.
   await editor.click();
-  await page.keyboard.press('End');
+  await page.keyboard.press(KEYS.lineEnd);
   await page.keyboard.type(' Use 2 µg of DNA.');
   await waitForSave(page);
   await takeABreak(page);
   await editor.click();
-  await page.keyboard.press('End');
+  await page.keyboard.press(KEYS.lineEnd);
   await page.keyboard.press('Enter');
   await page.keyboard.type('Second session: transform into DH5α.');
   await waitForSave(page);
@@ -165,7 +165,7 @@ test('a browser-storage notebook keeps history and restores across reloads', asy
   await waitForSave(page);
   await takeABreak(page);
   await editor.click();
-  await page.keyboard.press('End');
+  await page.keyboard.press(KEYS.lineEnd);
   await page.keyboard.type(' Version two.');
   await waitForSave(page);
   await openHistory(page);

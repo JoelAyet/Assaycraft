@@ -3212,3 +3212,15 @@
   left: var(--step-rail, 36px);
   border-left: 1px solid var(--border);
 }
+
+/* "Save failed" is a button: a click tries again. */
+button.gc-save {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+button.gc-save:hover {
+  text-decoration: underline;
+}

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { formatTimeRange, parseTypedTime, timeOfDay } from '../../src/lib/dates';
 import { foldLine, icsText, notebookCalendar } from '../../src/calendar/ics';
 import { eventsBetween, normalizeCalendarUrl, parseCalendar, type CalendarLink } from '../../src/calendar/external';
@@ -186,5 +186,106 @@ describe('other calendars', () => {
 
   it('say so when the file is not a calendar', async () => {
     await expect(parseCalendar('<html>Sign in</html>')).rejects.toThrow(/not give a calendar/);
+  });
+});
+
+/** A daily stand-up since 2010 and an hourly check since 2020, neither with an end. */
+const OLD_SERIES = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//EN
+BEGIN:VEVENT
+UID:standup@lab
+DTSTART:20100101T090000Z
+DTEND:20100101T091500Z
+RRULE:FREQ=DAILY
+SUMMARY:Stand-up
+END:VEVENT
+BEGIN:VEVENT
+UID:incubator@lab
+DTSTART:20200101T000000Z
+DTEND:20200101T000500Z
+RRULE:FREQ=HOURLY;INTERVAL=6
+SUMMARY:Incubator check
+END:VEVENT
+BEGIN:VEVENT
+UID:weekly@lab
+DTSTART:20100104T100000Z
+DTEND:20100104T110000Z
+RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO
+EXDATE:20261102T100000Z
+SUMMARY:Journal club
+END:VEVENT
+BEGIN:VEVENT
+UID:counted@lab
+DTSTART:20100101T120000Z
+DTEND:20100101T121500Z
+RRULE:FREQ=DAILY;COUNT=7000
+SUMMARY:Counted
+END:VEVENT
+END:VCALENDAR
+`;
+
+describe('repeating events that began long ago', () => {
+  const cal: CalendarLink = { id: 'old', name: 'Old series', url: 'https://example.org/old.ics', color: 'gray' };
+
+  it('still show today, with the rhythm and the skipped dates of the series', async () => {
+    const parsed = await parseCalendar(OLD_SERIES);
+    const days = await eventsBetween(cal, parsed, '2026-11-02', '2026-11-03');
+    const list = days.map((e) => `${e.start} ${e.time} ${e.title}`).sort();
+    expect(list).toEqual([
+      '2026-11-02 00:00 Incubator check',
+      '2026-11-02 06:00 Incubator check',
+      '2026-11-02 09:00 Stand-up',
+      // Every 6 hours since 1 January 2020, 00:00.
+      '2026-11-02 12:00 Counted',
+      '2026-11-02 12:00 Incubator check',
+      '2026-11-02 18:00 Incubator check',
+      '2026-11-03 00:00 Incubator check',
+      '2026-11-03 06:00 Incubator check',
+      '2026-11-03 09:00 Stand-up',
+      '2026-11-03 12:00 Counted',
+      '2026-11-03 12:00 Incubator check',
+      '2026-11-03 18:00 Incubator check',
+    ]);
+    // Every other Monday since 4 January 2010: 2 November 2026 was skipped, so the next is the 16th.
+    const club = await eventsBetween(cal, parsed, '2026-11-01', '2026-11-30');
+    expect(club.filter((e) => e.title === 'Journal club').map((e) => e.start)).toEqual(['2026-11-16', '2026-11-30']);
+  });
+
+  it('end where their count ends', async () => {
+    const parsed = await parseCalendar(OLD_SERIES);
+    // The 7000th day from 1 January 2010 is 1 March 2029, the last.
+    const end = await eventsBetween(cal, parsed, '2029-02-27', '2029-03-03');
+    expect(end.filter((e) => e.title === 'Counted').map((e) => e.start)).toEqual(['2029-02-27', '2029-02-28', '2029-03-01']);
+  });
+});
+
+describe('in Madrid (not UTC)', () => {
+  let saved: string | undefined;
+  beforeAll(() => {
+    saved = process.env.TZ;
+    process.env.TZ = 'Europe/Madrid';
+  });
+  afterAll(() => {
+    process.env.TZ = saved;
+  });
+
+  it('the private calendar link gives times in UTC: 9:30 in Madrid in October (summer time) is 7:30 UTC', () => {
+    const { ics } = notebookCalendar(
+      { a: entry({ path: 'a', date: '2026-10-24', time: '09:30', endTime: '12:00' }), b: entry({ path: 'b', date: '2026-11-24', time: '09:30' }) },
+      { name: 'Lab', feedId: 'abcdefghijklmnopqrstuv', statuses, projectOf: () => 'IL-6' },
+    );
+    expect(ics).toContain('DTSTART:20261024T073000Z\r\nDTEND:20261024T100000Z');
+    // In November, winter time: 8:30 UTC.
+    expect(ics).toContain('DTSTART:20261124T083000Z');
+  });
+
+  it('other calendars show their times here: a 10:00 meeting in New York is at 16:00 in Madrid', async () => {
+    const cal: CalendarLink = { id: 'lab', name: 'Lab bookings', url: 'https://example.org/lab.ics', color: 'teal' };
+    const parsed = await parseCalendar(LAB);
+    const oct = await eventsBetween(cal, parsed, '2026-10-26', '2026-10-26');
+    expect(oct.map((e) => `${e.start} ${e.time}-${e.endTime}`)).toEqual(['2026-10-26 15:00-16:00']);
+    const nov = await eventsBetween(cal, parsed, '2026-11-02', '2026-11-02');
+    expect(nov.map((e) => `${e.start} ${e.time}-${e.endTime}`)).toEqual(['2026-11-02 16:00-17:00']);
   });
 });

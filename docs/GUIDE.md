@@ -34,6 +34,9 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 - **Copied files follow their block.** Copy an image or a file from one entry and paste it into another: the file is copied into the new entry's own `attachments` folder, so each entry keeps its files even if the first one is moved or trashed. Links to other entries and files are rewritten to work from the new entry's folder. [Files and images](#files-images-and-snapgene-maps).
 - **Copying selected blocks.** Blocks selected with the mouse (drag from around the text, or from one paragraph into another) are now copied with <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>C</kbd> as a whole, tables and files included; before, only selected text was.
 - **Code blocks** (type ` ``` ` or pick _Code block_) are colored by language: Python, R, Bash, MATLAB, Julia, SQL, JSON, YAML and more, picked from the bar above the code, or guessed when none is set. _Copy_ puts the code on the clipboard. Code longer than 15 lines starts small, scrolling inside the block; _Expand_ shows all of it and _Collapse_ makes it small again.
+- **If a save fails, nothing is lost.** When the notebook folder cannot be written (a full disk, a lost permission, a dropped connection to the server), the change stays in Assaycraft, the sidebar says _Save failed_ (never _Saved_), and Assaycraft tries again by itself: after 3, 10 and 30 seconds, then every minute. Click _Save failed_, or _Try again_ in its message, to try at once. _Switch notebook_ asks before leaving changes behind, and the browser warns before the page is closed.
+- **Fixes:** drawing on an image no longer stops in the newest Chrome; repeating events that began years ago (a daily stand-up since 2015) show on today's calendar again; a formula built by clicking cells quickly keeps every cell; the name typed into a new stock right after _New_ is no longer lost.
+- **Keyboard:** the sidebar's places (Home, Calendar, Protocols, folders, entries…) can be reached with <kbd>Tab</kbd> and opened with <kbd>Enter</kbd>, and <kbd>Tab</kbd> stays inside an open dialog, returning to where you were when it closes.
 - **Excel previews.** An attached Excel workbook (`.xlsx`) has a _Preview_ like a PDF: its sheets as tabs, the cells with Excel's column letters and row numbers, dates and percentages as Excel shows them. _Insert as table_ turns a sheet into a table in the entry.
 
 **28 October 2026**
@@ -134,7 +137,7 @@ An **entry** is one experiment or one day's work. Click **New entry** (or press 
 - **Links** between entries and protocols are ordinary Markdown links. Each page lists the pages that link to it.
 - The **⋯** menu has _Duplicate_, _Save as template_ (or _sub-template_, or _protocol_), _Move to…_, _Version history_, _Download Markdown_, _Print / save as PDF_ and _Move to trash_ (bring it back from the [Trash](#trash)).
 
-Saving is automatic: changes are written within about a second, and the sidebar footer says when.
+Saving is automatic: changes are written within about a second, and the sidebar footer says when. If a save fails, it says _Save failed_ and keeps trying (click it to try at once); your changes stay in the page meanwhile.
 
 ## Dynamic tables
 

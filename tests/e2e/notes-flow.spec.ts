@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { NOTEBOOK, listFiles, newBlankEntry, openFolderNotebook, readFile, skipTour, trackErrors, waitForSave, writeFile } from './helpers';
+import { NOTEBOOK, listFiles, newBlankEntry, openFolderNotebook, readFile, skipTour, trackErrors, waitForSave, writeFile, KEYS } from './helpers';
 
 let errors: string[] = [];
 test.beforeEach(({ page }) => {
@@ -40,7 +40,7 @@ test('notes: a page for meetings and ideas, kept apart from experiments', async 
   await expect(page.locator('.gc-note-row').first()).toContainText('Journal club: base editing');
   await page.getByLabel('Filter notes').fill('prime editing');
   await expect(page.locator('.gc-note-row')).toHaveCount(1);
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+k');
   await page.keyboard.type('journal club');
   await expect(page.locator('.gc-pal-item').first()).toContainText('Journal club: base editing');
   await page.keyboard.press('Escape');
@@ -289,7 +289,7 @@ test('in a template, a flow shows what each step starts from', async ({ page }) 
 
 async function flowWith(page: Page, steps: string[]) {
   await page.locator('.ProseMirror').click();
-  await page.keyboard.press('Control+End');
+  await page.keyboard.press(KEYS.docEnd);
   await page.keyboard.press('Enter');
   await page.keyboard.type('/flow');
   await page.keyboard.press('Enter');
