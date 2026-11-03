@@ -761,6 +761,10 @@
 .gc-prose .gc-code pre [data-node-view-wrapper] {
   font-family: inherit;
 }
+/* Lines are not wrapped (Tiptap's own style would wrap them): indentation stays readable, and a long line scrolls sideways. */
+.gc-prose .gc-code pre [data-node-view-content] {
+  white-space: pre !important;
+}
 /* Small: about fifteen lines, the rest scrolls inside the block. */
 .gc-prose .gc-code.is-collapsed pre {
   max-height: 24em;

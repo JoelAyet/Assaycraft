@@ -1,6 +1,16 @@
-import { test, expect } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { test, expect, type Page } from '@playwright/test';
+import { mkdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { strToU8, zipSync } from 'fflate';
 import { newBlankEntry, openFolderNotebook, skipTour, trackErrors, waitForSave, KEYS } from './helpers';
+
+/** With SHOTS=<folder>, each checked screen is also saved as a picture there, to look at. */
+async function shot(page: Page, setup: string, screen: string) {
+  const dir = process.env.SHOTS;
+  if (!dir) return;
+  mkdirSync(dir, { recursive: true });
+  await page.screenshot({ path: join(dir, `${setup} - ${screen}`.replace(/[^\w ,.-]+/g, '_') + '.png') });
+}
 
 const PHONE_UA = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36';
 
@@ -83,7 +93,12 @@ function audit(phone: boolean) {
     for (let a = el.parentElement; a; a = a.parentElement) {
       const s = getComputedStyle(a);
       if (s.overflowX === 'visible') continue;
-      if ((s.overflowX === 'auto' || s.overflowX === 'scroll') && a.scrollWidth > a.clientWidth + 1 && a.scrollHeight <= a.clientHeight + 1)
+      // A box that scrolls sideways on purpose: one that scrolls only sideways, or code (long lines scroll, as in any editor).
+      if (
+        (s.overflowX === 'auto' || s.overflowX === 'scroll') &&
+        a.scrollWidth > a.clientWidth + 1 &&
+        (a.scrollHeight <= a.clientHeight + 1 || a.tagName === 'PRE')
+      )
         return false;
       if (right <= a.getBoundingClientRect().right + 1) continue;
       return !(s.textOverflow === 'ellipsis' && !/flex|grid/.test(s.display));
@@ -249,6 +264,7 @@ for (const s of SETUPS) {
         await page.waitForTimeout(250);
         const found = faults(await page.evaluate(audit, s.phone));
         if (found) problems[screen] = found;
+        await shot(page, s.name, screen);
       };
       const nav = async (item: string) => {
         if (s.phone) await page.locator('.gc-nav-toggle').first().click();
@@ -468,6 +484,7 @@ for (const s of SETUPS) {
         await mine.waitForTimeout(250);
         const found = faults(await mine.evaluate(audit, s.phone));
         if (found) problems[screen] = found;
+        await shot(mine, s.name, screen);
       };
       try {
         if (s.phone) {
@@ -535,6 +552,7 @@ for (const s of SETUPS) {
         await page.waitForTimeout(250);
         const found = faults(await page.evaluate(audit, s.phone));
         if (found) problems[screen] = found;
+        await shot(page, s.name, screen);
       };
       const nav = async (item: string) => {
         if (s.phone) await page.locator('.gc-nav-toggle').first().click();
@@ -613,6 +631,7 @@ for (const s of SETUPS) {
         await page.waitForTimeout(250);
         const found = faults(await page.evaluate(audit, s.phone));
         if (found) problems[screen] = found;
+        await shot(page, s.name, screen);
       };
       const nav = async (item: string) => {
         if (s.phone) await page.locator('.gc-nav-toggle').first().click();
@@ -716,6 +735,140 @@ for (const s of SETUPS) {
       await check('Literature board');
       await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'List' }).click();
       await check('Literature list with reading status');
+      expect(problems).toEqual({});
+    });
+    test('code, Excel previews, a failed save and keyboard focus pass the design checks', async ({ page }) => {
+      test.setTimeout(120_000);
+      const problems: Record<string, unknown> = {};
+      const check = async (screen: string) => {
+        await page.waitForTimeout(250);
+        const found = faults(await page.evaluate(audit, s.phone));
+        if (found) problems[screen] = found;
+        await shot(page, s.name, screen);
+      };
+      // Writing to the notebook folder fails while this is set (a full disk, a lost permission).
+      await page.addInitScript(() => {
+        const w = window as unknown as { __failWrites?: boolean };
+        const original = FileSystemFileHandle.prototype.createWritable;
+        FileSystemFileHandle.prototype.createWritable = function (this: FileSystemFileHandle, ...args: Parameters<typeof original>) {
+          if (w.__failWrites && this.name.endsWith('.md')) return Promise.reject(new DOMException('The disk is full', 'QuotaExceededError'));
+          return original.apply(this, args);
+        };
+      });
+      await openFolderNotebook(page);
+      if (s.phone) await page.locator('.gc-nav-toggle').first().click();
+      await newBlankEntry(page, 'Growth curves');
+      await page.locator('.ProseMirror').click();
+      await page.keyboard.type('Normalized with the script below.');
+      await page.keyboard.press('Enter');
+      await page.keyboard.type('```python ');
+      const code = [
+        'import pandas as pd',
+        '',
+        '# OD600 per well, from the plate reader',
+        'def normalize(df: pd.DataFrame, blank: float = 0.05) -> pd.DataFrame:',
+        '    """Subtract the blank and scale to the first reading."""',
+        '    out = df - blank',
+        '    return out / out.iloc[:, 0].values[:, None]',
+        '',
+        'reads = pd.read_csv("plate #1.csv", index_col=0)',
+        'for well, row in normalize(reads).iterrows():',
+        '    print(f"{well}: {row.max():.2f}")',
+        'x = 42',
+        'ok = True',
+        'missing = None',
+        'print(x, ok, missing)',
+        'print("done")',
+        'print("really done")',
+      ];
+      for (const [i, line] of code.entries()) {
+        await page.keyboard.type(line);
+        if (i < code.length - 1) await page.keyboard.press('Enter');
+      }
+      const block = page.locator('.gc-code');
+      await expect(block.locator('.hljs-keyword').first()).toBeVisible();
+      await block.scrollIntoViewIfNeeded();
+      await check('Long code block, small');
+      await block.getByRole('button', { name: 'Expand' }).click();
+      await block.getByRole('button', { name: 'Copy' }).focus();
+      await check('Code block, expanded, Copy focused');
+
+      // An Excel workbook, previewed.
+      const main = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
+      const rel = 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+      const cols = ['Well', '0 min', '30 min', '60 min', '90 min', '120 min', '150 min', '180 min', '210 min'];
+      const header = cols.map((t, c) => `<c r="${String.fromCharCode(65 + c)}1" t="inlineStr"><is><t>${t}</t></is></c>`).join('');
+      const rows = Array.from({ length: 14 }, (_, r) => {
+        const cells = cols
+          .slice(1)
+          .map((_, c) => `<c r="${String.fromCharCode(66 + c)}${r + 2}"><v>${(((r + 1) * (c + 3)) % 97) / 100}</v></c>`)
+          .join('');
+        return `<row r="${r + 2}"><c r="A${r + 2}" t="inlineStr"><is><t>A${r + 1}</t></is></c>${cells}</row>`;
+      }).join('');
+      const xlsx = Buffer.from(
+        zipSync({
+          'xl/workbook.xml': strToU8(
+            `<workbook ${main} ${rel}><sheets><sheet name="OD600" sheetId="1" r:id="rId1"/><sheet name="Plate map" sheetId="2" r:id="rId2"/><sheet name="Notes" sheetId="3" r:id="rId3"/></sheets></workbook>`,
+          ),
+          'xl/_rels/workbook.xml.rels': strToU8(
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Target="worksheets/sheet3.xml"/></Relationships>',
+          ),
+          'xl/worksheets/sheet1.xml': strToU8(`<worksheet ${main}><sheetData><row r="1">${header}</row>${rows}</sheetData></worksheet>`),
+          'xl/worksheets/sheet2.xml': strToU8(`<worksheet ${main}><sheetData/></worksheet>`),
+          'xl/worksheets/sheet3.xml': strToU8(`<worksheet ${main}><sheetData/></worksheet>`),
+        }),
+      );
+      await page.locator('.ProseMirror > p').first().click();
+      await page.keyboard.press(KEYS.lineEnd);
+      const chooser = page.waitForEvent('filechooser');
+      await page.locator('.gc-toolbar').getByRole('button', { name: 'Attach files' }).click();
+      await (
+        await chooser
+      ).setFiles({ name: 'growth curve #2.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: xlsx });
+      await page.locator('.gc-file').getByRole('button', { name: 'Preview' }).click();
+      await expect(page.locator('.gc-xlsx table')).toBeVisible();
+      await page.locator('.gc-file').scrollIntoViewIfNeeded();
+      await check('Excel preview');
+      await page.locator('.gc-xlsx').getByRole('tab', { name: 'Plate map' }).click();
+      await check('Excel preview, empty sheet');
+      await waitForSave(page);
+
+      // Saving fails: the sidebar and a message say so.
+      await page.evaluate(() => ((window as unknown as { __failWrites?: boolean }).__failWrites = true));
+      await page.getByRole('button', { name: 'Add tag' }).click();
+      await page.keyboard.type('growth');
+      await page.keyboard.press('Enter');
+      await page.keyboard.press('Escape');
+      await expect(page.locator('.toast.error')).toBeVisible();
+      await check('Save failed message');
+      if (s.phone) await page.locator('.gc-nav-toggle').first().click();
+      await expect(page.locator('.gc-save-error')).toBeVisible();
+      await check('Save failed in the sidebar');
+      await page.getByRole('button', { name: 'Notebook menu' }).click();
+      await page.getByRole('menuitem', { name: 'Switch notebook' }).click();
+      await expect(page.getByRole('dialog', { name: 'Some changes are not saved' })).toBeVisible();
+      await check('Switch notebook with unsaved changes');
+      await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+      await page.evaluate(() => ((window as unknown as { __failWrites?: boolean }).__failWrites = false));
+      // Try again: from the message while it shows (on a phone it covers the foot of the sidebar), or from the sidebar.
+      const retry = page.locator('.toast.error').getByRole('button', { name: 'Try again' });
+      if (await retry.isVisible()) await retry.click();
+      else if (await page.locator('.gc-save-error').isVisible()) await page.locator('.gc-save-error').click();
+      await expect(page.locator('.gc-save-saved')).toHaveCount(1, { timeout: 15_000 });
+
+      // Keyboard focus: a place in the sidebar, then a dialog.
+      if (!s.phone) {
+        await page.locator('.gc-nav-item', { hasText: 'Calendar' }).focus();
+        await page.keyboard.press('Shift+Tab');
+        await page.keyboard.press('Tab');
+        await check('Sidebar place with keyboard focus');
+        await page.locator('.gc-new-btn').focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByRole('dialog')).toBeVisible();
+        await page.keyboard.press('Shift+Tab');
+        await check('New entry dialog, keyboard focus inside');
+        await page.keyboard.press('Escape');
+      }
       expect(problems).toEqual({});
     });
   });

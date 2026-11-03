@@ -515,6 +515,13 @@
     width: 28px;
     height: 28px;
   }
+  /* An attached file's name (it downloads the file), and "Save failed" (it tries again). */
+  .gc-file-name {
+    line-height: 26px;
+  }
+  button.gc-save {
+    min-height: 28px;
+  }
   .gc-tag-x {
     display: inline-flex;
     align-items: center;

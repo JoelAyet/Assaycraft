@@ -33,7 +33,7 @@ test('a save that fails says so, keeps the change, and saves it when storage wor
   await page.keyboard.press('Escape');
   const failed = page.locator('.gc-save-error');
   await expect(failed).toHaveText('Save failed');
-  await expect(page.locator('.toast.error')).toContainText('Your changes are kept here');
+  await expect(page.locator('.toast.error')).toContainText('Your changes are kept');
   expect(await readFile(page, path)).not.toContain('transfer');
   // Still failed, never "Saved", after another try.
   await failed.click();
