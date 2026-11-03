@@ -554,8 +554,10 @@ async function runWrite(path: string, body?: string, attempt = 0): Promise<boole
     const first = !failedWrites.has(path);
     failedWrites.add(path);
     setSave('error');
+    // The reason without its own full stop, as the sentence goes on.
+    const reason = ((err as Error).message || 'unknown error').replace(/[.\s]+$/, '');
     if (first)
-      toast(`Could not save ${basename(path)}: ${(err as Error).message}. Your changes are kept, and Assaycraft keeps trying.`, 'error', {
+      toast(`Could not save ${basename(path)}: ${reason}. Your changes are kept, and Assaycraft keeps trying.`, 'error', {
         label: 'Try again',
         run: () => void retryFailedWrites(),
       });
