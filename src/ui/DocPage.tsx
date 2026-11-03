@@ -59,6 +59,7 @@ import { Backlinks, LinkedProtocols, ProtocolProps, newEntryWithProtocol, openRe
 import { SourcePane, closeSourcePane, openSourcePane, useSourcePane } from './PdfView';
 import { MenuButton, confirmDialog, openDialog, promptDialog, type MenuItemSpec } from './overlay';
 import { OptionSelect } from './status';
+import { PropsFold } from './PropsFold';
 import { AutoTextarea, DateField, Prop, TagInput, TimeField, TitleInput } from './fields';
 import { moveDocWithPrompt } from './Sidebar';
 import { openNewEntryDialog } from './NewEntryDialog';
@@ -732,9 +733,11 @@ export function DocHeader({ meta, readOnly, compact }: { meta: DocMeta; readOnly
                     : 'Untitled template'
         }
       />
-      {meta.kind === 'entry' && <EntryProps meta={meta} readOnly={readOnly} />}
-      {meta.kind === 'protocol' && <ProtocolProps meta={meta} readOnly={readOnly} />}
-      {meta.kind === 'card' && <CardProps meta={meta} readOnly={readOnly} />}
+      <PropsFold meta={meta}>
+        {meta.kind === 'entry' && <EntryProps meta={meta} readOnly={readOnly} />}
+        {meta.kind === 'protocol' && <ProtocolProps meta={meta} readOnly={readOnly} />}
+        {meta.kind === 'card' && <CardProps meta={meta} readOnly={readOnly} />}
+      </PropsFold>
       {meta.kind === 'note' && <NoteProps meta={meta} />}
       {meta.kind === 'reference' && <ReferenceProps meta={meta} readOnly={readOnly} />}
       {(meta.kind === 'template' || meta.kind === 'subtemplate') && <TemplateProps meta={meta} />}

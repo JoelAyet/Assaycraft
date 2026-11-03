@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { backlinksOf, docSpan, frontMatterFromMeta, metaFromFrontMatter, nextVersion, slugify, type DocMeta } from '../../src/notebook/model';
 import { joinFrontMatter, splitFrontMatter } from '../../src/notebook/frontmatter';
-import { bodyFacts, linkedIds, toPlainText } from '../../src/notebook/text';
+import { bodyFacts, HEADING_MARK, linkedIds, toPlainText } from '../../src/notebook/text';
+
+/** Plain text as read: without the invisible marks before headings (for search results). */
+const plain = (s: string) => s.replaceAll(HEADING_MARK, '');
 import { asciiFold, encodeLinkPath, relative, resolveLink, sanitizeFileName, setAsciiFileNames, splitFragment, splitPath } from '../../src/lib/path';
 
 const meta = (m: Partial<DocMeta>): DocMeta => ({ path: 'x.md', kind: 'entry', id: '', title: '', tags: [], extra: {}, mtime: 0, text: '', ...m });
@@ -123,7 +126,8 @@ describe('body facts', () => {
     const f = bodyFacts(body);
     expect(f.includes).toEqual(['pcr-q5']);
     expect(f.tasks).toEqual({ done: 1, total: 2 });
-    expect(f.text).toBe('Steps: thaw · mix Q5 · A B 1 2');
+    expect(plain(f.text)).toBe('Steps: thaw · mix Q5 · A B 1 2');
+    expect(f.text.startsWith(HEADING_MARK)).toBe(true);
     expect(toPlainText('[link](http://x) and ![img](a.png)')).toBe('link and img');
   });
 
@@ -175,7 +179,7 @@ describe('paths', () => {
 describe('previews', () => {
   it('keep headings and list items apart', () => {
     const md = '```\n# code\n- code\n```\n\n## Updates\n\n- Cloning done.\n\n## Actions\n\n- [ ] Order Q5\n- [x] Book the reader\n';
-    expect(toPlainText(md)).toBe('code code Updates: Cloning done. Actions: Order Q5 · Book the reader');
-    expect(toPlainText('# Notes:\n\nText')).toBe('Notes: Text');
+    expect(plain(toPlainText(md))).toBe('code code Updates: Cloning done. Actions: Order Q5 · Book the reader');
+    expect(plain(toPlainText('# Notes:\n\nText'))).toBe('Notes: Text');
   });
 });

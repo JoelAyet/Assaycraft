@@ -293,6 +293,18 @@ export function FlowView({ node, updateAttributes, editor, getPos, deleteNode }:
     return items;
   };
 
+  /** A step's title, its blanks still to fill ({{Construct}}) shown as in the text of the page. */
+  const titleText = (t: string) =>
+    t.split(/(\{\{[^}]+\}\})/).map((part, k) =>
+      /^\{\{[^}]+\}\}$/.test(part) ? (
+        <span key={k} className="gc-var-token">
+          {part}
+        </span>
+      ) : (
+        part
+      ),
+    );
+
   const card = (step: FlowStep, i: number) => {
     const entry = step.ref ? byId.get(step.ref) : undefined;
     const missing = !!step.ref && !entry;
@@ -317,14 +329,14 @@ export function FlowView({ node, updateAttributes, editor, getPos, deleteNode }:
             />
           ) : entry ? (
             <button className="gc-flow-title" onClick={() => navigate({ name: 'doc', path: entry.path })} title={`Open ${entry.id}`}>
-              {title}
+              {titleText(title)}
             </button>
           ) : editable && !step.ref ? (
             <button className="gc-flow-title is-plain" onClick={() => setRenaming(i)} title="Rename">
-              {title}
+              {titleText(title)}
             </button>
           ) : (
-            <span className="gc-flow-title is-plain">{title}</span>
+            <span className="gc-flow-title is-plain">{titleText(title)}</span>
           )}
           {editable && (
             <MenuButton items={() => stepMenu(i, step, entry)} className="icon-btn icon-btn-sm gc-flow-menu" title={`Step ${i + 1} options`}>

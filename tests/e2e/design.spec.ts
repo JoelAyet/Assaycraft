@@ -256,6 +256,17 @@ const SETUPS = [
 for (const s of SETUPS) {
   test.describe(s.name, () => {
     test.use({ viewport: { width: s.w, height: s.h }, isMobile: s.phone, hasTouch: s.phone, colorScheme: s.scheme });
+    // On a phone, an entry's properties fold into one line; these walks edit them, so they start open.
+    test.beforeEach(async ({ page }) => {
+      if (s.phone)
+        await page.addInitScript(() => {
+          try {
+            localStorage.setItem('assaycraft:propertiesOpen', '1');
+          } catch {
+            /* no storage */
+          }
+        });
+    });
 
     test('every screen passes the design checks', async ({ page }) => {
       test.setTimeout(120_000);
@@ -755,9 +766,24 @@ for (const s of SETUPS) {
           return original.apply(this, args);
         };
       });
+      // Folded properties, as a phone shows them at first.
+      await page.addInitScript(() => {
+        try {
+          localStorage.removeItem('assaycraft:propertiesOpen');
+        } catch {
+          /* no storage */
+        }
+      });
       await openFolderNotebook(page);
       if (s.phone) await page.locator('.gc-nav-toggle').first().click();
       await newBlankEntry(page, 'Growth curves');
+      if (s.phone) {
+        await expect(page.locator('.gc-props-summary')).toContainText('In progress');
+        await check('Entry, properties folded');
+        await page.locator('.gc-props-summary').click();
+        await expect(page.getByRole('button', { name: 'Add tag' })).toBeVisible();
+        await check('Entry, properties open');
+      }
       await page.locator('.ProseMirror').click();
       await page.keyboard.type('Normalized with the script below.');
       await page.keyboard.press('Enter');

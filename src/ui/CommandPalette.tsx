@@ -32,6 +32,7 @@ import { openNewProtocolDialog, pickAndImportPdfs } from './protocols';
 import { dirname } from '../lib/path';
 import { refFromMeta, shortCitation } from '../literature/model';
 import { openPaperDialog } from '../literature/PaperDialog';
+import { snippetAround } from '../notebook/text';
 
 /** Where a doc is, under its title: its folder, or for a paper its citation and journal. */
 function whereOf(d: DocMeta): string {
@@ -61,13 +62,6 @@ function highlight(text: string, q: string): ReactNode {
       {text.slice(i + q.length)}
     </>
   );
-}
-
-function snippet(text: string, q: string): string | null {
-  const i = text.toLowerCase().indexOf(q.toLowerCase());
-  if (i < 0) return null;
-  const start = Math.max(0, i - 40);
-  return (start > 0 ? '…' : '') + text.slice(start, i + q.length + 60) + (i + q.length + 60 < text.length ? '…' : '');
 }
 
 function iconFor(d: DocMeta) {
@@ -205,7 +199,7 @@ function Palette({ close }: { close: () => void }) {
       if (!ok) continue;
       if (d.kind === 'entry') score += 2;
       const inTitle = terms.every((t) => title.includes(t) || id.includes(t));
-      scored.push({ d, score, snip: inTitle ? null : snippet(d.text, terms[terms.length - 1]) });
+      scored.push({ d, score, snip: inTitle ? null : snippetAround(d.text, terms[terms.length - 1]) });
     }
     scored.sort((a, b) => b.score - a.score || (b.d.modified ?? '').localeCompare(a.d.modified ?? ''));
     // Single stocks (a primer, a glycerol stock…) open their collection with the row picked out.

@@ -115,6 +115,8 @@ export interface DocMeta {
   mtime: number;
   /** Plain text of the body, for search. */
   text: string;
+  /** Computed: the body in its author's own words, in short parts, for previews (see previewParts). */
+  preview?: string[];
   /** Computed: ids of sub-templates referenced by the body. */
   includes?: string[];
   /** Computed: checklist progress in the body. */
