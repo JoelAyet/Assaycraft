@@ -28,6 +28,13 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 ## What's new
 
+**3 November 2026**
+
+- **Entries on a phone start with the writing.** An entry's properties (status, dates, tags, protocols…) fold into one line, such as _● In progress · Tue, Nov 3 · cloning · 2 protocols_. Tap it (_Details_) to open them, and _Less_ to fold them again; Assaycraft remembers which you chose. On a computer they are shown as before.
+- **Previews show your own words.** The lines under each entry on Home, and under each note, skip what came from the template (its headings, prompts such as _Aim of the experiment_, `{{variables}}`) and the numbers of tables, and show what you wrote. Search results start at the sentence that matches, after the heading it is under (_Results › the band at 1.2 kb…_).
+- **Home on a phone** lists entries in compact rows, so more of them fit on the screen.
+- **Flow cards** show a `{{variable}}` in a step's name as a variable, not as typed brackets.
+
 **2 November 2026**
 
 - **Files no longer go missing from entries.** A file whose name had a `#` or `?` in it (“Western blot #3.tif”) showed as _File not found_ the next time the entry was opened, although the file was still in the attachments folder. It now opens as it should, and entries saved by an earlier version are repaired when you open them: the link is found again and saved right.

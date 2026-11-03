@@ -212,6 +212,49 @@
   .gc-template-cards {
     grid-template-columns: 1fr;
   }
+  /* Recent entries as compact rows: more of them on one screen, no decorative band. */
+  .gc-recent-cards {
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--panel);
+    overflow: hidden;
+  }
+  .gc-recent-card {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 12px;
+    min-height: 0;
+    padding: 12px 14px;
+    border: none;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .gc-recent-card:first-child {
+    border-top: none;
+  }
+  .gc-recent-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  .gc-recent-card-band {
+    height: auto;
+    background: none;
+  }
+  .gc-recent-card-icon {
+    position: static;
+  }
+  .gc-recent-card-body {
+    gap: 4px;
+    padding: 0;
+  }
+  .gc-recent-card-excerpt {
+    -webkit-line-clamp: 1;
+  }
+  .gc-recent-card-foot {
+    padding-top: 2px;
+  }
   .gc-table-tools {
     flex-wrap: wrap;
   }
@@ -514,6 +557,13 @@
   .gc-tree-chevron {
     width: 28px;
     height: 28px;
+  }
+  /* An attached file's name (it downloads the file), and "Save failed" (it tries again). */
+  .gc-file-name {
+    line-height: 26px;
+  }
+  button.gc-save {
+    min-height: 28px;
   }
   .gc-tag-x {
     display: inline-flex;

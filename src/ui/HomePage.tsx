@@ -19,7 +19,7 @@ import { ABOUT } from '../lib/about';
 import { navigate, setState, useNotebook } from '../notebook/store';
 import { backlinksOf, boardCards, docSpan, isTask, LAYOUT, type DocMeta } from '../notebook/model';
 import { createCard } from '../notebook/actions';
-import { excerpt } from '../notebook/text';
+import { excerpt, previewText } from '../notebook/text';
 import { openNewEntryDialog } from './NewEntryDialog';
 import { openNewProtocolDialog, pickAndImportPdfs } from './protocols';
 import { StatusPill, statusOf } from './status';
@@ -60,6 +60,25 @@ export function HomePage() {
   const overdue = openCards.filter((c) => c.due && c.due < today);
 
   const recent = [...entries].sort((a, b) => (b.modified ?? '').localeCompare(a.modified ?? '')).slice(0, 4);
+  // An entry's preview in its own words: what it repeats of its template is left out.
+  // (Its template's sub-templates count too: their blocks were copied into the entry.)
+  const own = (d: DocMeta) => {
+    const tpl = d.template ? all.find((t) => t.kind === 'template' && (t.title === d.template || t.id === d.template)) : undefined;
+    if (!tpl) return previewText(d.preview);
+    const boiler = [...(tpl.preview ?? [])];
+    const seen = new Set<string>();
+    const add = (ids: readonly string[] | undefined) => {
+      for (const id of ids ?? []) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const sub = all.find((t) => t.kind === 'subtemplate' && t.id === id);
+        boiler.push(...(sub?.preview ?? []));
+        add(sub?.includes);
+      }
+    };
+    add(tpl.includes);
+    return previewText(d.preview, boiler);
+  };
   const upcoming = all
     .filter((d) => (d.kind === 'entry' || (isTask(d, docs) && !isDoneCard(d))) && docSpan(d))
     .map((d) => ({ d, span: docSpan(d)! }))
@@ -125,7 +144,7 @@ export function HomePage() {
                     </span>
                     <span className="gc-recent-card-body">
                       <span className="gc-recent-card-title">{d.title}</span>
-                      {d.text && <span className="gc-recent-card-excerpt">{excerpt(d.text, 96)}</span>}
+                      {own(d) && <span className="gc-recent-card-excerpt">{excerpt(own(d), 96)}</span>}
                       <span className="gc-recent-card-foot">
                         <span className="id-chip">{d.id}</span>
                         <StatusPill status={st} />

@@ -364,7 +364,8 @@
   color: var(--success);
 }
 .gc-save-error {
-  color: var(--danger);
+  /* The text red (4.5:1 on the sidebar), not the brighter red of icons and borders. */
+  color: var(--ink-red);
 }
 
 /* ───────── Top bar / breadcrumbs ───────── */

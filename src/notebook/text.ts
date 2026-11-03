@@ -5,6 +5,9 @@ import { flowStepRefs } from '../flow/model';
 import { plateFromTable, plateRefs } from '../plate/model';
 import { REMINDER_RE, remindersIn, type Reminder } from '../reminders/model';
 
+/** Marks where a heading starts in plain text (U+2063, invisible): see snippetAround. */
+export const HEADING_MARK = '\u2063';
+
 /**
  * Headings end with a colon and list items are kept apart with " · ", so that a preview reads
  * "Updates: Cloning done. Actions: Order Q5 · Book the reader" rather than running them together.
@@ -17,7 +20,8 @@ function separateBlocks(markdown: string): string {
       if (/^\s*```/.test(line)) fence = !fence;
       if (fence) return line;
       const heading = /^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$/.exec(line);
-      if (heading) return heading[1] && !/[.:;!?]$/.test(heading[1]) ? `${heading[1]}:` : heading[1];
+      // Marked (invisibly), so a search result can name the section a match is in.
+      if (heading) return HEADING_MARK + (heading[1] && !/[.:;!?]$/.test(heading[1]) ? `${heading[1]}:` : heading[1]);
       const item = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?(.*\S)\s*$/.exec(line);
       return item && !/[.:;!?,]$/.test(item[1]) ? `${line} ·` : line;
     })
@@ -73,6 +77,87 @@ export function toPlainText(markdown: string, limit = 20000): string {
     .slice(0, limit);
 }
 
+/**
+ * What a page says in its author's own words, for previews (Home, Notes), in short parts: not its
+ * headings, tables, code or drawn notes, not a template's prompts (lines all in italics) and not
+ * lines with blanks still to fill ({{Construct}}). A page made from a template and not yet written
+ * in has none.
+ */
+export function previewParts(markdown: string, limit = 400): string[] {
+  const parts: string[] = [];
+  let size = 0;
+  let fence = false;
+  for (const raw of summarizePlates(markdown).split('\n')) {
+    const line = raw.trim();
+    if (/^(```|~~~)/.test(line)) {
+      fence = !fence;
+      continue;
+    }
+    if (fence || !line || /^#{1,6}\s/.test(line) || line.startsWith('|') || line.startsWith('<!--')) continue;
+    if (/\{\{[^}]*\}\}/.test(line)) continue;
+    const bare = line
+      .replace(/^>\s?/, '')
+      .replace(/^(?:[-*+]|\d+[.)])(?:\s+|$)/, '')
+      .replace(/^\[[ xX]\](?:\s+|$)/, '')
+      .trim();
+    if (!bare || /^([*_])(?!\1)[^*_].*[^*_\s]\1$/.test(bare) || /^([*_])[^*_]\1$/.test(bare)) continue;
+    const item = bare !== line.replace(/^>\s?/, '').trim();
+    const text = toPlainText(bare, limit);
+    if (!text) continue;
+    parts.push(item && !/[.:;!?,]$/.test(text) ? `${text} ·` : text);
+    size += text.length + 1;
+    if (size >= limit) break;
+  }
+  return parts;
+}
+
+/** A preview from preview parts, leaving out the parts that only repeat its template's. */
+export function previewText(parts: readonly string[] | undefined, templateParts?: readonly string[]): string {
+  if (!parts?.length) return '';
+  const boiler = new Set(templateParts ?? []);
+  return parts
+    .filter((p) => !boiler.has(p))
+    .join(' ')
+    .replace(/\s*·\s*$/, '');
+}
+
+/**
+ * A search result's context: the sentence the match is in (not the table numbers before it), with
+ * the section it is under in front, "PCR: amplicon › Template pUC19 · primers…".
+ */
+export function snippetAround(text: string, q: string, after = 70): string | null {
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return null;
+  // The section: the last heading before the match, unless the match is in that heading.
+  const h = text.lastIndexOf(HEADING_MARK, i);
+  let heading = '';
+  let floor = 0;
+  if (h >= 0) {
+    const colon = text.indexOf(':', h);
+    const headEnd = colon < 0 ? h + 1 : colon + 1;
+    floor = headEnd;
+    if (i >= headEnd) heading = text.slice(h + 1, colon < 0 ? h + 1 : colon).trim();
+    else floor = h + 1;
+  }
+  // From the start of the sentence (or list item) the match is in.
+  let start = floor;
+  for (const sep of ['. ', '? ', '! ', ' · ', '; ']) {
+    const at = text.lastIndexOf(sep, i - 1);
+    if (at >= floor && at + sep.length <= i) start = Math.max(start, at + sep.length);
+  }
+  if (i - start > 60) {
+    start = i - 40;
+    const sp = text.indexOf(' ', start);
+    if (sp > 0 && sp < i) start = sp + 1;
+  }
+  let body = text.slice(start, i + q.length + after).replace(new RegExp(HEADING_MARK, 'g'), '');
+  // Numbers from a table just before the match say nothing.
+  if (start < i) body = body.replace(/^(?:[\d.,−-]+\s+){2,}/, '');
+  const end = i + q.length + after < text.length;
+  const lead = !heading && start > floor && !/[.?!·]\s*$/.test(text.slice(0, start)) ? '…' : '';
+  return `${heading ? `${heading} › ` : ''}${lead}${body.trim()}${end ? '…' : ''}`;
+}
+
 export function excerpt(text: string, length = 140): string {
   if (text.length <= length) return text;
   const cut = text.slice(0, length);
@@ -115,6 +200,7 @@ export function bodyFacts(
   kind?: DocKind,
 ): {
   text: string;
+  preview: string[];
   includes: string[];
   tasks?: { done: number; total: number };
   refs: string[];
@@ -140,6 +226,7 @@ export function bodyFacts(
   }
   return {
     text: toPlainText(body),
+    preview: previewParts(body),
     includes,
     tasks: total ? { done, total } : undefined,
     // Links in the text, and the stocks and entries plate layouts are linked to.

@@ -3,7 +3,7 @@ import { MoreHorizontal, NotebookPen, Trash2 } from 'lucide-react';
 import { navigate, useNotebook } from '../notebook/store';
 import { createNote, trashDoc } from '../notebook/actions';
 import type { DocMeta } from '../notebook/model';
-import { excerpt } from '../notebook/text';
+import { excerpt, previewText } from '../notebook/text';
 import { formatDate, formatRelative, LOCALE } from '../lib/dates';
 import { MenuButton, confirmDialog } from './overlay';
 import { TagPill } from './status';
@@ -27,7 +27,7 @@ function NoteRow({ note }: { note: DocMeta }) {
         <span className="gc-note-date">{formatDate(note.date ?? note.created)}</span>
         <span className="gc-note-main">
           <strong>{note.title || 'Untitled note'}</strong>
-          {note.text && <span className="gc-note-snippet">{excerpt(note.text, 160)}</span>}
+          {previewText(note.preview) && <span className="gc-note-snippet">{excerpt(previewText(note.preview), 160)}</span>}
         </span>
       </button>
       <span className="gc-note-side">
