@@ -404,8 +404,15 @@
 .gc-agenda-day.is-today h3 {
   color: var(--accent-text);
 }
-.gc-agenda-day.is-past {
-  opacity: 0.7;
+/* Past days step back with quieter colors, not transparency: their text keeps its contrast. */
+.gc-agenda-day.is-past h3 {
+  color: var(--text-3);
+}
+.gc-agenda-day.is-past .gc-agenda-item {
+  background: transparent;
+}
+.gc-agenda-day.is-past .gc-cal-title {
+  color: var(--text-2);
 }
 .gc-agenda-day.is-overdue h3 {
   color: var(--danger);

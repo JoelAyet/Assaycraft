@@ -6,7 +6,7 @@
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useNotebook } from '../notebook/store';
-import { LAYOUT, type DocMeta } from '../notebook/model';
+import { LAYOUT, PROTOCOL_STATUSES, type DocMeta } from '../notebook/model';
 import { dirname } from '../lib/path';
 import { formatTimeRange } from '../lib/dates';
 import { StatusPill, statusOf } from './status';
@@ -53,9 +53,13 @@ export function PropsFold({ meta, children }: { meta: DocMeta; children: ReactNo
   if (!phone || !FOLDED.has(meta.kind)) return <>{children}</>;
 
   const status =
-    meta.kind === 'entry' ? statusOf(entryStatuses, meta.status) : meta.kind === 'card' ? statusOf(board?.columns ?? [], meta.status) : undefined;
+    meta.kind === 'entry'
+      ? statusOf(entryStatuses, meta.status)
+      : meta.kind === 'card'
+        ? statusOf(board?.columns ?? [], meta.status)
+        : statusOf(PROTOCOL_STATUSES, meta.status);
+  // (A protocol's version is in the chips above its title already.)
   const bits: string[] = [];
-  if (meta.kind === 'protocol' && meta.version) bits.push(`v${meta.version}`);
   const day = shortDay(meta.date);
   if (day) bits.push(meta.end && meta.end !== meta.date ? `${day} → ${shortDay(meta.end)}` : day);
   const time = formatTimeRange(meta.time, meta.endTime);
