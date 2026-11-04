@@ -34,6 +34,7 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 - **Previews show your own words.** The lines under each entry on Home, and under each note, skip what came from the template (its headings, prompts such as _Aim of the experiment_, `{{variables}}`) and the numbers of tables, and show what you wrote. Search results start at the sentence that matches, after the heading it is under (_Results › the band at 1.2 kb…_).
 - **Home on a phone** lists entries in compact rows, so more of them fit on the screen.
 - **Flow cards** show a `{{variable}}` in a step's name as a variable, not as typed brackets.
+- **Fixes:** a protocol's folded properties on a phone show its status (its version is already above the title); a locked entry no longer shows _End date_ and _Add time_ as if they could be set; past days in the agenda are quieter without becoming hard to read.
 
 **2 November 2026**
 

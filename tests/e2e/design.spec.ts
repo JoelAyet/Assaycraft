@@ -423,6 +423,13 @@ for (const s of SETUPS) {
         await page.locator('.gc-viewtab', { hasText: view }).click();
         await check(`Calendar ${view}`);
       }
+      // Two days on, today's entries are past days: quieter, and as readable.
+      await page.clock.setSystemTime(new Date(Date.now() + 2 * 86_400_000));
+      await page.locator('.gc-viewtab', { hasText: 'Month' }).click();
+      await page.locator('.gc-viewtab', { hasText: 'Agenda' }).click();
+      await expect(page.locator('.gc-agenda-day.is-past').first()).toBeVisible();
+      await check('Calendar Agenda, two days later');
+      await page.clock.setSystemTime(new Date());
       if (s.phone) {
         await page.locator('.gc-nav-toggle').first().click();
         await check('Menu');

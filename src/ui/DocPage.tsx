@@ -125,11 +125,20 @@ function EntryProps({ meta, readOnly }: { meta: DocMeta; readOnly: boolean }) {
       </Prop>
       <Prop label="Date">
         <DateField value={meta.date} onChange={(date) => patchMeta(p, { date })} disabled={readOnly} />
-        <span className="gc-prop-sep">→</span>
-        <DateField value={meta.end} min={meta.date} onChange={(end) => patchMeta(p, { end })} disabled={readOnly} placeholder="End date" />
+        {/* Read-only (locked, or someone else's): no "End date" that looks like something to click. */}
+        {(!readOnly || meta.end) && (
+          <>
+            <span className="gc-prop-sep">→</span>
+            <DateField value={meta.end} min={meta.date} onChange={(end) => patchMeta(p, { end })} disabled={readOnly} placeholder="End date" />
+          </>
+        )}
       </Prop>
       <Prop label="Time">
-        <TimeField value={meta.time} onChange={(time) => patchMeta(p, { time })} disabled={readOnly} />
+        {readOnly && !meta.time ? (
+          <span className="gc-prop-text muted">—</span>
+        ) : (
+          <TimeField value={meta.time} onChange={(time) => patchMeta(p, { time })} disabled={readOnly} />
+        )}
         {(meta.time || meta.endTime) && (
           <>
             <span className="gc-prop-sep">→</span>
