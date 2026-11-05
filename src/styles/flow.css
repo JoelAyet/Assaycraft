@@ -496,3 +496,37 @@ button.gc-flow-title.is-plain:hover {
     break-inside: avoid;
   }
 }
+
+/* Dragging a step onto another puts it in that step's place. */
+.gc-flow-card[draggable='true'] {
+  position: relative;
+}
+.gc-flow-card[draggable='true'] .gc-flow-card-head {
+  cursor: grab;
+}
+.gc-flow-grip {
+  position: absolute;
+  top: 13px;
+  left: 0;
+  width: 12px;
+  height: 16px;
+  color: var(--text-4);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.gc-flow-card:hover .gc-flow-grip {
+  opacity: 1;
+}
+.gc-flow-card.is-dragging {
+  opacity: 0.45;
+}
+.gc-flow-card.is-drop-before,
+.gc-flow-card.is-drop-after {
+  outline: 2px dashed var(--accent);
+  outline-offset: 3px;
+}
+@media (hover: none) {
+  .gc-flow-grip {
+    display: none;
+  }
+}

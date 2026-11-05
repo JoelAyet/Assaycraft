@@ -310,6 +310,15 @@ function ColumnsDialog({ table, close, onSave }: { table: StockTable; close: () 
 
 // ───────────── One row ─────────────
 
+/** Copy with nothing selected in a cell copies all of it, as in a spreadsheet. */
+function copyWholeCell(e: ClipboardEvent<HTMLTextAreaElement>) {
+  const t = e.currentTarget;
+  if (t.selectionStart !== t.selectionEnd || !t.value) return;
+  e.preventDefault();
+  e.clipboardData.setData('text/plain', t.value);
+  toast('Copied the cell.');
+}
+
 interface RowProps {
   row: string[];
   index: number;
@@ -319,8 +328,8 @@ interface RowProps {
   flash: boolean;
   onEdit: (index: number, col: number, value: string) => void;
   onSelect: (id: string) => void;
-  onKey: (e: KeyboardEvent<HTMLInputElement>, index: number, col: number) => void;
-  onPaste: (e: ClipboardEvent<HTMLInputElement>, index: number, col: number) => void;
+  onKey: (e: KeyboardEvent<HTMLTextAreaElement>, index: number, col: number) => void;
+  onPaste: (e: ClipboardEvent<HTMLTextAreaElement>, index: number, col: number) => void;
   onMenu: (e: React.MouseEvent, index: number) => void;
 }
 
@@ -345,19 +354,35 @@ const StockRow = memo(function StockRow({ row, index, roles, columns, selected, 
               {shown[c] || <span className="gc-stock-none">—</span>}
             </td>
           );
+        // Text longer than the column wraps (two lines; more while it is being edited). The copy
+        // behind the field, never seen, sets its height.
         return (
           <td key={c} className={`col-${role}`}>
-            <input
-              className={role === 'sequence' ? 'mono' : undefined}
-              data-cell={`${index}:${c}`}
-              value={row[c] ?? ''}
-              spellCheck={role === 'notes' || role === 'text'}
-              aria-label={`${columns[c]} of ${name}`}
-              onChange={(e) => onEdit(index, c, e.target.value)}
-              onFocus={() => onSelect('')}
-              onKeyDown={(e) => onKey(e, index, c)}
-              onPaste={(e) => onPaste(e, index, c)}
-            />
+            <div
+              className={`gc-cell-grow${role === 'sequence' ? ' is-mono' : ''}`}
+              data-value={row[c] ?? ''}
+              // The space under the text is the cell's too.
+              onMouseDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                e.preventDefault();
+                e.currentTarget.querySelector('textarea')?.focus();
+              }}
+            >
+              <textarea
+                rows={1}
+                className={role === 'sequence' ? 'mono' : undefined}
+                data-cell={`${index}:${c}`}
+                value={row[c] ?? ''}
+                spellCheck={role === 'notes' || role === 'text'}
+                aria-label={`${columns[c]} of ${name}`}
+                onChange={(e) => onEdit(index, c, e.target.value.replace(/[\r\n]+/g, ' '))}
+                onFocus={() => onSelect('')}
+                onBlur={(e) => (e.currentTarget.scrollTop = 0)}
+                onKeyDown={(e) => onKey(e, index, c)}
+                onPaste={(e) => onPaste(e, index, c)}
+                onCopy={copyWholeCell}
+              />
+            </div>
           </td>
         );
       })}
@@ -539,7 +564,7 @@ function Collection({ meta, target, tabs }: { meta: DocMeta; target?: string; ta
    */
   const focusAfterRender = useRef<{ r: number; c: number } | null>(null);
   const focusNow = (r: number, c: number) => {
-    const el = rootRef.current?.querySelector<HTMLInputElement>(`[data-cell="${r}:${c}"]`);
+    const el = rootRef.current?.querySelector<HTMLTextAreaElement>(`[data-cell="${r}:${c}"]`);
     if (!el) return false;
     el.focus();
     el.select();
@@ -608,7 +633,7 @@ function Collection({ meta, target, tabs }: { meta: DocMeta; target?: string; ta
   }, [table, q, roles, sort]);
 
   const onKey = useCallback(
-    (e: KeyboardEvent<HTMLInputElement>, index: number, col: number) => {
+    (e: KeyboardEvent<HTMLTextAreaElement>, index: number, col: number) => {
       const pos = view.findIndex((v) => v.i === index);
       if (e.key === 'Enter' || (e.key === 'ArrowDown' && !e.altKey)) {
         e.preventDefault();
@@ -625,7 +650,7 @@ function Collection({ meta, target, tabs }: { meta: DocMeta; target?: string; ta
 
   /** Rows copied from Excel fill the cells from here on, adding stocks as needed. */
   const onPaste = useCallback(
-    (e: ClipboardEvent<HTMLInputElement>, index: number, col: number) => {
+    (e: ClipboardEvent<HTMLTextAreaElement>, index: number, col: number) => {
       const text = e.clipboardData.getData('text/plain');
       if (!/[\t\n]/.test(text.trim())) return;
       e.preventDefault();
@@ -750,7 +775,7 @@ function Collection({ meta, target, tabs }: { meta: DocMeta; target?: string; ta
 
   const onMenu = useCallback(
     (e: React.MouseEvent, index: number) => {
-      if ((e.target as HTMLElement).closest('input')) return;
+      if ((e.target as HTMLElement).closest('input, textarea')) return;
       const id = tableRef.current?.rows[index]?.[idCol] ?? '';
       openContextMenu(e, [
         { label: 'Show details', icon: <TestTube />, onSelect: () => select(id) },

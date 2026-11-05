@@ -16,6 +16,7 @@ import {
   Play,
   Plus,
   Trash2,
+  GripVertical,
   Unlink,
   Workflow,
   X,
@@ -41,6 +42,8 @@ export function focusNextInsertedFlow() {
 }
 
 const CARD_MIN = 200;
+/** A step dragged to another place in its flow. */
+const FLOW_MIME = 'application/x-assaycraft-flow-step';
 const ARROW = 28;
 
 /** As many cards per row as fit, so rows snake back and forth like a lab plan on a whiteboard. */
@@ -186,13 +189,17 @@ export function FlowView({ node, updateAttributes, editor, getPos, deleteNode }:
   }, [editor, getPos, node.attrs.data]);
   const update = useCallback((fn: (d: FlowData) => FlowData) => updateAttributes({ data: fn(current()) }), [current, updateAttributes]);
   const setStep = (i: number, step: FlowStep) => update((d) => ({ steps: d.steps.map((s, j) => (j === i ? step : s)) }));
-  const move = (i: number, by: number) =>
+  const moveTo = (from: number, to: number) =>
     update((d) => {
       const steps = [...d.steps];
-      const [s] = steps.splice(i, 1);
-      steps.splice(i + by, 0, s);
+      if (from === to || !steps[from] || to < 0 || to >= steps.length) return d;
+      const [s] = steps.splice(from, 1);
+      steps.splice(to, 0, s);
       return { steps };
     });
+  const move = (i: number, by: number) => moveTo(i, i + by);
+  /** A step being dragged onto another: it goes to that step's place. */
+  const [drag, setDrag] = useState<{ from: number; over: number | null } | null>(null);
 
   // A step's entry renamed or moved since: bring the link (and the title kept in the file) up to date.
   useEffect(() => {
@@ -311,9 +318,40 @@ export function FlowView({ node, updateAttributes, editor, getPos, deleteNode }:
     const title = entry?.title || step.title || 'Untitled step';
     const tpl = templateOf(step);
     const state = entry ? (entry.status === 'completed' ? 'is-done' : 'is-started') : missing ? 'is-missing' : 'is-planned';
+    const draggable = editable && renaming === null && !adding;
+    const dropHere = drag && drag.over === i && drag.from !== i;
     return (
-      <div className={`gc-flow-card ${state}`} data-step={i + 1}>
+      <div
+        className={`gc-flow-card ${state} ${drag?.from === i ? 'is-dragging' : ''} ${dropHere ? (drag.from < i ? 'is-drop-after' : 'is-drop-before') : ''}`}
+        data-step={i + 1}
+        draggable={draggable}
+        onDragStart={(e) => {
+          if (!draggable) return;
+          // The editor would take this drag as one of its own (and put the page's text on it).
+          e.stopPropagation();
+          e.dataTransfer.setData(FLOW_MIME, String(i));
+          e.dataTransfer.effectAllowed = 'move';
+          setDrag({ from: i, over: null });
+        }}
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes(FLOW_MIME)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          e.dataTransfer.dropEffect = 'move';
+          if (drag && drag.over !== i) setDrag({ ...drag, over: i });
+        }}
+        onDrop={(e) => {
+          if (!e.dataTransfer.types.includes(FLOW_MIME)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const from = Number(e.dataTransfer.getData(FLOW_MIME));
+          setDrag(null);
+          if (Number.isInteger(from)) moveTo(from, i);
+        }}
+        onDragEnd={() => setDrag(null)}
+      >
         <div className="gc-flow-card-head">
+          {draggable && <GripVertical className="gc-flow-grip" aria-hidden="true" />}
           <span className="gc-flow-num" aria-hidden="true">
             {i + 1}
           </span>

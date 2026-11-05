@@ -295,8 +295,9 @@ export function rescan(): Promise<void> {
       const before = getState().docs;
       const { docs, folders } = await scanVault(v, before);
       await reloadActivity(v);
-      // Keep metadata of docs with pending writes (the store is ahead of the disk).
-      for (const p of pending.keys()) if (before[p]) docs[p] = before[p];
+      // Keep metadata of docs whose changes are not on disk yet, waiting or failed (the store is
+      // ahead of the disk; the file says what it said before them).
+      for (const p of new Set([...pending.keys(), ...failedWrites, ...metaDirty.keys()])) if (before[p]) docs[p] = before[p];
       setState({ docs, folders });
       await loadTrash();
       for (const [path, listener] of externalListeners) {
@@ -586,6 +587,18 @@ export async function flushAllWrites(): Promise<boolean> {
   await flushActivity();
   return failedWrites.size === 0;
 }
+
+/**
+ * Save what waits in `path` (a doc, or a folder and what is in it). False while any of it could not
+ * be saved: moving or trashing it then would take the older files and leave those changes behind.
+ */
+async function savedInside(path: string): Promise<boolean> {
+  await flushAllWrites();
+  const inside = (p: string) => p === path || isInside(p, path);
+  return ![...failedWrites, ...unsavedBodies.keys(), ...metaDirty.keys()].some(inside);
+}
+
+const NOT_SAVED = 'Some changes in it could not be saved yet: click Save failed to try again first, or export the notebook (the export has them).';
 
 /** Changes not yet saved, waiting or failed (leaving the page should warn). */
 export function hasPendingWrites() {
@@ -908,6 +921,78 @@ export async function duplicateDoc(path: string): Promise<string> {
   reserved.delete(id);
   navigate({ name: 'doc', path: newPath });
   return newPath;
+}
+
+/**
+ * A failed experiment, to do again: a copy of it (its methods, protocols and files), planned for
+ * today, that starts by saying which experiment it repeats.
+ */
+export async function repeatEntry(path: string): Promise<string> {
+  await flushWrite(path);
+  const { meta, body } = await readDoc(path);
+  const v = vault();
+  const { config } = getState();
+  const folder = dirname(path);
+  const id = nextId(config.idPrefix, config.idDigits);
+  const relocated = await relocateContent(parseMarkdown(body).toJSON() as JSONContent, folder, { folder, id });
+  const name = [meta.id, meta.title].filter(Boolean).join(' ');
+  const intro: JSONContent = {
+    type: 'paragraph',
+    content: [
+      { type: 'text', text: 'Repeat of ' },
+      { type: 'text', text: name, marks: [{ type: 'link', attrs: { href: relative(folder, path) } }] },
+      { type: 'text', text: meta.status === 'failed' ? ', which failed.' : '.' },
+    ],
+  };
+  const json: JSONContent = { ...relocated, content: [intro, ...(relocated.content ?? [])] };
+  const title = /\(repeat\)$/.test(meta.title) ? meta.title : `${meta.title} (repeat)`;
+  const now = localIso();
+  const newPath = await uniquePath(v, folder, fileNameFor({ kind: 'entry', id, title }));
+  await createDoc(
+    newPath,
+    {
+      ...meta,
+      id,
+      title,
+      created: now,
+      modified: now,
+      locked: undefined,
+      date: localDate(),
+      end: undefined,
+      time: undefined,
+      endTime: undefined,
+      status: 'planned',
+    },
+    toMarkdown(json),
+  );
+  reserved.delete(id);
+  return newPath;
+}
+
+/** The section added to a failed experiment to work out why (Troubleshoot). */
+export const TROUBLESHOOTING = [
+  '## Troubleshooting',
+  '',
+  '**What happened:** ',
+  '',
+  '**What could have caused it**',
+  '',
+  '- [ ] Reagents or buffers (expired, wrong concentration, contaminated)',
+  '- [ ] Samples (amount, quality, handling)',
+  '- [ ] Equipment or its settings',
+  '- [ ] The protocol (times, temperatures, volumes, a step missed)',
+  '- [ ] Controls (did they work?)',
+  '',
+  '**What to change next time:** ',
+].join('\n');
+
+/** Add the troubleshooting section to an entry (once): what happened, what could have caused it, what to change. */
+export async function addTroubleshooting(path: string): Promise<void> {
+  await rewriteBody(
+    path,
+    (body) => (/^## Troubleshooting\s*$/m.test(body) ? body : `${body.replace(/\s*$/, '')}${body.trim() ? '\n\n' : ''}${TROUBLESHOOTING}\n`),
+    'The entry could not be read',
+  );
 }
 
 export async function createTemplate(opts: {
@@ -1397,7 +1482,8 @@ function replaceDocPath(from: string, to: string) {
     delete docKeys[from];
     const route = (s.route.name === 'doc' && s.route.path === from ? { name: 'doc', path: to } : s.route) as typeof s.route;
     const peek = s.peek === from ? to : s.peek;
-    return { docs, docKeys, route, peek };
+    const peekSplit = s.peekSplit === from ? to : s.peekSplit;
+    return { docs, docKeys, route, peek, peekSplit };
   });
   rekeyOpenDoc(from, to);
   if (timer) scheduleWrite(to);
@@ -1458,7 +1544,7 @@ function trashStamp() {
 export async function trashDoc(path: string) {
   const meta = getState().docs[path];
   if (!meta) return;
-  await flushWrite(path);
+  if (!(await savedInside(path))) return toast(`“${meta.title}” was not moved to the trash. ${NOT_SAVED}`, 'error');
   const v = vault();
   const stamp = trashStamp();
   const name = `${stamp} ${basename(path)}`;
@@ -1505,7 +1591,7 @@ export async function renameFolder(path: string, name: string): Promise<string> 
   const target = join(dirname(path), sanitizeFileName(name, 'Folder'));
   if (target === path) return path;
   if (await v.exists(target)) throw new Error(`A folder named “${name}” already exists`);
-  await flushAllWrites();
+  if (!(await savedInside(path))) throw new Error(`The folder was not renamed. ${NOT_SAVED}`);
   await moveDir(v, path, target);
   await rescan();
   const r = getState().route;
@@ -1514,9 +1600,12 @@ export async function renameFolder(path: string, name: string): Promise<string> 
   return target;
 }
 
-export async function trashFolder(path: string) {
+export async function trashFolder(path: string): Promise<boolean> {
   const v = vault();
-  await flushAllWrites();
+  if (!(await savedInside(path))) {
+    toast(`“${basename(path)}” was not moved to the trash. ${NOT_SAVED}`, 'error');
+    return false;
+  }
   const name = `${trashStamp()} ${basename(path)}`;
   const board = isInside(path, LAYOUT.boards) ? getState().docs[join(path, LAYOUT.boardFile)] : undefined;
   const record: TrashRecord = { name, kind: 'folder', from: path, title: board?.title ?? basename(path), deleted: localIso() };
@@ -1529,6 +1618,7 @@ export async function trashFolder(path: string) {
     label: 'Undo',
     run: () => void restoreFromTrash(record, { quiet: true }),
   });
+  return true;
 }
 
 // ───────────────────────────── the trash ─────────────────────────────
@@ -1628,8 +1718,8 @@ export async function emptyTrash(): Promise<number> {
   return items.length;
 }
 
-export async function trashBoard(folder: string) {
-  await trashFolder(folder);
+export async function trashBoard(folder: string): Promise<boolean> {
+  return trashFolder(folder);
 }
 
 // ───────────────────────────── import / export ─────────────────────────────

@@ -2,6 +2,7 @@
 import type { Editor } from '@tiptap/core';
 import type { ReactNode } from 'react';
 import {
+  CalendarRange,
   BellRing,
   Beaker,
   Grid3x3,
@@ -27,6 +28,7 @@ import {
   TestTubes,
   Workflow,
 } from 'lucide-react';
+import { localDate } from '../lib/dates';
 import { emptySheet } from '../sheet/model';
 import { focusNextInsertedSheet } from '../sheet/SheetView';
 import { focusNextInsertedBuffer } from '../buffer/BufferView';
@@ -210,6 +212,15 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
       keywords: 'flow workflow pipeline plan steps series sequence experiments project roadmap',
       group: 'Lab',
       run: (e) => insertFlow(e),
+    },
+    {
+      id: 'calendar',
+      title: 'Calendar',
+      description: 'A week of the calendar: experiments, tasks, reminders',
+      icon: <CalendarRange />,
+      keywords: 'calendar week agenda schedule plan days timetable diary',
+      group: 'Lab',
+      run: (e) => insertBlocks(e, { type: 'calendarWeek', attrs: { week: localDate() } }),
     },
     {
       id: 'stock',

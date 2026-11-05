@@ -1,8 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { TextSelection } from '@tiptap/pm/state';
-import { navigate, useNotebook } from '../notebook/store';
-import type { DocMeta } from '../notebook/model';
+import { BookOpen, FlaskConical, NotebookPen, Plus } from 'lucide-react';
+import { navigate, setState, toast, useNotebook } from '../notebook/store';
+import { createNote } from '../notebook/actions';
+import type { DocKind, DocMeta } from '../notebook/model';
+
+/** The pages listed as recent beside an entry, with their icons. */
+const RECENT_KINDS: Partial<Record<DocKind, typeof FlaskConical>> = { entry: FlaskConical, note: NotebookPen, protocol: BookOpen };
+
+/** A new note, docked beside the page you are on (in Notes, like any other). */
+export async function newNoteBeside() {
+  try {
+    const path = await createNote({ open: false });
+    setState({ peek: path, peekSplit: path });
+  } catch (err) {
+    toast(`Could not make a note: ${(err as Error).message}`, 'error');
+  }
+}
 
 interface Heading {
   pos: number;
@@ -22,8 +37,8 @@ function headingsOf(editor: Editor): Heading[] {
 }
 
 /**
- * On a computer, hovering the right edge of a page shows its index: recent entries to jump to,
- * then the page's headings and days.
+ * On a computer, hovering the right edge of a page shows its index: a new note beside it, recent
+ * experiments, notes and protocols to jump to, then the page's headings and days.
  */
 export function DocIndex({ editor, meta }: { editor: Editor | null; meta: DocMeta }) {
   const [headings, setHeadings] = useState<Heading[]>([]);
@@ -31,7 +46,7 @@ export function DocIndex({ editor, meta }: { editor: Editor | null; meta: DocMet
   const recent = useMemo(
     () =>
       Object.values(docs)
-        .filter((d) => d.kind === 'entry' && d.path !== meta.path)
+        .filter((d) => RECENT_KINDS[d.kind] && d.path !== meta.path)
         .sort((a, b) => (b.modified ?? '').localeCompare(a.modified ?? ''))
         .slice(0, 4),
     [docs, meta.path],
@@ -58,7 +73,6 @@ export function DocIndex({ editor, meta }: { editor: Editor | null; meta: DocMet
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(h.pos + 1))));
   };
 
-  if (!headings.length && !recent.length) return null;
   const top = Math.min(...headings.map((h) => h.level));
   return (
     <nav className="gc-doc-index" aria-label="Index of this page">
@@ -70,15 +84,27 @@ export function DocIndex({ editor, meta }: { editor: Editor | null; meta: DocMet
         {!headings.length && <span className="gc-doc-index-tick" />}
       </div>
       <div className="gc-doc-index-panel">
+        <button
+          className="gc-doc-index-item gc-doc-index-new"
+          title="A new note in Notes, open beside this page"
+          onClick={() => void newNoteBeside()}
+        >
+          <Plus aria-hidden="true" />
+          <span className="gc-doc-index-text">New note</span>
+        </button>
         {recent.length > 0 && (
           <>
-            <div className="gc-doc-index-label">Recent entries</div>
-            {recent.map((d) => (
-              <button key={d.path} className="gc-doc-index-item is-recent" onClick={() => navigate({ name: 'doc', path: d.path })}>
-                {d.id && <span className="gc-doc-index-id">{d.id}</span>}
-                <span className="gc-doc-index-text">{d.title}</span>
-              </button>
-            ))}
+            <div className="gc-doc-index-label">Recent</div>
+            {recent.map((d) => {
+              const Icon = RECENT_KINDS[d.kind]!;
+              return (
+                <button key={d.path} className="gc-doc-index-item is-recent" onClick={() => navigate({ name: 'doc', path: d.path })}>
+                  <Icon className="gc-doc-index-icon" aria-hidden="true" />
+                  {d.id && <span className="gc-doc-index-id">{d.id}</span>}
+                  <span className="gc-doc-index-text">{d.title}</span>
+                </button>
+              );
+            })}
           </>
         )}
         {headings.length > 0 && (

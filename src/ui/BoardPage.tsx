@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import {
+  RotateCcw,
+  Stethoscope,
   ArrowLeft,
   ArrowRight,
   CalendarClock,
@@ -16,8 +18,9 @@ import {
   Trash2,
   Workflow,
 } from 'lucide-react';
+import { openFailedDialog, failedMenu, repeatExperiment, troubleshootExperiment } from './failedNext';
 import { BUILTIN_EXPERIMENTS_BOARD, getState, navigate, setState, toast, useNotebook } from '../notebook/store';
-import { LAYOUT, boardCards, cardNoun, slugify, type ColorName, type DocMeta, type StatusOption } from '../notebook/model';
+import { LAYOUT, PRIORITIES, boardCards, cardNoun, slugify, type ColorName, type DocMeta, type Priority, type StatusOption } from '../notebook/model';
 import { createCard, patchMeta, projectOf, trashBoard, trashDoc } from '../notebook/actions';
 import { MenuButton, Popover, confirmDialog, openContextMenu, promptDialog, type MenuItemSpec } from './overlay';
 import { ColorPicker, PriorityPill, TagPill } from './status';
@@ -58,6 +61,8 @@ interface KanbanProps {
   /** What one card is called ("task", "card"). */
   noun?: string;
   doneColumn?: string;
+  /** Extra classes of a card (a failed experiment's). */
+  cardClass?: (doc: DocMeta) => string;
 }
 
 function QuickAdd({ onAdd, noun = 'card' }: { onAdd: (title: string) => void; noun?: string }) {
@@ -118,6 +123,7 @@ function Kanban({
   quickAdd,
   doneColumn,
   noun,
+  cardClass,
 }: KanbanProps) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [indicator, setIndicator] = useState<{ col: string; index: number } | null>(null);
@@ -205,7 +211,7 @@ function Kanban({
                 <div key={d.path}>
                   {indicator?.col === col.id && indicator.index === i && dragging !== d.path && <div className="gc-drop-line" />}
                   <article
-                    className={`gc-card ${dragging === d.path ? 'is-dragging' : ''}`}
+                    className={`gc-card ${dragging === d.path ? 'is-dragging' : ''} ${col.id === doneColumn ? 'is-done' : ''} ${cardClass?.(d) ?? ''}`}
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData(CARD_MIME, d.path);
@@ -320,12 +326,19 @@ function ExperimentsBoard() {
         sortItems={sort}
         quickAdd={false}
         doneColumn="completed"
+        cardClass={(d) => (d.status === 'failed' ? 'is-failed' : '')}
         onDrop={(doc, column) => {
-          if (doc.status !== column) patchMeta(doc.path, { status: column }, 200);
+          if (doc.status === column) return;
+          patchMeta(doc.path, { status: column }, 200);
+          // Failed: what next? Work out why, or plan it again.
+          if (column === 'failed') openFailedDialog({ ...doc, status: column });
         }}
         onAdd={(column) => openNewEntryDialog({ status: column, folder: project || undefined })}
         onOpen={(d) => navigate({ name: 'doc', path: d.path })}
-        cardMenu={entryMenu}
+        cardMenu={(d) => {
+          const next = failedMenu(d);
+          return next.length ? [...next, 'sep' as const, ...entryMenu(d)] : entryMenu(d);
+        }}
         renderCard={(d) => (
           <>
             <div className="gc-card-top">
@@ -333,6 +346,30 @@ function ExperimentsBoard() {
               {d.locked && <span className="muted gc-card-lock">locked</span>}
             </div>
             <div className="gc-card-title">{d.title}</div>
+            {d.status === 'failed' && (
+              <div className="gc-card-next">
+                <button
+                  className="btn btn-sm"
+                  title="Add a section to work out why it failed"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void troubleshootExperiment(d);
+                  }}
+                >
+                  <Stethoscope /> Troubleshoot
+                </button>
+                <button
+                  className="btn btn-sm"
+                  title="A copy of it to do again, planned for today"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void repeatExperiment(d);
+                  }}
+                >
+                  <RotateCcw /> Repeat
+                </button>
+              </div>
+            )}
             <div className="gc-card-meta">
               {projectOf(d.path) && (
                 <span>
@@ -382,8 +419,13 @@ function TaskBoard({ folder }: { folder: string }) {
   const docs = useNotebook((s) => s.docs);
   const [q, setQ] = useState('');
   const [colorFor, setColorFor] = useState<string | null>(null);
+  const [priority, setPriority] = useState<Priority | 'none' | ''>('');
   const cards = useMemo(() => Object.values(docs).filter((d) => d.kind === 'card' && dirname(d.path) === folder), [docs, folder]);
-  const items = useFiltered(cards, q);
+  const shown = useMemo(
+    () => (priority ? cards.filter((d) => (priority === 'none' ? !d.priority : d.priority === priority)) : cards),
+    [cards, priority],
+  );
+  const items = useFiltered(shown, q);
   const sort = useMemo(() => (a: DocMeta, b: DocMeta) => (a.order ?? 0) - (b.order ?? 0) || a.id.localeCompare(b.id), []);
 
   if (!board)
@@ -494,8 +536,9 @@ function TaskBoard({ folder }: { folder: string }) {
         }).then((ok) => {
           if (!ok) return;
           // Home once it is gone, unless you have moved on meanwhile (a big board takes a moment to move).
-          void trashBoard(folder).then(() => {
+          void trashBoard(folder).then((done) => {
             const r = getState().route;
+            if (!done) return;
             if (r.name === 'board' && r.path === folder) navigate({ name: 'home' });
           });
         }),
@@ -528,7 +571,24 @@ function TaskBoard({ folder }: { folder: string }) {
               <NewButton what={noun} onClick={() => void createCard(folder, { status: columns[0]?.id, open: true })} />
             </>
           }
-        />
+        >
+          {cardsAre === 'tasks' && (
+            <select
+              className="select gc-select-sm"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value as Priority | 'none' | '')}
+              aria-label="Priority"
+            >
+              <option value="">Any priority</option>
+              {PRIORITIES.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+              <option value="none">No priority</option>
+            </select>
+          )}
+        </ViewBar>
       </div>
       <Kanban
         columns={columns}

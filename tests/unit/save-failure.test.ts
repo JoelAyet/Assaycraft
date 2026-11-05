@@ -7,7 +7,11 @@ import {
   hasPendingWrites,
   openNotebook,
   patchMeta,
+  renameFolder,
+  rescan,
   retryFailedWrites,
+  trashDoc,
+  trashFolder,
   UnsavedChangesError,
 } from '../../src/notebook/actions';
 import { getState } from '../../src/notebook/store';
@@ -19,6 +23,8 @@ class FlakyVault implements Vault {
   readonly name = 'Flaky';
   files = new Map<string, { text: string; m: number }>();
   failing = false;
+  /** Only writes to this file fail (when set). */
+  failOnly: string | null = null;
   writes = 0;
   private clock = 1;
   async list(dir: string): Promise<VaultEntry[]> {
@@ -46,7 +52,7 @@ class FlakyVault implements Vault {
   }
   async write(path: string, data: WriteData) {
     this.writes++;
-    if (this.failing && path.endsWith('.md')) throw new Error('The disk is full');
+    if (this.failing && path.endsWith('.md') && (!this.failOnly || path === this.failOnly)) throw new Error('The disk is full');
     const text = typeof data === 'string' ? data : await new Blob([data as BlobPart]).text();
     this.files.set(path, { text, m: this.clock++ });
   }
@@ -118,5 +124,34 @@ describe('a save that fails', () => {
     expect(getState().vault).not.toBe(null);
     await closeNotebook({ discard: true });
     expect(getState().vault).toBe(null);
+  });
+});
+
+describe('a folder whose entry could not be saved (audit U1)', () => {
+  it('is not renamed or trashed while the change is unsaved, and is once it is saved', async () => {
+    const v = await notebook();
+    v.failing = true;
+    v.failOnly = ENTRY; // the entry's file fails; the renamed folder could be written
+    patchMeta(ENTRY, { status: 'completed' }, 0);
+    expect(await flushWrite(ENTRY)).toBe(false);
+
+    await expect(renameFolder('Projects/Gels', 'Gels 2026')).rejects.toThrow(/could not be saved yet/);
+    expect(await trashFolder('Projects/Gels')).toBe(false);
+    await trashDoc(ENTRY);
+    expect(v.files.has(ENTRY)).toBe(true);
+    expect(getState().docs[ENTRY]?.status).toBe('completed');
+
+    // Re-reading the notebook does not put back what the file said.
+    await rescan();
+    expect(getState().docs[ENTRY]?.status).toBe('completed');
+
+    // Saved now: Saved is true, and the renamed folder has the change.
+    v.failing = false;
+    expect(await retryFailedWrites()).toBe(true);
+    expect(getState().saveState).toBe('saved');
+    const to = await renameFolder('Projects/Gels', 'Gels 2026');
+    const moved = `${to}/EXP-0001 Gel.md`;
+    expect(v.files.get(moved)!.text).toContain('status: completed');
+    expect(getState().docs[moved]?.status).toBe('completed');
   });
 });

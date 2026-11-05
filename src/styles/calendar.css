@@ -1010,3 +1010,112 @@
   border-radius: 50%;
   background: var(--danger);
 }
+
+/* ───────── A week of the calendar in a page (/calendar) ───────── */
+
+.gc-weekblock-wrap {
+  margin: 12px 0;
+}
+.gc-weekblock {
+  /* Its layout follows its own width (a page beside a note, a phone): the days in a column when narrow. */
+  container-type: inline-size;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  overflow: hidden;
+}
+.gc-weekblock.is-loading {
+  padding: 16px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+.gc-weekblock-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+.gc-weekblock-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.gc-weekblock-title svg {
+  width: 15px;
+  height: 15px;
+  color: var(--text-3);
+}
+.gc-weekblock-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.gc-weekblock-day {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  min-height: 96px;
+  padding: 6px 0 8px;
+  border-left: 1px solid var(--border);
+}
+.gc-weekblock-day:first-child {
+  border-left: none;
+}
+.gc-weekblock-day.is-weekend {
+  background: var(--bg-subtle);
+}
+.gc-weekblock-dayhead {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 0 8px 2px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.gc-weekblock-num {
+  font-weight: 600;
+  color: var(--text-2);
+}
+.gc-weekblock-day.is-today .gc-weekblock-num {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+}
+.gc-weekblock .gc-cal-item {
+  flex: none;
+  margin: 0 4px;
+}
+@media (pointer: coarse) {
+  .gc-weekblock .gc-cal-item {
+    height: 32px;
+  }
+}
+/* A day is narrow: the title, not the ID (which is in the tooltip). */
+.gc-weekblock .gc-cal-id {
+  display: none;
+}
+/* Narrow (a phone, a page beside a note): the days one under the other. */
+@container (max-width: 620px) {
+  .gc-weekblock-days {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .gc-weekblock-day {
+    min-height: 0;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  .gc-weekblock-day:first-child {
+    border-top: none;
+  }
+}

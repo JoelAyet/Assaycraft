@@ -131,5 +131,5 @@ test('a new stock takes what is typed right away, even when frames come late', a
   await slowFrames(page);
   await page.locator('.gc-new-main').click();
   await page.keyboard.type('Col-0');
-  await expect(page.locator('.gc-stock-table input[value="Col-0"]')).toHaveCount(1);
+  await expect(page.locator('.gc-stock-table .gc-cell-grow[data-value="Col-0"]')).toHaveCount(1);
 });

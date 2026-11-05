@@ -66,6 +66,8 @@ export interface NotebookState {
   weekStart: WeekStart;
   saveState: SaveState;
   peek: string | null;
+  /** The doc in the side panel is docked beside the page (both in use), not over it: its path. */
+  peekSplit: string | null;
   paletteOpen: boolean;
   /** Phones: the sidebar drawer is open. */
   navOpen: boolean;
@@ -146,6 +148,7 @@ export const useNotebook = create<NotebookState>(() => ({
   weekStart: stored<WeekStart>('assaycraft:weekStart', ['monday', 'sunday'], firstDayOfWeek() === 1 ? 'monday' : 'sunday'),
   saveState: 'idle',
   peek: null,
+  peekSplit: null,
   paletteOpen: false,
   navOpen: false,
 }));
@@ -214,7 +217,11 @@ export function hashToRoute(hash: string): Route {
 }
 
 export function navigate(route: Route, opts: { replace?: boolean } = {}) {
-  setState({ route, peek: route.name === 'doc' ? null : getState().peek, navOpen: false });
+  // Going to a page closes a panel over it; a note docked beside it stays, unless it is that page.
+  const { peek, peekSplit } = getState();
+  const docked = !!peek && peek === peekSplit;
+  const keep = route.name !== 'doc' || (docked && route.path !== peek);
+  setState({ route, peek: keep ? peek : null, peekSplit: keep ? peekSplit : null, navOpen: false });
   const hash = routeToHash(route);
   if (location.hash !== hash) {
     if (opts.replace) history.replaceState(null, '', hash);
