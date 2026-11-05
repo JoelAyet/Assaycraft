@@ -27,7 +27,7 @@ import { ColorPicker, PriorityPill, TagPill } from './status';
 import { openNewEntryDialog } from './NewEntryDialog';
 import { entryMenu } from './Sidebar';
 import { dirname, join } from '../lib/path';
-import { localDate, LOCALE } from '../lib/dates';
+import { formatTimeRange, localDate, LOCALE } from '../lib/dates';
 import { FilterField, NewButton, PageHead, PhoneBar, ViewBar } from './PageHeader';
 import { entriesById, flowProgress } from '../flow/model';
 
@@ -633,6 +633,7 @@ function TaskBoard({ folder }: { folder: string }) {
                 {due && (
                   <span className={`gc-due tone-text-${due.tone}`}>
                     <CalendarClock /> {due.label}
+                    {d.time && ` · ${formatTimeRange(d.time, d.endTime)}`}
                   </span>
                 )}
                 {d.tasks && (

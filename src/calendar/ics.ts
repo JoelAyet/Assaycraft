@@ -99,7 +99,8 @@ export function notebookCalendar(docs: Record<string, DocMeta>, opts: FeedOption
     // The last change of the page, so the file only changes when the plan does.
     const changed = Date.parse(d.modified ?? d.created ?? '');
     lines.push(`DTSTAMP:${utcOf(new Date(Number.isFinite(changed) ? changed : 0))}`);
-    const time = d.kind === 'entry' ? d.time : undefined;
+    // Entries and tasks at their time, when they have one.
+    const time = d.time;
     if (time) {
       lines.push(`DTSTART:${utcStamp(span.start, time)}`);
       const endTime = d.endTime;

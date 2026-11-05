@@ -529,6 +529,28 @@ export function CardProps({ meta, readOnly }: { meta: DocMeta; readOnly: boolean
           <DateField value={meta.due} min={meta.start} onChange={(due) => patchMeta(p, { due })} disabled={readOnly} placeholder="Due date" />
         </Prop>
       )}
+      {/* A task can have a time: it then sits at its hours in the calendar's week. */}
+      {isTask && (
+        <Prop label="Time">
+          {readOnly && !meta.time ? (
+            <span className="gc-prop-text muted">—</span>
+          ) : (
+            <TimeField value={meta.time} onChange={(time) => patchMeta(p, { time, ...(time ? {} : { endTime: undefined }) })} disabled={readOnly} />
+          )}
+          {(meta.time || meta.endTime) && (
+            <>
+              <span className="gc-prop-sep">→</span>
+              <TimeField
+                value={meta.endTime}
+                after={meta.start && meta.due && meta.start !== meta.due ? undefined : meta.time}
+                onChange={(endTime) => patchMeta(p, { endTime })}
+                disabled={readOnly}
+                placeholder="End time"
+              />
+            </>
+          )}
+        </Prop>
+      )}
       <Prop label="Tags">
         <TagInput tags={meta.tags} onChange={(tags) => patchMeta(p, { tags })} disabled={readOnly} />
       </Prop>

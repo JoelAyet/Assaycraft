@@ -664,6 +664,32 @@ export async function updateReminder(stalePath: string, index: number, change: {
   );
 }
 
+/** The column each task was in when it was ticked done here, to go back to if it is unticked. */
+const beforeDone = new Map<string, string>();
+
+/**
+ * Tick a task done (it moves to its board's last column) or not (back to the column it was in, or
+ * the first).
+ */
+export function setTaskDone(stalePath: string, done: boolean) {
+  const path = currentPath(stalePath);
+  const { docs } = getState();
+  const card = docs[path];
+  const columns = docs[join(dirname(path), LAYOUT.boardFile)]?.columns ?? [];
+  if (!card || !columns.length) return;
+  const last = columns[columns.length - 1].id;
+  if (done) {
+    if (card.status === last) return;
+    if (card.status) beforeDone.set(path, card.status);
+    patchMeta(path, { status: last }, 200);
+  } else {
+    if (card.status !== last) return;
+    const back = beforeDone.get(path);
+    beforeDone.delete(path);
+    patchMeta(path, { status: back && back !== last && columns.some((c) => c.id === back) ? back : columns[0].id }, 200);
+  }
+}
+
 /** Update metadata in the store immediately and save it shortly after. */
 export function patchMeta(stalePath: string, patch: Partial<DocMeta>, delay = 500) {
   const path = currentPath(stalePath);
@@ -1348,6 +1374,8 @@ export interface NewCardOptions {
   order?: number;
   due?: string;
   start?: string;
+  /** Tasks: a start time (HH:MM) on the day it is due. */
+  time?: string;
   links?: string[];
   open?: boolean;
 }
@@ -1373,6 +1401,7 @@ export async function createCard(boardFolder: string, opts: NewCardOptions = {})
       order,
       due: opts.due,
       start: opts.start,
+      time: timeOfDay(opts.time),
       links: opts.links ?? [],
       tags: [],
       created: now,

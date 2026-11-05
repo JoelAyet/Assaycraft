@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import { create } from 'zustand';
 import {
   BellRing,
@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { getState, navigate, setState, toast, useNotebook, weekStartDay } from '../notebook/store';
 import { boardCards, docSpan, isTask, LAYOUT, toYmd, type ColorName, type DocMeta } from '../notebook/model';
-import { createCard, patchMeta, projectOf, saveConfig, updateFlowStepDate, updateReminder } from '../notebook/actions';
+import { createCard, patchMeta, projectOf, saveConfig, setTaskDone, updateFlowStepDate, updateReminder } from '../notebook/actions';
 import type { Reminder } from '../reminders/model';
 import { Popover, usePopover } from './overlay';
 import { openNewEntryDialog } from './NewEntryDialog';
@@ -98,8 +98,9 @@ function docItem(d: DocMeta, span: { start: string; end: string }, color: ColorN
     id: entry ? d.id || undefined : undefined,
     title: d.title,
     ...span,
-    time: entry ? d.time : undefined,
-    endTime: entry ? d.endTime : undefined,
+    // A task's time is on the day it starts (its due day when it has no start).
+    time: d.time,
+    endTime: d.endTime,
     color,
     done,
     where: projectOf(d.path) || undefined,
@@ -288,8 +289,12 @@ function reschedule(item: CalItem, delta: number) {
   }
 }
 
-/** Check a reminder off (or not), in its page's checklist. */
+/** A box to tick it off: tasks, and reminders written as a checklist item. */
+const checkable = (item: CalItem) => (item.kind === 'card' && !!item.doc) || (item.kind === 'reminder' && !!item.reminder?.checkable);
+
+/** Tick a task done (to its board's last column) or a reminder (in its page's checklist), or not. */
 function tick(item: CalItem, done: boolean) {
+  if (item.kind === 'card' && item.doc) return setTaskDone(item.doc.path, done);
   if (!item.doc || !item.reminder) return;
   void updateReminder(item.doc.path, item.reminder.index, { done }).catch((err: Error) =>
     toast(`Could not check the reminder off: ${err.message}`, 'error'),
@@ -330,8 +335,8 @@ const hhmm = (min: number) => {
 };
 
 /**
- * Move something to a day and a time, or to the day as a whole (time null). Entries keep their
- * length; tasks and planned steps have a day only.
+ * Move something to a day and a time, or to the day as a whole (time null). Entries and tasks keep
+ * their length; planned steps have a day only.
  */
 function retime(item: CalItem, day: string, time: string | null) {
   const doc = item.doc;
@@ -349,6 +354,19 @@ function retime(item: CalItem, day: string, time: string | null) {
       {
         date: day,
         end: doc.end ? addDays(doc.end, delta) : undefined,
+        time: time ?? undefined,
+        endTime: time === null ? undefined : length > 0 ? hhmm(minutesOf(time) + length) : oneDay ? undefined : doc.endTime,
+      },
+      200,
+    );
+  } else if (item.kind === 'card') {
+    const oneDay = item.start === item.end;
+    const length = oneDay && doc.time && doc.endTime ? minutesOf(doc.endTime) - minutesOf(doc.time) : 0;
+    patchMeta(
+      doc.path,
+      {
+        start: doc.start ? addDays(doc.start, delta) : undefined,
+        due: doc.due ? addDays(doc.due, delta) : undefined,
         time: time ?? undefined,
         endTime: time === null ? undefined : length > 0 ? hhmm(minutesOf(time) + length) : oneDay ? undefined : doc.endTime,
       },
@@ -372,10 +390,10 @@ function dropOnDay(e: DragEvent, day: string, items: CalItem[], allDay = false) 
 }
 
 /** An item's icon, time (in full, or short on a month's chip), ID and title. */
-function ItemLabel({ item, time = 'full' }: { item: CalItem; time?: 'full' | 'short' | false }) {
+function ItemLabel({ item, time = 'full', icon = true }: { item: CalItem; time?: 'full' | 'short' | false; icon?: boolean }) {
   return (
     <>
-      {item.kind === 'card' ? (
+      {!icon ? null : item.kind === 'card' ? (
         <CheckSquare />
       ) : item.kind === 'event' ? (
         <CalendarDays />
@@ -427,7 +445,7 @@ function NewOnDay({ day, time, anchor, onClose }: { day: string; time?: string; 
           className="menu-item"
           onClick={() => {
             onClose();
-            void createCard(dirname(b.path), { due: day, open: true });
+            void createCard(dirname(b.path), { due: day, time, open: true });
           }}
         >
           <ListTodo /> New task in {b.title}
@@ -495,8 +513,8 @@ function CalBar({
     }
     startDrag(e, item, grab);
   };
-  // A reminder: a box to check it off, and its words to open its page.
-  if (item.kind === 'reminder')
+  // A reminder or a task: a box to tick it off, and its words to open it.
+  if (item.kind === 'reminder' || item.kind === 'card')
     return (
       <div
         className={`${className} has-check`}
@@ -506,7 +524,7 @@ function CalBar({
         title={itemTitle(item)}
         onDragStart={onDragStart}
       >
-        {item.reminder?.checkable && (
+        {checkable(item) && (
           <input
             type="checkbox"
             className="gc-cal-check"
@@ -525,7 +543,7 @@ function CalBar({
             open(item, e.currentTarget);
           }}
         >
-          <ItemLabel item={item} time={item.start >= ws && (week ? 'full' : 'short')} />
+          <ItemLabel item={item} time={item.start >= ws && (week ? 'full' : 'short')} icon={item.kind !== 'card'} />
         </button>
       </div>
     );
@@ -993,7 +1011,7 @@ function TimedEvent({ t }: { t: Timed }) {
     width: `calc(${100 / t.cols}% - 4px)`,
   };
   const movable = !!item.doc;
-  const resizable = movable && item.kind === 'entry';
+  const resizable = movable && (item.kind === 'entry' || item.kind === 'card');
   const short = height < 40;
   const clampLength = (m: number) => Math.max(SNAP, Math.min(LAST_END - from, m));
   const setEnd = (m: number) => {
@@ -1015,7 +1033,7 @@ function TimedEvent({ t }: { t: Timed }) {
       }}
       onDragEnd={() => (dragging = null)}
     >
-      {item.kind === 'reminder' && item.reminder?.checkable && (
+      {checkable(item) && (
         <input
           type="checkbox"
           className="gc-cal-check"
@@ -1091,9 +1109,9 @@ function AgendaRow({ item, day }: { item: CalItem; day?: string }) {
   const time = !day || day === item.start ? formatTimeRange(item.time, item.end === item.start ? item.endTime : undefined) : '';
   const inner = (
     <>
-      {item.kind !== 'reminder' && <span className={`gc-status-dot tone-${item.color}`} />}
+      {item.kind !== 'reminder' && item.kind !== 'card' && <span className={`gc-status-dot tone-${item.color}`} />}
       {time && <span className="gc-agenda-time">{time}</span>}
-      <ItemLabel item={item} time={false} />
+      <ItemLabel item={item} time={false} icon={item.kind !== 'card'} />
       {day && item.start !== item.end && (
         <span className="muted gc-agenda-span">
           {item.start === day ? 'starts' : item.end === day ? (item.endTime ? `until ${formatTime(item.endTime)}` : 'ends') : 'continues'}
@@ -1102,10 +1120,10 @@ function AgendaRow({ item, day }: { item: CalItem; day?: string }) {
       {item.where && <span className="muted gc-agenda-proj">{item.where}</span>}
     </>
   );
-  if (item.kind === 'reminder')
+  if (item.kind === 'reminder' || item.kind === 'card')
     return (
-      <div className={`gc-agenda-item gc-agenda-reminder is-reminder ${item.done ? 'is-done' : ''}`}>
-        {item.reminder?.checkable ? (
+      <div className={`gc-agenda-item gc-agenda-reminder is-${item.kind === 'card' ? 'task' : 'reminder'} ${item.done ? 'is-done' : ''}`}>
+        {checkable(item) ? (
           <input
             type="checkbox"
             className="gc-cal-check"
@@ -1265,6 +1283,72 @@ const VIEW_KEY = 'assaycraft:calendarView';
 const COLOR_KEY = 'assaycraft:calendarColor';
 
 /** The month of a week ("October 2026"), or both ("Sep – Oct 2026"); its days head the columns. */
+/** Whether something from `target` up to `root` scrolls sideways that way itself (a week wider than the window). */
+function scrollsSideways(target: EventTarget | null, root: HTMLElement, dx: number): boolean {
+  for (let el = target instanceof Element ? target : null; el; el = el === root ? null : el.parentElement) {
+    if (el.scrollWidth <= el.clientWidth + 1) continue;
+    const ox = getComputedStyle(el).overflowX;
+    if (ox !== 'auto' && ox !== 'scroll') continue;
+    if (dx > 0 ? el.scrollLeft + el.clientWidth < el.scrollWidth - 1 : el.scrollLeft > 0) return true;
+  }
+  return false;
+}
+
+/**
+ * A sideways swipe moves the calendar on: two fingers on a trackpad (one move per swipe, however
+ * long it glides on), or a finger on a touch screen. Left goes to the next month or week, right to
+ * the one before. The browser's own back and forward swipe is not taken here.
+ */
+export function useSwipe(ref: RefObject<HTMLElement | null>, enabled: boolean, onSwipe: (dir: 1 | -1) => void) {
+  const cb = useRef(onSwipe);
+  cb.current = onSwipe;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !enabled) return;
+    let sum = 0;
+    let fired = false;
+    let quiet: ReturnType<typeof setTimeout> | undefined;
+    const onWheel = (e: WheelEvent) => {
+      // Up and down scrolls, and pinching (Ctrl + wheel) zooms, as always.
+      if (e.ctrlKey || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      if (scrollsSideways(e.target, el, e.deltaX)) return;
+      e.preventDefault();
+      // The swipe ends when the wheel has been still for a moment (its glide included).
+      clearTimeout(quiet);
+      quiet = setTimeout(() => {
+        sum = 0;
+        fired = false;
+      }, 220);
+      if (fired) return;
+      sum += e.deltaMode === 1 ? e.deltaX * 16 : e.deltaX;
+      if (Math.abs(sum) < 60) return;
+      fired = true;
+      cb.current(sum > 0 ? 1 : -1);
+    };
+    let start: { x: number; y: number } | null = null;
+    const onTouchStart = (e: TouchEvent) => {
+      start = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (!start) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      start = null;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) cb.current(dx < 0 ? 1 : -1);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      clearTimeout(quiet);
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [ref, enabled]);
+}
+
 function weekTitle(ws: string): string {
   const a = parseYmd(ws);
   const b = parseYmd(addDays(ws, 6));
@@ -1339,6 +1423,9 @@ export function CalendarPage() {
   };
   const docs = useNotebook((s) => s.docs);
   const taskBoards = useMemo(() => Object.values(docs).filter((d) => d.kind === 'board' && boardCards(d) === 'tasks'), [docs]);
+  // A sideways swipe over the month or the week goes to the next or previous one.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useSwipe(bodyRef, view !== 'agenda', shift);
 
   return (
     <div className="gc-page gc-calendar-page">
@@ -1389,10 +1476,20 @@ export function CalendarPage() {
               <button className="btn btn-sm" disabled={atToday} onClick={() => setCursor(localDate())}>
                 Today
               </button>
-              <button className="icon-btn" title={`Previous ${unit}`} aria-label={`Previous ${unit}`} onClick={() => shift(-1)}>
+              <button
+                className="icon-btn"
+                title={`Previous ${unit} (or swipe right with two fingers)`}
+                aria-label={`Previous ${unit}`}
+                onClick={() => shift(-1)}
+              >
                 <ChevronLeft />
               </button>
-              <button className="icon-btn" title={`Next ${unit}`} aria-label={`Next ${unit}`} onClick={() => shift(1)}>
+              <button
+                className="icon-btn"
+                title={`Next ${unit} (or swipe left with two fingers)`}
+                aria-label={`Next ${unit}`}
+                onClick={() => shift(1)}
+              >
                 <ChevronRight />
               </button>
             </span>
@@ -1401,7 +1498,7 @@ export function CalendarPage() {
         {colorBy === 'project' && <ProjectLegend items={notebookItems} />}
       </div>
       <EventPeek />
-      <div className="gc-calendar-body">
+      <div className="gc-calendar-body" ref={bodyRef}>
         {view === 'month' ? (
           <MonthView key={`${ymd(month)}-${weekStart}`} month={month} items={items} weekStart={weekStart} />
         ) : view === 'week' ? (
@@ -1431,8 +1528,10 @@ export function WeekCalendar({ week, onWeek }: { week: string; onWeek: (day: str
     [notebookItems, otherItems, ws, we],
   );
   const thisWeek = startOfWeek(today, weekStart);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useSwipe(rootRef, true, (dir) => onWeek(addDays(ws, 7 * dir)));
   return (
-    <div className="gc-weekblock">
+    <div className="gc-weekblock" ref={rootRef}>
       <div className="gc-weekblock-head">
         <span className="gc-weekblock-title">
           <CalendarRange aria-hidden="true" /> {weekTitle(ws)}
@@ -1474,16 +1573,29 @@ export function WeekCalendar({ week, onWeek }: { week: string; onWeek: (day: str
                 <span className="gc-weekblock-wd">{d.toLocaleDateString(LOCALE, { weekday: 'short' })}</span>
                 <span className="gc-weekblock-num">{d.getDate()}</span>
               </header>
-              {list.map((item) => (
-                <button
-                  key={item.key}
-                  className={`gc-cal-item tone-${item.color} ${item.done ? 'is-done' : ''} is-${item.kind === 'card' ? 'task' : item.kind}`}
-                  title={itemTitle(item)}
-                  onClick={(e) => open(item, e.currentTarget)}
-                >
-                  <ItemLabel item={item} time={day === item.start ? 'short' : false} />
-                </button>
-              ))}
+              {list.map((item) => {
+                const className = `gc-cal-item tone-${item.color} ${item.done ? 'is-done' : ''} is-${item.kind === 'card' ? 'task' : item.kind}`;
+                const time = day === item.start ? ('short' as const) : false;
+                // Tasks and checklist reminders are ticked off here too.
+                return checkable(item) ? (
+                  <div key={item.key} className={`${className} has-check`} title={itemTitle(item)}>
+                    <input
+                      type="checkbox"
+                      className="gc-cal-check"
+                      checked={item.done}
+                      aria-label={`Done: ${item.title}`}
+                      onChange={(e) => tick(item, e.target.checked)}
+                    />
+                    <button className="gc-cal-open" onClick={(e) => open(item, e.currentTarget)}>
+                      <ItemLabel item={item} time={time} icon={item.kind !== 'card'} />
+                    </button>
+                  </div>
+                ) : (
+                  <button key={item.key} className={className} title={itemTitle(item)} onClick={(e) => open(item, e.currentTarget)}>
+                    <ItemLabel item={item} time={time} />
+                  </button>
+                );
+              })}
             </section>
           );
         })}
