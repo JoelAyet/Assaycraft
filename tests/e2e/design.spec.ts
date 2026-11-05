@@ -980,6 +980,12 @@ for (const s of SETUPS) {
       if (s.phone) await nav('Experiments');
       await page.locator('.gc-card.is-failed').scrollIntoViewIfNeeded();
       await check('Experiments board with a failed experiment');
+      // The week again, with the experiment done (failed): gray and struck through, still readable.
+      await page.locator('.gc-card.is-failed .gc-card-title').click();
+      await page.locator('.gc-weekblock').getByRole('button', { name: 'This week' }).click();
+      await page.locator('.gc-weekblock').scrollIntoViewIfNeeded();
+      await expect(page.locator('.gc-weekblock .gc-cal-item.is-done')).toHaveCount(1);
+      await check('Week with a failed experiment');
       expect(problems).toEqual({});
       expect(errors).toEqual([]);
     });

@@ -196,8 +196,12 @@
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
+/* Done: gray and struck through, not faded (faded text loses its contrast). */
 .gc-cal-item.is-done {
-  opacity: 0.6;
+  color: var(--text-2);
+}
+.gc-cal-item.is-done:not(.is-task):not(.is-event) {
+  background: var(--bg-muted);
 }
 .gc-cal-item.is-done .gc-cal-title {
   text-decoration: line-through;
@@ -930,7 +934,10 @@
     var(--shadow);
 }
 .gc-tevent.is-done {
-  opacity: 0.6;
+  color: var(--text-2);
+}
+.gc-tevent.is-done:not(.is-task):not(.is-event):not(.is-step) {
+  background: var(--bg-muted);
 }
 .gc-tevent.is-done .gc-tevent-title {
   text-decoration: line-through;
@@ -1090,7 +1097,7 @@
   padding: 0 4px;
   border-radius: 10px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .gc-weekblock .gc-cal-item {
   flex: none;
