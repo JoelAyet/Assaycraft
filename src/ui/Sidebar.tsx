@@ -436,7 +436,7 @@ async function switchNotebook() {
     const discard = await confirmDialog({
       title: 'Some changes are not saved',
       message:
-        'The last changes to some pages could not be saved, and Assaycraft is still trying. If you switch notebook now, they are lost. Export the notebook (.zip) or copy them elsewhere first, or wait and try again.',
+        'The last changes to some pages could not be saved, and Assaycraft is still trying. If you switch notebook now, they are lost. Export the notebook (.zip) first: the export has them. Or wait and try again.',
       confirmLabel: 'Switch and lose them',
       danger: true,
     });

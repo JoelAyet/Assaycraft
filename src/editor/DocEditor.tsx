@@ -19,6 +19,8 @@ import { normalizeSheet } from '../sheet/model';
 import { dirname, extname, isRelativeFileLink, resolveLink, splitFragment, stem } from '../lib/path';
 import { CodeBlockView } from './CodeBlockView';
 import { adoptPastedFiles, markCopiedFiles, resolvePastedFiles } from './clipboardFiles';
+import { cleanOfficeHtml, pasteAsFiles } from './officePaste';
+import { CalendarWeekView } from '../calendar/CalendarWeekView';
 import { pickFiles } from '../lib/download';
 import { readDoc, registerOpenDoc, saveBody, setLoadedBody, takeQuietReload, touchDoc } from '../notebook/actions';
 import { getState, navigate, toast, useNotebook } from '../notebook/store';
@@ -46,6 +48,7 @@ function buildExtensions(placeholder: string, commands: () => ReturnType<typeof 
       attachment: () => ReactNodeViewRenderer(AttachmentView),
       image: () => ReactNodeViewRenderer(ImageView),
       include: () => ReactNodeViewRenderer(IncludeView),
+      calendarWeek: () => ReactNodeViewRenderer(CalendarWeekView),
       rawBlock: () => ReactNodeViewRenderer(RawView),
       reminder: () => ReactNodeViewRenderer(ReminderView, { as: 'span' }),
     }),
@@ -152,6 +155,7 @@ export function DocEditor({ path, meta, initialBody, readOnly, placeholder, comp
       attributes: { class: `gc-prose ${compact ? 'is-compact' : ''}`, spellcheck: 'true' },
       // Files in copied blocks follow them into another entry (see clipboardFiles).
       transformCopied: (slice) => markCopiedFiles(slice, ctxRef.current),
+      transformPastedHTML: (html) => cleanOfficeHtml(html),
       transformPasted: (slice, view) => {
         const ctx = ctxRef.current;
         const { slice: out, copies } = resolvePastedFiles(slice, ctx);
@@ -185,7 +189,7 @@ export function DocEditor({ path, meta, initialBody, readOnly, placeholder, comp
         const html = cd.getData('text/html');
         const text = cd.getData('text/plain');
         const files = Array.from(cd.files ?? []);
-        if (files.length && !/<table/i.test(html)) {
+        if (pasteAsFiles(files.length, html, text)) {
           event.preventDefault();
           void insertFiles(editorRef.current, files, ctxRef.current);
           return true;

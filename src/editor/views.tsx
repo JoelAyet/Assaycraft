@@ -1,3 +1,4 @@
+import { openFileSafely } from '../lib/openFile';
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from '@tiptap/react';
 import { generateHTML } from '@tiptap/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -207,7 +208,13 @@ export function ImageView({ node, updateAttributes, selected, editor, deleteNode
               draggable={false}
               onError={() => setBroken(true)}
               onLoad={(e) => setAspect(e.currentTarget.naturalWidth / (e.currentTarget.naturalHeight || 1))}
-              onDoubleClick={() => !drawing && shownUrl && window.open(shownUrl, '_blank')}
+              onDoubleClick={() => {
+                if (drawing || !shownUrl) return;
+                // A picture made here (of a TIFF or HEIC) is safe to open; the notebook's own file is opened safely.
+                if (!path) window.open(shownUrl, '_blank', 'noopener');
+                else if ((tiff || heic) && shownUrl !== fileUrl) window.open(shownUrl, '_blank', 'noopener');
+                else if (blob) void openFileSafely(blob, name);
+              }}
             />
             {drawing && aspect ? (
               <AnnotationEditor
@@ -454,7 +461,7 @@ export function AttachmentView({ node, selected, editor, deleteNode, getPos, upd
   }, [preview, ext, blob]);
 
   const menu: MenuItemSpec[] = [
-    ...(url ? [{ label: 'Open in new tab', icon: <Eye />, onSelect: () => window.open(url, '_blank') }] : []),
+    ...(blob ? [{ label: 'Open in new tab', icon: <Eye />, onSelect: () => void openFileSafely(blob, name) }] : []),
     ...(path
       ? [
           {

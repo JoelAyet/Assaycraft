@@ -1156,6 +1156,8 @@ mark[data-color='gray'] {
 .gc-prose sub,
 .gc-prose sup {
   font-size: 0.75em;
+  /* A line with H₂O is as tall as the others. */
+  line-height: 0;
 }
 .gc-prose .raw-inline {
   font-family: var(--mono);
@@ -1202,6 +1204,41 @@ mark[data-color='gray'] {
   margin: 0;
   max-width: 100%;
 }
+/*
+ * Pictures one after another sit side by side: two to a row, three when there are three or more
+ * (two on a phone). Each keeps its own size (S, M, L) within its place.
+ */
+.gc-prose > .node-image:has(+ .node-image),
+.gc-prose > .node-image + .node-image {
+  --row-gap: 12px;
+  display: inline-block;
+  vertical-align: top;
+  width: calc((100% - 2 * var(--row-gap)) / 2 - 0.5px);
+  margin-right: var(--row-gap);
+}
+/* The same space above each (the first of a page's blocks too), so their tops line up, row by row. */
+.gc-prose > .node-image:has(+ .node-image),
+.gc-prose > .node-image + .node-image {
+  margin-top: 0.55em;
+}
+.gc-prose > .node-image:has(+ .node-image + .node-image),
+.gc-prose > .node-image + .node-image:has(+ .node-image),
+.gc-prose > .node-image + .node-image + .node-image {
+  width: calc((100% - 3 * var(--row-gap)) / 3 - 0.5px);
+}
+@media (max-width: 760px) {
+  .gc-prose > .node-image + .node-image:has(+ .node-image),
+  .gc-prose > .node-image:has(+ .node-image + .node-image),
+  .gc-prose > .node-image + .node-image + .node-image {
+    width: calc((100% - 2 * var(--row-gap)) / 2 - 0.5px);
+  }
+}
+.gc-prose > .node-image:has(+ .node-image) .gc-image-tools,
+.gc-prose > .node-image + .node-image .gc-image-tools {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: calc(100% - 16px);
+}
 .gc-image img {
   display: block;
   max-width: 100%;
@@ -1215,6 +1252,8 @@ mark[data-color='gray'] {
   outline-offset: 2px;
 }
 .gc-caption {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   margin-top: 6px;
@@ -1236,7 +1275,7 @@ mark[data-color='gray'] {
   gap: 2px;
   padding: 3px;
   border-radius: var(--radius);
-  background: rgba(20, 22, 26, 0.72);
+  background: rgba(20, 22, 26, 0.78);
   opacity: 0;
   transition: opacity 0.12s;
 }
@@ -1262,7 +1301,10 @@ mark[data-color='gray'] {
 }
 .gc-chip-btn:hover,
 .gc-chip-btn.active {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.16);
+}
+.gc-chip-btn.active {
+  font-weight: 650;
 }
 .gc-chip-btn svg {
   width: 14px;
@@ -1282,6 +1324,9 @@ mark[data-color='gray'] {
 }
 /* TIFF size, depth and pages, under the picture. */
 .gc-image-meta {
+  /* Above the picture's tools, which can reach down to it under a small picture in a row. */
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2035,6 +2080,26 @@ body.is-marquee * {
 .gc-doc-index-item.lvl-2 {
   padding-left: 32px;
   font-size: 12.5px;
+}
+.gc-doc-index-item.is-recent {
+  align-items: center;
+}
+.gc-doc-index-icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--text-3);
+}
+.gc-doc-index-new {
+  align-items: center;
+  margin-bottom: 2px;
+  color: var(--accent-text, var(--accent));
+  font-weight: 560;
+}
+.gc-doc-index-new svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
 }
 .gc-doc-index-id {
   flex: none;

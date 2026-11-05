@@ -707,6 +707,12 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
 
   // Selection / fill rectangles are drawn as overlays measured from the cells.
   const [boxes, setBoxes] = useState<{ sel: DOMRectLike | null; fill: DOMRectLike | null }>({ sel: null, fill: null });
+  /**
+   * Measurements in a row before the screen is drawn. Drawing a box can move what it is measured
+   * from (a frozen column that sticks, a scroll bar that appears), so the measuring could go on
+   * forever: after a few in a row, the next waits for the next frame.
+   */
+  const measuring = useRef({ count: 0, frame: 0 });
   useLayoutEffect(() => {
     const root = containerRef.current;
     const measure = (r: Rect | null): DOMRectLike | null => {
@@ -726,8 +732,20 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
     };
     const showSelNow = active || !!editing;
     const next = { sel: showSelNow ? measure(rect) : null, fill: measure(fillRect) };
-    setBoxes((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+    const apply = () => setBoxes((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+    const m = measuring.current;
+    if (JSON.stringify(boxes) === JSON.stringify(next)) {
+      m.count = 0;
+      return;
+    }
+    if (++m.count <= 3) return apply();
+    cancelAnimationFrame(m.frame);
+    m.frame = requestAnimationFrame(() => {
+      m.count = 0;
+      apply();
+    });
   });
+  useEffect(() => () => cancelAnimationFrame(measuring.current.frame), []);
 
   const focusRaw = sel ? (data.rows[sel.f.r]?.[sel.f.c] ?? '') : '';
   const barValue = editing ? editing.value : focusRaw;

@@ -1,4 +1,5 @@
 import type { Editor, JSONContent } from '@tiptap/core';
+import { NodeSelection } from '@tiptap/pm/state';
 
 /**
  * Where toolbar/menu insertions should go when the text cursor is not active, e.g. right after
@@ -33,9 +34,12 @@ export function insertionPoint(editor: Editor): number | undefined {
   return undefined;
 }
 
-/** Insert blocks at the right place and leave the cursor after them. */
+/**
+ * Insert blocks at the right place and leave the cursor after them. A block that is selected (the
+ * picture just added, a table clicked) stays: what is inserted goes after it, not in its place.
+ */
 export function insertBlocks(editor: Editor, content: JSONContent | JSONContent[]) {
-  const at = insertionPoint(editor);
+  const at = insertionPoint(editor) ?? (editor.state.selection instanceof NodeSelection ? editor.state.selection.to : undefined);
   points.delete(editor);
   if (at !== undefined) return editor.chain().insertContentAt(at, content).focus().scrollIntoView().run();
   return editor.chain().focus().insertContent(content).scrollIntoView().run();

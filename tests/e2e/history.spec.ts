@@ -15,8 +15,7 @@ const dialog = (page: Page) => page.locator('.gc-history-dialog');
 const items = (page: Page) => dialog(page).locator('.gc-history-item');
 
 async function openHistory(page: Page) {
-  await page.getByTitle('More actions').click();
-  await page.getByRole('menuitem', { name: 'Version history…' }).click();
+  await page.getByRole('button', { name: 'Version history' }).click();
   await expect(dialog(page)).toBeVisible();
   await expect(dialog(page).getByText('Loading versions…')).toHaveCount(0);
 }

@@ -152,18 +152,72 @@
   color: var(--text);
   text-overflow: ellipsis;
 }
-.gc-stock-table td input.mono {
+/*
+ * A cell's text wraps: the field and a hidden copy of its text share one grid cell, and the copy
+ * sets the height. Two lines at most, more (with a scroll bar) while it is being edited.
+ */
+.gc-cell-grow {
+  display: grid;
+  --cell-pad: 9px;
+  --cell-lines: 2;
+  /* The space under the text is the cell's, not the field's: a third line is not half shown in it. */
+  --pad-under: 0px;
+  padding-bottom: var(--cell-pad);
+  cursor: text;
+}
+.gc-cell-grow:focus-within {
+  --cell-lines: 8;
+  --pad-under: var(--cell-pad);
+  padding-bottom: 0;
+}
+.gc-cell-grow::after,
+.gc-cell-grow > textarea {
+  grid-area: 1 / 1;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: calc(20px + var(--cell-pad) + var(--pad-under));
+  max-height: calc(var(--cell-lines) * 20px + var(--cell-pad) + var(--pad-under));
+  margin: 0;
+  padding: var(--cell-pad) 10px var(--pad-under);
+  border: none;
+  font: inherit;
+  line-height: 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.gc-cell-grow::after {
+  content: attr(data-value) ' ';
+  visibility: hidden;
+  overflow: hidden;
+}
+.gc-cell-grow > textarea {
+  display: block;
+  resize: none;
+  overflow: hidden;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+}
+.gc-cell-grow:focus-within > textarea {
+  overflow-y: auto;
+}
+.gc-cell-grow.is-mono::after,
+.gc-cell-grow > textarea.mono {
   font-family: var(--mono);
   font-size: 12.5px;
   letter-spacing: 0.02em;
+  word-break: break-all;
 }
-.gc-stock-table td input:focus {
+.gc-stock-table td input:focus,
+.gc-cell-grow > textarea:focus {
   outline: none;
   box-shadow: inset 0 0 0 2px var(--accent);
   background: var(--panel);
   text-overflow: clip;
 }
-.gc-stock-table .col-name input {
+.gc-stock-table .col-name input,
+.gc-stock-table .col-name .gc-cell-grow::after,
+.gc-stock-table .col-name textarea {
   font-weight: 560;
 }
 .gc-stock-table td.col-computed {
@@ -531,6 +585,13 @@
   }
   .gc-stock-table td input {
     height: 44px;
+  }
+  .gc-cell-grow {
+    --cell-pad: 12px;
+  }
+  .gc-cell-grow::after,
+  .gc-cell-grow > textarea {
+    min-height: calc(20px + var(--cell-pad) + var(--pad-under));
   }
 }
 

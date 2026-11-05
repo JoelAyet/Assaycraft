@@ -271,6 +271,29 @@ export const ImageBlock = Node.create({
   },
 });
 
+// ───────────── A week of the calendar (/calendar) ─────────────
+
+/** `week`: a day of the week shown (the day it was put in, or moved to). */
+export const CalendarWeek = Node.create({
+  name: 'calendarWeek',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+  addAttributes() {
+    return { week: { default: null } };
+  },
+  parseHTML() {
+    return [{ tag: 'div[data-calendar-week]', getAttrs: (el) => ({ week: (el as HTMLElement).getAttribute('data-calendar-week') || null }) }];
+  },
+  renderHTML({ node }) {
+    return ['div', { 'data-calendar-week': node.attrs.week ?? '' }, `Calendar, week of ${node.attrs.week ?? ''}`];
+  },
+  renderText({ node }) {
+    return `[Calendar: week of ${node.attrs.week ?? ''}]`;
+  },
+});
+
 // ───────────── Sub-template reference (only meaningful inside templates) ─────────────
 
 export const Include = Node.create({
@@ -385,6 +408,8 @@ const oneOf = <T extends string>(list: readonly T[], v: unknown): T | null => ((
 export const ColorHighlight = Mark.create({
   name: 'highlight',
   excludes: 'highlight',
+  // Outside the other marks: one straight band over H₂O, not a lowered piece under the ₂.
+  priority: 110,
   addAttributes() {
     return {
       color: {
@@ -476,7 +501,8 @@ export const Reminder = Node.create({
   },
 });
 
-export type NodeViewKey = 'codeBlock' | 'spreadsheet' | 'buffer' | 'plate' | 'flow' | 'attachment' | 'image' | 'include' | 'rawBlock' | 'reminder';
+export type NodeViewKey =
+  'codeBlock' | 'spreadsheet' | 'buffer' | 'plate' | 'flow' | 'attachment' | 'image' | 'include' | 'rawBlock' | 'reminder' | 'calendarWeek';
 export type NodeViews = Partial<Record<NodeViewKey, () => NodeViewRenderer>>;
 
 /** Extensions that define the document schema. Node views (UI) can be attached by the editor. */
@@ -515,6 +541,7 @@ export function schemaExtensions(views: NodeViews = {}): Extensions {
     v(Attachment, 'attachment'),
     v(ImageBlock, 'image'),
     v(Include, 'include'),
+    v(CalendarWeek, 'calendarWeek'),
     v(RawBlock, 'rawBlock'),
     RawInline,
     v(Reminder, 'reminder'),

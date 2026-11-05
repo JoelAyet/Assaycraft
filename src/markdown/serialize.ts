@@ -203,6 +203,10 @@ const nodes: Record<string, NodeFn> = {
     state.write(`[${escLinkText(name || src.split('/').pop() || 'file')}](${linkDest(src)})`);
     state.closeBlock(node);
   },
+  calendarWeek(state, node) {
+    state.write(`<!-- gc:calendar ${commentJson({ week: node.attrs.week })} -->`);
+    state.closeBlock(node);
+  },
   include(state, node) {
     state.write(`<!-- gc:include ${commentJson({ id: node.attrs.ref, name: node.attrs.name })} -->`);
     state.closeBlock(node);

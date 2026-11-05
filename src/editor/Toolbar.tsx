@@ -46,8 +46,8 @@ function lastHighlight(): HighlightColor {
 const setMarkColor = (h: HighlightColor) => ({ color: h === 'yellow' ? null : h });
 
 /**
- * Highlight: the button marks the selected text in the last color picked (or takes the highlight
- * away); the arrow beside it picks another color.
+ * Highlight: the button marks the selected text in the last color picked; clicked again on marked
+ * text, it shows the colors (and No highlight). The arrow beside it shows them too.
  */
 function HighlightButton({ editor }: { editor: Editor }) {
   const p = usePopover<HTMLButtonElement>();
@@ -71,10 +71,10 @@ function HighlightButton({ editor }: { editor: Editor }) {
     <span className={`gc-tb-split ${cur ? 'active' : ''}`}>
       <button
         className={`icon-btn gc-ink-btn ${cur ? 'active' : ''}`}
-        {...tip('Highlight', `Mark text in ${last === 'gray' ? 'gray' : last}; the arrow picks another color`, 'Mod+Shift+H')}
+        {...tip('Highlight', `Mark text in ${last}; click again for other colors or none`, 'Mod+Shift+H')}
         aria-pressed={!!cur}
         onMouseDown={(e) => e.preventDefault()}
-        onClick={() => (cur ? editor.chain().focus().unsetMark('highlight').run() : pick(last))}
+        onClick={() => (cur ? p.setOpen(true) : pick(last))}
       >
         <Highlighter />
         <span className="gc-ink-bar gc-hl-bar" data-color={last} />

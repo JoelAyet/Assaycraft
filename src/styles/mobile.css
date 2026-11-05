@@ -410,8 +410,9 @@
     row-gap: 3px;
     padding: 33px 0 6px;
   }
-  .gc-cal-item,
-  .gc-cal-item.is-task {
+  /* In the month grid, items are bars of color (a week in a page lists them in full). */
+  .gc-cal-item:not(.gc-weekblock *),
+  .gc-cal-item.is-task:not(.gc-weekblock *) {
     pointer-events: none;
     height: 5px;
     margin: 0 3px;
@@ -421,15 +422,15 @@
     background: var(--tone) !important;
     box-shadow: none;
   }
-  .gc-cal-item.is-task {
+  .gc-cal-item.is-task:not(.gc-weekblock *) {
     opacity: 0.55;
   }
-  .gc-cal-item.is-event {
+  .gc-cal-item.is-event:not(.gc-weekblock *) {
     border: none;
     background: var(--tone) !important;
     opacity: 0.35;
   }
-  .gc-cal-item > * {
+  .gc-cal-item:not(.gc-weekblock *) > * {
     display: none;
   }
   .gc-pdf {
@@ -447,6 +448,13 @@
   .gc-peek {
     width: 100vw;
     padding-top: env(safe-area-inset-top);
+  }
+  /* No room beside the page on a phone: the note is over it. */
+  .gc-peek.is-split {
+    position: fixed;
+    inset: 0;
+    z-index: 800;
+    width: 100vw;
   }
   .gc-doc-peek {
     padding: 16px 16px 80px;

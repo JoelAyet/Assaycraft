@@ -644,6 +644,8 @@ for (const s of SETUPS) {
     });
     test('colors, reminders, the reading board, drawn notes and planned steps pass the design checks', async ({ page }) => {
       test.setTimeout(150_000);
+      // An update that keeps causing itself (React's "Maximum update depth exceeded") fails this, by name.
+      const errors = trackErrors(page);
       const problems: Record<string, unknown> = {};
       const check = async (screen: string) => {
         await page.waitForTimeout(250);
@@ -754,6 +756,7 @@ for (const s of SETUPS) {
       await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'List' }).click();
       await check('Literature list with reading status');
       expect(problems).toEqual({});
+      expect(errors.filter((e) => /update depth/i.test(e))).toEqual([]);
     });
     test('code, Excel previews, a failed save and keyboard focus pass the design checks', async ({ page }) => {
       test.setTimeout(120_000);
@@ -904,5 +907,93 @@ for (const s of SETUPS) {
       }
       expect(problems).toEqual({});
     });
+
+    test('a note beside an entry, a week in a page, pictures side by side and failed experiments pass the design checks', async ({ page }) => {
+      test.setTimeout(150_000);
+      const errors = trackErrors(page);
+      const problems: Record<string, unknown> = {};
+      const check = async (screen: string) => {
+        await page.waitForTimeout(300);
+        const found = faults(await page.evaluate(audit, s.phone));
+        if (found) problems[screen] = found;
+        await shot(page, s.name, screen);
+      };
+      const nav = async (item: string) => {
+        if (s.phone) await page.locator('.gc-nav-toggle').first().click();
+        await page.locator('.gc-nav-item', { hasText: item }).click();
+      };
+      await openFolderNotebook(page);
+      // Stocks: a long location wraps.
+      await nav('Stocks');
+      await page.locator('.gc-viewtab', { hasText: 'Primers' }).click();
+      await page
+        .locator('.gc-stock-table tr[data-stock="PR-0001"]')
+        .getByLabel(/^Location of /)
+        .fill('Freezer B, shelf 2, primer box 1, row A, at the back');
+      await page.locator('.gc-stock-table th').first().click();
+      await check('Stocks, a long location on two lines');
+
+      // An entry with the week, a flow and two pictures side by side.
+      if (s.phone) await page.locator('.gc-nav-toggle').first().click();
+      await newBlankEntry(page, 'Western blot, week 2');
+      await page.locator('.ProseMirror').click();
+      await page.keyboard.type('/calendar');
+      await page.locator('.gc-slash-item').filter({ hasText: 'Calendar' }).first().click();
+      await expect(page.locator('.gc-weekblock-day.is-today')).toContainText('Western blot');
+      await check('Week of the calendar in an entry');
+      await page.locator('.gc-weekblock').getByRole('button', { name: 'Next week' }).click();
+      await check('Week of the calendar, the next week');
+      await page.keyboard.press('ControlOrMeta+End');
+      for (const name of ['blot-1.png', 'blot-2.png']) {
+        const chooser = page.waitForEvent('filechooser');
+        await page.locator('.gc-toolbar').getByRole('button', { name: 'Attach files' }).click();
+        await (await chooser).setFiles({ name, mimeType: 'image/png', buffer: SMALL_PNG });
+      }
+      await expect(page.locator('.gc-image img')).toHaveCount(2);
+      await page.locator('.gc-prose > .node-image').first().scrollIntoViewIfNeeded();
+      await check('Two pictures side by side');
+      await waitForSave(page);
+
+      // A note beside it (on a phone, over it).
+      if (!s.phone) {
+        await page.locator('.gc-doc-index').hover();
+        await page.locator('.gc-doc-index').getByRole('button', { name: 'New note' }).click();
+        await expect(page.locator('.gc-peek.is-split')).toBeVisible();
+        await page.locator('.gc-peek.is-split .gc-title-input').fill('Blot ideas');
+        await check('A new note beside the entry');
+        await page.getByRole('button', { name: 'Close the side panel' }).click();
+      }
+
+      // Experiments: one failed (dragged on the board; on a phone, set in the entry).
+      if (s.phone) {
+        await page.locator('.gc-props').getByRole('button', { name: 'In progress' }).click();
+        await page.locator('.popover .menu-item', { hasText: 'Failed' }).click();
+      } else {
+        await nav('Experiments');
+        const failedCol = page.locator('.gc-col', { hasText: 'Failed' }).locator('.gc-col-body');
+        await failedCol.scrollIntoViewIfNeeded();
+        await page.locator('.gc-card', { hasText: 'Western blot, week 2' }).dragTo(failedCol);
+      }
+      await expect(page.getByRole('dialog', { name: /What next\?/ })).toBeVisible();
+      await check('Failed: what next?');
+      await page.getByRole('dialog').getByRole('button', { name: 'Not now' }).click();
+      if (s.phone) await nav('Experiments');
+      await page.locator('.gc-card.is-failed').scrollIntoViewIfNeeded();
+      await check('Experiments board with a failed experiment');
+      // The week again, with the experiment done (failed): gray and struck through, still readable.
+      await page.locator('.gc-card.is-failed .gc-card-title').click();
+      await page.locator('.gc-weekblock').getByRole('button', { name: 'This week' }).click();
+      await page.locator('.gc-weekblock').scrollIntoViewIfNeeded();
+      await expect(page.locator('.gc-weekblock .gc-cal-item.is-done')).toHaveCount(1);
+      await check('Week with a failed experiment');
+      expect(problems).toEqual({});
+      expect(errors).toEqual([]);
+    });
   });
 }
+
+/** A small picture (64 × 48), for attaching. */
+const SMALL_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAEAAAAAwCAIAAAAuKetIAAAAQ0lEQVR42u3PQQkAAAgEsEtiTiMaywp+hcEKLNXzWgQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQErhZRfWjxIIKtDwAAAABJRU5ErkJggg==',
+  'base64',
+);

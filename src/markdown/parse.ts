@@ -11,6 +11,7 @@
  *  - <sub>, <sup>, <mark>, <u> are used for sub/superscript, highlight and underline;
  *    <mark data-color=…> for other highlight colors, <span class="gc-ink"> for colored text, <span class="gc-size"> for sizes
  *  - sub-template references (templates only): <!-- gc:include {"id":"…","name":"…"} -->
+ *  - a week of the calendar (/calendar): <!-- gc:calendar {"week":"2026-11-05"} -->
  *  - anything else that is raw HTML is preserved verbatim
  */
 import MarkdownIt, { type StateCore, type Token } from 'markdown-it';
@@ -415,6 +416,12 @@ function assaycraftRule(state: StateCore) {
         } else out.push(b.token('flow', flowFromItems([], gc.data)));
         continue;
       }
+      if (gc?.type === 'calendar') {
+        out.push(b.token('calendar_week', { week: typeof gc.data.week === 'string' ? gc.data.week : null }));
+        tableMeta = null;
+        bufferMeta = null;
+        continue;
+      }
       if (gc?.type === 'include') {
         const ref = String(gc.data.id ?? gc.data.ref ?? '');
         out.push(b.token('include', { ref, name: String(gc.data.name ?? ref) }));
@@ -498,6 +505,7 @@ function getParser(): MarkdownParser {
     flow: { node: 'flow', getAttrs: (tok) => ({ data: tok.meta }) },
     attachment: { node: 'attachment', getAttrs: (tok) => tok.meta as Record<string, unknown> },
     include: { node: 'include', getAttrs: (tok) => tok.meta as Record<string, unknown> },
+    calendar_week: { node: 'calendarWeek', getAttrs: (tok) => tok.meta as Record<string, unknown> },
     raw_block: { node: 'rawBlock', getAttrs: (tok) => ({ content: tok.content }) },
     raw_inline: { node: 'rawInline', getAttrs: (tok) => ({ content: tok.content }) },
     reminder: { node: 'reminder', getAttrs: (tok) => tok.meta as Record<string, unknown> },

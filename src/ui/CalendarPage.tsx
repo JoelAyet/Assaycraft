@@ -1413,3 +1413,82 @@ export function CalendarPage() {
     </div>
   );
 }
+
+/**
+ * A week of the calendar in a page (/calendar): its seven days side by side, with what is on each
+ * (experiments, tasks, reminders, planned steps, other calendars). `week` is a day of that week.
+ */
+export function WeekCalendar({ week, onWeek }: { week: string; onWeek: (day: string) => void }) {
+  const weekStart = useNotebook((s) => weekStartDay(s.weekStart));
+  const today = localDate();
+  const ws = startOfWeek(week, weekStart);
+  const we = addDays(ws, 6);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
+  const notebookItems = useCalendarItems(true, true, 'status');
+  const otherItems = useOtherCalendars(ws, we);
+  const items = useMemo(
+    () => [...notebookItems, ...otherItems].filter((i) => i.start <= we && i.end >= ws).sort(byStart),
+    [notebookItems, otherItems, ws, we],
+  );
+  const thisWeek = startOfWeek(today, weekStart);
+  return (
+    <div className="gc-weekblock">
+      <div className="gc-weekblock-head">
+        <span className="gc-weekblock-title">
+          <CalendarRange aria-hidden="true" /> {weekTitle(ws)}
+        </span>
+        <span className="gc-cal-nav">
+          {ws !== thisWeek && (
+            <button className="btn btn-sm" onClick={() => onWeek(today)}>
+              This week
+            </button>
+          )}
+          <button className="icon-btn icon-btn-sm" title="Previous week" aria-label="Previous week" onClick={() => onWeek(addDays(ws, -7))}>
+            <ChevronLeft />
+          </button>
+          <button className="icon-btn icon-btn-sm" title="Next week" aria-label="Next week" onClick={() => onWeek(addDays(ws, 7))}>
+            <ChevronRight />
+          </button>
+          <button
+            className="icon-btn icon-btn-sm"
+            title="Open the calendar"
+            aria-label="Open the calendar"
+            onClick={() => navigate({ name: 'calendar' })}
+          >
+            <CalendarDays />
+          </button>
+        </span>
+      </div>
+      <div className="gc-weekblock-days">
+        {days.map((day) => {
+          const list = items.filter((i) => i.start <= day && i.end >= day);
+          const d = parseYmd(day);
+          const name = d.toLocaleDateString(LOCALE, { weekday: 'long', month: 'long', day: 'numeric' });
+          return (
+            <section
+              key={day}
+              className={`gc-weekblock-day ${day === today ? 'is-today' : ''} ${isWeekend(day) ? 'is-weekend' : ''}`}
+              aria-label={name}
+            >
+              <header className="gc-weekblock-dayhead">
+                <span className="gc-weekblock-wd">{d.toLocaleDateString(LOCALE, { weekday: 'short' })}</span>
+                <span className="gc-weekblock-num">{d.getDate()}</span>
+              </header>
+              {list.map((item) => (
+                <button
+                  key={item.key}
+                  className={`gc-cal-item tone-${item.color} ${item.done ? 'is-done' : ''} is-${item.kind === 'card' ? 'task' : item.kind}`}
+                  title={itemTitle(item)}
+                  onClick={(e) => open(item, e.currentTarget)}
+                >
+                  <ItemLabel item={item} time={day === item.start ? 'short' : false} />
+                </button>
+              ))}
+            </section>
+          );
+        })}
+      </div>
+      <EventPeek />
+    </div>
+  );
+}

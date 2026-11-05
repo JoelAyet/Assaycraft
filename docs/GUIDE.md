@@ -28,6 +28,23 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 ## What's new
 
+**5 November 2026**
+
+- **A note beside an entry.** Hover over the right edge of an entry for its index: _New note_ at the top opens a new note in the right half of the screen, next to the entry, and both can be written in at once. It is a note like any other, in _Notes_. The index's _Recent_ list now has your latest experiments, notes and protocols (four of them).
+- **/calendar** puts a week of the calendar in a page: its days side by side (one under the other on a phone, or when the page is narrow), with the experiments, tasks, reminders, planned steps and events of other calendars on each. The arrows move it a week at a time, and the page keeps the week shown.
+- **Experiments board.** Completed experiments are struck through. Move one to _Failed_ (on the board, or with its status) and Assaycraft asks what next: _Troubleshoot_ adds a section to the entry (what happened, what could have caused it, what to change next time), and _Plan a repeat_ makes a copy of it, planned for today, that links back to it. Both stay on the failed card.
+- **Task boards** can show the tasks of one priority (or with none), from the _Priority_ menu above the columns.
+- **Pictures side by side.** Pictures added one after another sit next to each other: two to a row, three when there are three or more (two on a phone). A picture that is selected stays: what is added next goes after it.
+- **Flows: drag a step** onto another to put it in that step's place (_Move earlier_ and _Move later_ are still in its menu).
+- **Stocks.** Text longer than its column wraps onto two lines (all of it while you edit it), and copying a cell with nothing selected copies all of it.
+- **Highlights.** A highlight over H₂O or x² is one straight band. Click the highlight button again on highlighted text for the other colors, or _No highlight_.
+- **Pasting from Word and PowerPoint** gives text (bold, lists and all), not a picture of it. A picture copied on its own is still pasted as a picture.
+- **History** is a button of its own at the top of a page, next to _Lock_.
+- **Fixes:** a folder whose pages have changes that could not be saved is not renamed or moved to the trash until they are (that could lose them; Assaycraft says so); re-reading the notebook no longer puts back what a file said over changes that are waiting to be saved; a table with frozen columns can no longer make the page measure it over and over.
+- **Exports keep unsaved changes.** If some changes could not be saved (a full disk, a lost connection), _Export notebook (.zip)_ now puts them in the export, from what Assaycraft holds of them, and says how many pages it rescued.
+- **Opening attachments safely.** _Open in new tab_ (and a double click on an image) opens pictures, PDFs and text as they are. An SVG image opens as a picture of it, and any other kind of file is downloaded instead, so a file in a notebook can never run as a page of Assaycraft.
+- **Fix:** clicking right after selecting blocks with the mouse puts the cursor where you clicked; before, on a busy computer, the blocks could stay selected and a paste landed where they were.
+
 **3 November 2026**
 
 - **Entries on a phone start with the writing.** An entry's properties (status, dates, tags, protocols…) fold into one line, such as _● In progress · Tue, Nov 3 · cloning · 2 protocols_. Tap it (_Details_) to open them, and _Less_ to fold them again; Assaycraft remembers which you chose. On a computer they are shown as before.
@@ -537,16 +554,17 @@ The **Notes** page (below Templates in the sidebar) is for meeting notes, journa
 - A note has a date and tags, and nothing else: no ID, project, status or protocols. It is not on the calendar or the boards.
 - Notes are listed newest first, by month, with a filter and the tags to pick from. Search (<kbd>Ctrl</kbd> <kbd>K</kbd>) finds them, and they keep a version history like every page.
 - Each note is a Markdown file in `Notes/`.
+- **A note beside an entry.** While on an entry, hover over the right edge of the page (its index) and click _New note_: the note opens in the right half of the screen and the entry stays in the left, both to write in. Close it with its **×**, or open it as a page with **⤢**. (On a phone, it opens over the entry.)
 
 ## Boards
 
 Boards are Kanban columns, as in Notion or Trello.
 
-- **Experiments** is built in: every entry by status. Drag a card to another column to change the entry's status. Its columns are the entry statuses: **⋯ → Edit statuses…** renames, recolors or adds them in Settings.
+- **Experiments** is built in: every entry by status. Drag a card to another column to change the entry's status. Its columns are the entry statuses: **⋯ → Edit statuses…** renames, recolors or adds them in Settings. Completed experiments are struck through. A failed one has a red edge and two ways on, also offered when it is moved to _Failed_: **Troubleshoot** adds a _Troubleshooting_ section to the entry (what happened, what could have caused it, what to change next time), and **Repeat** makes a copy of it, planned for today, that starts with a link back to it.
 - **New** in the board's bar adds a card to the first column (on Experiments, a new entry); point at a column to add straight into it with the column's own _New_.
 - **Your own boards** come in two kinds, chosen when you create one (and switchable later from the board's **⋯** menu):
   - **Things to track** (the default): constructs, samples, orders, mice… moving through stages you name, e.g. _Designed → PCR → Assembled → Sequenced_. Cards have tags, links to entries and protocols, and full notes, but no due date, so they stay off the calendar.
-  - **Tasks**: to-dos with a due date and a priority, e.g. _Lab tasks_. They show on the calendar and in Home's next 7 days, and Home warns when one is overdue.
+  - **Tasks**: to-dos with a due date and a priority, e.g. _Lab tasks_. They show on the calendar and in Home's next 7 days, and Home warns when one is overdue. The _Priority_ menu above the columns shows the tasks of one priority (or those with none).
 - On a phone, boards scroll one column at a time.
 
 ## Calendar
@@ -556,6 +574,7 @@ Boards are Kanban columns, as in Notion or Trello.
 - In the month, drag an item to another day (it keeps its time), or click a day to plan an entry or a task on it.
 - **By status or by project.** Entries are colored by their status and tasks by their column. The _By project_ button (the palette, after Month · Week · Agenda) colors everything of a project alike instead, with each project listed above the calendar: click one to change its color. Click _By project_ again to go back. Things outside projects stay gray.
 - The week starts on **Monday or Sunday**, as set in _Settings → Appearance_. The activity graph on Home follows the same setting.
+- **A week in a page.** Type `/calendar` in an entry or a note for a week of the calendar there: its days side by side (one under the other when the page is narrow), with what is on each. The arrows change the week, and the page keeps the week shown, so an entry written on Tuesday still shows that week when read later. The calendar button opens the full calendar.
 
 **Times.** An entry has a _Time_ under its date: a start time and, once that is set, an end time. Click _Add time_ and pick a time in the list (half hours) or type one: “9:30”, “14:30”, “2pm”. When you plan an experiment, _New entry_ has a _Time_ next to the date (leave it empty for none). The end time lists the times after the start with how long that is. On the calendar, the time comes before the title: short on a month’s chip (“9:30am”), on a line of its own in the week, as a range in the agenda. Items of a day are in order of time, those without one first. Drag an item to another day and it keeps its time.
 

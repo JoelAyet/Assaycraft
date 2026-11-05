@@ -36,6 +36,9 @@ export const BlockSelect = Extension.create({
     // A drag that starts in the text and reaches another block selects whole blocks (as in Notion);
     // while it lasts, the text selection the browser keeps changing does not end it.
     let crossing = false;
+    // Bumped by every click and key: the selection a finished drag sets a moment later is not set
+    // once the person has clicked or typed elsewhere (or a paste would land where the drag was).
+    let gesture = 0;
     const startCrossing = (view: EditorView, event: MouseEvent) => {
       if (event.button !== 0 || event.shiftKey || !view.editable) return;
       const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
@@ -66,9 +69,10 @@ export const BlockSelect = Extension.create({
         const range = blockSelectKey.getState(view.state);
         crossing = false;
         view.dom.classList.remove('is-block-dragging');
+        const at = gesture;
         // After the browser's last word on the selection.
         setTimeout(() => {
-          if (!range) return;
+          if (!range || gesture !== at) return;
           const tr = view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(range.from + 1))).setMeta(blockSelectKey, range);
           view.dispatch(tr);
         });
@@ -103,6 +107,8 @@ export const BlockSelect = Extension.create({
             return DecorationSet.create(state.doc, decos);
           },
           handleKeyDown(view, event) {
+            const keeps = MODIFIER_KEYS.has(event.key) || ((event.metaKey || event.ctrlKey) && ['c', 'x', 'a'].includes(event.key.toLowerCase()));
+            if (!keeps) gesture++;
             const r = selectedRange(view);
             if (!r) return false;
             if (event.key === 'Backspace' || event.key === 'Delete') {
@@ -124,6 +130,7 @@ export const BlockSelect = Extension.create({
             copy: (view, event) => copyBlocks(view, event, false),
             cut: (view, event) => copyBlocks(view, event, true),
             mousedown: (view, event) => {
+              gesture++;
               if (selectedRange(view)) view.dispatch(view.state.tr.setMeta(blockSelectKey, null));
               startCrossing(view, event);
               return false;

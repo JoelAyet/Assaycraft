@@ -39,6 +39,7 @@ import { DocEditor } from '../editor/DocEditor';
 import { useMarqueeSelect } from '../editor/blockSelect';
 import { DocIndex } from './DocIndex';
 import { openVersionHistory } from '../history/HistoryDialog';
+import { openFailedDialog } from './failedNext';
 import { navigate, toast, useNotebook, BUILTIN_EXPERIMENTS_BOARD } from '../notebook/store';
 import {
   createTemplate,
@@ -118,7 +119,11 @@ function EntryProps({ meta, readOnly }: { meta: DocMeta; readOnly: boolean }) {
         <OptionSelect
           options={statuses}
           value={meta.status}
-          onChange={(status) => patchMeta(p, { status })}
+          onChange={(status) => {
+            patchMeta(p, { status });
+            // Failed: what next? Work out why, or plan it again.
+            if (status === 'failed' && meta.status !== 'failed') openFailedDialog({ ...meta, status });
+          }}
           disabled={readOnly}
           placeholder="No status"
         />
@@ -754,7 +759,8 @@ export function DocHeader({ meta, readOnly, compact }: { meta: DocMeta; readOnly
   );
 }
 
-export function docMenu(meta: DocMeta, editor: Editor | null): MenuItemSpec[] {
+/** `history`: also Version history (on the page it is a button of its own, next to Lock). */
+export function docMenu(meta: DocMeta, editor: Editor | null, { history = true }: { history?: boolean } = {}): MenuItemSpec[] {
   const items: MenuItemSpec[] = [];
   const isEntry = meta.kind === 'entry';
   const isTpl = meta.kind === 'template' || meta.kind === 'subtemplate';
@@ -811,7 +817,7 @@ export function docMenu(meta: DocMeta, editor: Editor | null): MenuItemSpec[] {
   if (isEntry) items.push({ label: 'Move to…', icon: <FolderInput />, onSelect: () => moveDocWithPrompt(meta.path) });
   items.push(
     'sep',
-    { label: 'Version history…', icon: <FileClock />, onSelect: () => openVersionHistory(meta.path) },
+    ...(history ? [{ label: 'Version history…', icon: <FileClock />, onSelect: () => openVersionHistory(meta.path) }] : []),
     {
       label: 'Download Markdown',
       icon: <FileDown />,
@@ -997,6 +1003,14 @@ function DocView({ meta, body }: { meta: DocMeta; body: string }) {
             <KanbanSquare /> <span className="gc-btn-label">Board</span>
           </button>
         )}
+        <button
+          className="btn btn-ghost btn-sm"
+          title="Version history: earlier versions of this page, to compare or bring back"
+          aria-label="Version history"
+          onClick={() => openVersionHistory(meta.path)}
+        >
+          <FileClock /> <span className="gc-btn-label">History</span>
+        </button>
         {(meta.kind === 'entry' || meta.kind === 'card' || isProtocol) && (
           <button
             className={`btn btn-sm ${meta.locked ? '' : 'btn-ghost'}`}
@@ -1007,7 +1021,7 @@ function DocView({ meta, body }: { meta: DocMeta; body: string }) {
             {meta.locked ? <LockOpen /> : <Lock />} <span className="gc-btn-label">{meta.locked ? 'Unlock' : 'Lock'}</span>
           </button>
         )}
-        <MenuButton items={() => docMenu(meta, editor)} title="More actions">
+        <MenuButton items={() => docMenu(meta, editor, { history: false })} title="More actions">
           <MoreHorizontal />
         </MenuButton>
       </div>

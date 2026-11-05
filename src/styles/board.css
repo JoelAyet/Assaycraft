@@ -99,9 +99,34 @@
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
-.gc-card-title.is-done {
+.gc-card-title.is-done,
+.gc-card.is-done .gc-card-title {
   color: var(--text-3);
   text-decoration: line-through;
+  text-decoration-color: var(--text-4);
+}
+/* A failed experiment: a red edge, and the two ways on (Troubleshoot, Repeat). */
+.gc-card.is-failed {
+  box-shadow:
+    inset 3px 0 0 var(--c-red),
+    var(--shadow-sm);
+}
+.gc-card-next {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.gc-card-next .btn svg {
+  width: 13px;
+  height: 13px;
+}
+.gc-failed-lede {
+  margin: 0 0 10px;
+}
+.gc-failed-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .gc-card-tags {
   display: flex;
@@ -240,6 +265,38 @@
   from {
     transform: translateX(24px);
     opacity: 0.4;
+  }
+}
+/* Docked beside the page (a note taken while on an entry): both in use, nothing over the page. */
+.gc-peek.is-split {
+  position: relative;
+  flex: 0 0 clamp(360px, 42vw, 720px);
+  width: auto;
+  height: 100%;
+  min-width: 0;
+  box-shadow: none;
+  animation: none;
+}
+.gc-peek.is-split .gc-doc-peek {
+  padding: 20px 28px 80px;
+}
+/* With a note docked beside it, the page's top bar keeps to icons (their names are in their tooltips). */
+.gc-app:has(.gc-peek.is-split) .gc-main .gc-topbar .gc-btn-label {
+  display: none;
+}
+.gc-app:has(.gc-peek.is-split) .gc-main .gc-topbar {
+  flex-wrap: nowrap;
+}
+/* Too narrow for two pages side by side: the note goes over the right of the page, which stays in use. */
+@media (max-width: 1100px) and (min-width: 761px) {
+  .gc-peek.is-split {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 800;
+    width: min(560px, 62vw);
+    box-shadow: var(--shadow-lg);
   }
 }
 .gc-peek-top {
