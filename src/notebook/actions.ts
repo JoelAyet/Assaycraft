@@ -1634,16 +1634,40 @@ export async function trashBoard(folder: string) {
 
 // ───────────────────────────── import / export ─────────────────────────────
 
+/**
+ * The pages whose last changes are not in their files yet (they could not be saved), as their
+ * files would be: what this browser holds of them.
+ */
+function unsavedFiles(): Map<string, string> {
+  const out = new Map<string, string>();
+  const { docs } = getState();
+  for (const path of new Set([...failedWrites, ...pending.keys(), ...unsavedBodies.keys(), ...metaDirty.keys()])) {
+    const meta = docs[path];
+    const body = openBodies.get(path)?.() ?? unsavedBodies.get(path) ?? lastBodies.get(path);
+    if (meta && body !== undefined) out.set(path, joinFrontMatter(frontMatterFromMeta(meta), body));
+  }
+  return out;
+}
+
 export async function exportZip(): Promise<{ blob: Blob; name: string }> {
   // A notebook whose last changes could not be saved is still exported (it may be the way out),
-  // as it is in its folder: the toast says what it lacks.
-  if (!(await flushAllWrites())) toast('Some recent changes could not be saved, so they are not in this export.', 'error');
+  // with those changes in it, from what this browser holds of them.
+  const saved = await flushAllWrites();
+  const unsaved = saved ? new Map<string, string>() : unsavedFiles();
+  if (!saved)
+    toast(
+      unsaved.size
+        ? `Some recent changes could not be saved; this export has them (${unsaved.size} page${unsaved.size === 1 ? '' : 's'}).`
+        : 'Some recent changes could not be saved, so they are not in this export.',
+      unsaved.size ? 'info' : 'error',
+    );
   const v = vault();
   const files: Record<string, Uint8Array> = {};
   for (const e of await walk(v, '', (x) => x.name === '.trash')) {
     if (e.kind !== 'file') continue;
     files[e.path] = new Uint8Array(await (await v.readBlob(e.path)).arrayBuffer());
   }
+  for (const [path, text] of unsaved) files[path] = strToU8(text);
   if (!Object.keys(files).length) files['README.txt'] = strToU8('Empty notebook');
   const zipped = zipSync(files, { level: 6 });
   const name = `${sanitizeFileName(getState().config.name || v.name, 'notebook')} ${localDate()}.zip`;

@@ -28,6 +28,12 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 ## What's new
 
+**5 November 2026**
+
+- **Exports keep unsaved changes.** If some changes could not be saved (a full disk, a lost connection), _Export notebook (.zip)_ now puts them in the export, from what Assaycraft holds of them, and says how many pages it rescued.
+- **Opening attachments safely.** _Open in new tab_ (and a double click on an image) opens pictures, PDFs and text as they are. An SVG image opens as a picture of it, and any other kind of file is downloaded instead, so a file in a notebook can never run as a page of Assaycraft.
+- **Fix:** clicking right after selecting blocks with the mouse puts the cursor where you clicked; before, on a busy computer, the blocks could stay selected and a paste landed where they were.
+
 **3 November 2026**
 
 - **Entries on a phone start with the writing.** An entry's properties (status, dates, tags, protocols…) fold into one line, such as _● In progress · Tue, Nov 3 · cloning · 2 protocols_. Tap it (_Details_) to open them, and _Less_ to fold them again; Assaycraft remembers which you chose. On a computer they are shown as before.
