@@ -1252,6 +1252,8 @@ mark[data-color='gray'] {
   outline-offset: 2px;
 }
 .gc-caption {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   margin-top: 6px;
@@ -1322,6 +1324,9 @@ mark[data-color='gray'] {
 }
 /* TIFF size, depth and pages, under the picture. */
 .gc-image-meta {
+  /* Above the picture's tools, which can reach down to it under a small picture in a row. */
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
