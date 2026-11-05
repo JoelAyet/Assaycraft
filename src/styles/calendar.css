@@ -36,6 +36,8 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  /* A sideways swipe here changes the month or week, never the page (back and forward). */
+  overscroll-behavior-x: none;
   padding: 0 40px 28px max(40px, calc((100% - 1120px) / 2 + 40px));
 }
 .gc-menu-check {
@@ -719,6 +721,10 @@
   width: 15px;
   height: 15px;
   accent-color: var(--c-orange);
+}
+/* A task's box is its board's: the color of the column it is done in. */
+.gc-agenda-reminder.is-task .gc-cal-check {
+  accent-color: var(--c-green);
 }
 
 /* Color by project: which color is which project (click one to change it). */

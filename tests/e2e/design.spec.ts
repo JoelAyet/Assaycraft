@@ -908,6 +908,54 @@ for (const s of SETUPS) {
       expect(problems).toEqual({});
     });
 
+    test('tasks at a time, ticked off on the calendar, pass the design checks', async ({ page }) => {
+      test.setTimeout(120_000);
+      const errors = trackErrors(page);
+      const problems: Record<string, unknown> = {};
+      const check = async (screen: string) => {
+        await page.waitForTimeout(300);
+        const found = faults(await page.evaluate(audit, s.phone));
+        if (found) problems[screen] = found;
+        await shot(page, s.name, screen);
+      };
+      const nav = async (item: string) => {
+        if (s.phone) await page.locator('.gc-nav-toggle').first().click();
+        await page.locator('.gc-nav-item', { hasText: item }).click();
+      };
+      const today = new Date();
+      const ymdToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      await openFolderNotebook(page);
+      await nav('Lab tasks');
+      for (const [title, time] of [
+        ['Autoclave media', '10:00'],
+        ['Order primers', '14:30'],
+      ]) {
+        await page.getByRole('button', { name: 'New task' }).first().click();
+        const peek = page.locator('.gc-peek');
+        await peek.locator('.gc-title-input').fill(title);
+        await peek.locator('.gc-title-input').press('Enter');
+        await peek.locator('.gc-date-native').nth(1).fill(ymdToday);
+        await peek.getByRole('button', { name: 'Add time' }).click();
+        await page.getByLabel('Type a time').fill(time);
+        await page.getByLabel('Type a time').press('Enter');
+        if (title === 'Order primers') await check('A task with a time');
+        await page.keyboard.press('Escape');
+        await expect(peek).toHaveCount(0);
+      }
+      await check('Task board with times');
+      await nav('Calendar');
+      await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Week' }).click();
+      await page.getByRole('checkbox', { name: 'Done: Autoclave media' }).first().check();
+      if (!s.phone) await page.locator('.gc-tgrid-scroll').evaluate((el) => el.scrollTo({ top: 9 * 44 }));
+      await check('Week with tasks at their times, one done');
+      await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Month' }).click();
+      await check('Month with tasks to tick');
+      await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Agenda' }).click();
+      await check('Agenda with tasks to tick');
+      expect(problems).toEqual({});
+      expect(errors).toEqual([]);
+    });
+
     test('a note beside an entry, a week in a page, pictures side by side and failed experiments pass the design checks', async ({ page }) => {
       test.setTimeout(150_000);
       const errors = trackErrors(page);
