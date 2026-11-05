@@ -46,7 +46,11 @@ describe('a week of the calendar in a page', () => {
 describe('a highlight over a subscript', () => {
   it('wraps it (one mark), and is written that way', () => {
     const doc = parseMarkdown('<mark>H<sub>2</sub>O</mark>');
-    const marksOf = (i: number) => doc.child(0).child(i).marks.map((m) => m.type.name);
+    const marksOf = (i: number) =>
+      doc
+        .child(0)
+        .child(i)
+        .marks.map((m) => m.type.name);
     expect(marksOf(1)).toEqual(['highlight', 'subscript']);
     expect(serializeMarkdown(doc).trim()).toBe('<mark>H<sub>2</sub>O</mark>');
   });
