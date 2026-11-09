@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -9,23 +9,82 @@ import {
   CloudOff,
   Download,
   HardDrive,
+  Sparkles,
   Globe,
   Plus,
   Trash2,
   Upload,
 } from 'lucide-react';
 import { ACCENTS, navigate, setAccent, setPageFont, setTheme, setWeekStart, toast, useNotebook, type Theme, type WeekStart } from '../notebook/store';
-import { exportZip, importSummary, importZip, saveConfig } from '../notebook/actions';
+import { exampleContent, exportZip, importSummary, importZip, removeExamples, saveConfig } from '../notebook/actions';
 import { slugify, type StatusOption } from '../notebook/model';
 import { ColorPicker } from './status';
-import { Popover, usePopover } from './overlay';
+import { Popover, confirmDialog, usePopover } from './overlay';
 import { downloadBlob, pickFiles } from '../lib/download';
 import { renameKnownNotebook } from '../fs/registry';
 import { ABOUT } from '../lib/about';
-import { useOfflineState } from '../lib/offline';
+import { notebookNeedsConnection, useOfflineState } from '../lib/offline';
 import { Logo } from './Sidebar';
 import { PageHead, PhoneBar } from './PageHeader';
 import { startTour } from './Tour';
+
+const EXAMPLE_NOUN: Record<string, [string, string]> = {
+  entry: ['entry', 'entries'],
+  note: ['note', 'notes'],
+  card: ['task', 'tasks'],
+  reference: ['paper', 'papers'],
+};
+
+/** What the new notebook came with to show how things work, and one button to clear it all. */
+function ExampleContent() {
+  const docs = useNotebook((s) => s.docs);
+  // Read from the store, again whenever its docs change.
+  const found = useMemo(() => exampleContent(), [docs]);
+  const [busy, setBusy] = useState(false);
+  const rows = found.stocks.reduce((n, s) => n + s.ids.length, 0);
+  if (!found.docs.length && !rows) return null;
+  const counts = new Map<string, number>();
+  for (const d of found.docs) counts.set(d.kind, (counts.get(d.kind) ?? 0) + 1);
+  const parts = [...counts].map(([kind, n]) => {
+    const [one, many] = EXAMPLE_NOUN[kind] ?? ['page', 'pages'];
+    return `${n === 1 ? 'an' : n} ${n === 1 ? one : many}`.replace(/^an (?=[^aeiou])/, 'a ');
+  });
+  if (rows) parts.push(rows === 1 ? 'a stock' : `${rows} stocks`);
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+  const remove = async () => {
+    const ok = await confirmDialog({
+      title: 'Remove the examples?',
+      message:
+        'The example pages go to the trash, where you can still restore them, and the example rows leave your stocks. Your own work stays as it is.',
+      confirmLabel: 'Remove the examples',
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const done = await removeExamples();
+      toast(
+        `Examples removed: ${done.pages} ${done.pages === 1 ? 'page' : 'pages'} in the trash, ${done.stocks} stock ${done.stocks === 1 ? 'row' : 'rows'} taken out.`,
+        'success',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="gc-storage-card gc-examples-card">
+      <Sparkles />
+      <div>
+        <strong>Examples</strong>
+        <p className="muted">
+          This notebook came with {list} to show how things work. They are marked as examples and left out of Home’s plans and your calendar feed.
+        </p>
+        <button className="btn btn-sm" disabled={busy} onClick={() => void remove()}>
+          <Trash2 /> Remove the examples
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function StatusRow({
   s,
@@ -77,16 +136,20 @@ function StatusRow({
   );
 }
 
-function OfflineStatus() {
+function OfflineStatus({ kind }: { kind: string }) {
   const state = useOfflineState();
   if (state === 'unavailable') return null;
+  // The app opening offline is not the notebook being there: a server notebook needs the server.
+  const online = notebookNeedsConnection(kind);
   return (
     <p className={`gc-about-offline is-${state}`}>
       {state === 'pending' ? <CloudOff /> : <CircleCheck />}
       {state === 'file'
         ? 'Works offline: opened from a file on this computer.'
         : state === 'ready'
-          ? 'Works offline: a copy of the app is saved on this device.'
+          ? online
+            ? 'App installed on this device. This notebook is on the server: it needs a connection to open and save.'
+            : 'Works offline: a copy of the app is saved on this device, and this notebook is here too.'
           : 'Saving a copy of the app for offline use…'}
     </p>
   );
@@ -194,6 +257,7 @@ export function SettingsPage() {
               </span>
             </div>
           </div>
+          <ExampleContent />
         </section>
 
         <section className="gc-settings-section" id="settings-statuses">
@@ -406,7 +470,7 @@ export function SettingsPage() {
                   <CodeXml /> Source code on GitHub
                 </a>
               </div>
-              <OfflineStatus />
+              <OfflineStatus kind={vault.kind} />
               <p className="gc-about-fineprint">The Serif font option uses Newsreader by Production Type (SIL Open Font License).</p>
             </div>
           </div>

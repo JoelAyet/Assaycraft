@@ -573,6 +573,27 @@
   button.gc-save {
     min-height: 28px;
   }
+  /* The save status in a page's top bar: an icon, or the words when saving failed (a tap tries again). */
+  .gc-topbar-save {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  .gc-topbar-save .gc-save-compact svg {
+    width: 16px;
+    height: 16px;
+  }
+  .gc-save-compact.is-saved svg {
+    color: var(--success);
+  }
+  .gc-save-compact.is-error {
+    color: var(--ink-red);
+  }
+  .gc-topbar-save button.gc-save {
+    min-height: 32px;
+    padding: 0 4px;
+  }
   .gc-tag-x {
     display: inline-flex;
     align-items: center;

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Popover, usePopover, MenuList, type MenuItemSpec } from '../ui/overlay';
 import { blockCommands, insertTable, type InsertHandlers } from './commands';
+import { syncSelection } from './insertion';
 import { SEQUENCE_EXTENSIONS } from '../bio/detect';
 import { tip } from '../ui/Tooltip';
 import { isRelativeFileLink, safeDecode } from '../lib/path';
@@ -354,7 +355,14 @@ export function Toolbar({ editor, handlers, inTemplate }: { editor: Editor; hand
     .map((cmd) => ({ label: cmd.title, icon: cmd.icon, hint: undefined, onSelect: () => cmd.run(editor) }));
 
   return (
-    <div className="gc-toolbar" role="toolbar" aria-label="Formatting" ref={scrollRef}>
+    <div
+      className="gc-toolbar"
+      role="toolbar"
+      aria-label="Formatting"
+      ref={scrollRef}
+      // A button acts on the text selected just before (with Shift+arrows), even if the editor has not read it yet.
+      onMouseDownCapture={() => syncSelection(editor.view)}
+    >
       <select
         className="gc-block-select"
         value={s.block}

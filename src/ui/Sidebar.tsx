@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import {
   BookMarked,
   BookOpen,
@@ -58,7 +58,7 @@ import {
   trashFolder,
   UnsavedChangesError,
 } from '../notebook/actions';
-import { MenuButton, openContextMenu, openDialog, promptDialog, confirmDialog, type MenuItemSpec } from './overlay';
+import { MenuButton, openContextMenu, openDialog, promptDialog, confirmDialog, useSheetFocus, type MenuItemSpec } from './overlay';
 import { openNewBoardDialog } from './NewBoardDialog';
 import { startTour } from './Tour';
 import { openNewEntryDialog } from './NewEntryDialog';
@@ -444,24 +444,52 @@ async function switchNotebook() {
   }
 }
 
-function SaveIndicator() {
+/** Whether the browser has a network connection, kept up to date. */
+function useOnline(): boolean {
+  const [online, setOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine !== false);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine !== false);
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
+  return online;
+}
+
+/**
+ * Saving, saved, or not saved (a click tries again). In the sidebar, and `compact` (the icon, with
+ * the words for screen readers and as a tooltip) in a page's top bar on phones, where the sidebar is
+ * closed while you write.
+ */
+export function SaveIndicator({ compact = false }: { compact?: boolean }) {
   const saveState = useNotebook((s) => s.saveState);
+  const online = useOnline();
   const map = {
     idle: null,
     pending: { icon: <LoaderCircle className="spin-slow" />, text: 'Editing…' },
     saving: { icon: <LoaderCircle className="spin" />, text: 'Saving…' },
     saved: { icon: <CircleCheck />, text: 'Saved', title: 'All changes saved' },
-    error: { icon: <CircleAlert />, text: 'Save failed' },
+    error: online ? { icon: <CircleAlert />, text: 'Save failed' } : { icon: <CloudOff />, text: 'Offline · not saved' },
   } as const;
   const m = map[saveState];
   if (!m) return null;
+  // The compact one has its own classes: the sidebar's is the one that names the state (gc-save-saved…).
+  const cls = compact ? `gc-save gc-save-compact is-${saveState}` : `gc-save gc-save-${saveState}`;
+  const label = compact ? <span className="sr-only">{m.text}</span> : m.text;
   // A failed save keeps trying by itself; a click tries now.
   if (saveState === 'error')
     return (
       <button
         type="button"
-        className="gc-save gc-save-error"
-        title="Changes could not be saved. Click to try again."
+        className={cls}
+        title={
+          online
+            ? 'Changes could not be saved. Click to try again.'
+            : 'No connection: your changes are kept here and saved when it comes back. Click to try now.'
+        }
         onClick={() => void retryFailedWrites()}
       >
         {m.icon}
@@ -469,9 +497,9 @@ function SaveIndicator() {
       </button>
     );
   return (
-    <span className={`gc-save gc-save-${saveState}`} title={'title' in m ? m.title : undefined}>
+    <span className={cls} role={compact ? 'status' : undefined} title={'title' in m ? m.title : compact ? m.text : undefined}>
       {m.icon}
-      {m.text}
+      {label}
     </span>
   );
 }
@@ -503,6 +531,8 @@ export function Sidebar() {
   const route = useNotebook((s) => s.route);
   const theme = useNotebook((s) => s.theme);
   const navOpen = useNotebook((s) => s.navOpen);
+  const asideRef = useRef<HTMLElement>(null);
+  useSheetFocus(asideRef, navOpen, () => setState({ navOpen: false }));
   const trashCount = useNotebook((s) => s.trash.length);
   const [expanded, setExpanded] = useState<Set<string>>(loadExpanded);
 
@@ -591,7 +621,14 @@ export function Sidebar() {
   };
 
   return (
-    <aside className={`gc-sidebar ${navOpen ? 'is-open' : ''}`} aria-label="Notebook">
+    <aside
+      ref={asideRef}
+      className={`gc-sidebar ${navOpen ? 'is-open' : ''}`}
+      aria-label="Notebook"
+      // On a phone, open, it covers the page: a dialog, with focus in it until it closes.
+      role={navOpen ? 'dialog' : undefined}
+      aria-modal={navOpen || undefined}
+    >
       <div className="gc-sidebar-top">
         <MenuButton items={notebookMenu} className="gc-notebook-btn" label="Notebook menu" placement="bottom-start">
           <Logo />

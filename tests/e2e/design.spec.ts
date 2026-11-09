@@ -378,9 +378,16 @@ for (const s of SETUPS) {
       await check('Template');
       await nav('Stocks');
       await page.locator('.gc-viewtab', { hasText: 'Primers' }).click();
-      await page.locator('.gc-stock-table').waitFor();
-      await check('Stocks');
-      await page.locator('.gc-stock-id', { hasText: 'PR-0001' }).click();
+      if (s.phone) {
+        // On a phone, a list to look stocks up in: the whole row opens the details.
+        await page.locator('.gc-stock-card').first().waitFor();
+        await check('Stocks');
+        await page.locator('.gc-stock-card[data-stock="PR-0001"]').click();
+      } else {
+        await page.locator('.gc-stock-table').waitFor();
+        await check('Stocks');
+        await page.locator('.gc-stock-id', { hasText: 'PR-0001' }).click();
+      }
       await check('Stock details');
       await page.getByRole('button', { name: 'Close the details' }).click();
       await page.getByRole('button', { name: 'More to add' }).click();
@@ -389,6 +396,10 @@ for (const s of SETUPS) {
       await check('New collection dialog');
       await page.keyboard.press('Escape');
       // Two editing sessions, then the version history.
+      if (s.phone) {
+        await page.getByRole('button', { name: 'Show as a table' }).click();
+        await check('Stocks, the table on a phone');
+      }
       const location = page.locator('.gc-stock-table tr[data-stock="PR-0001"]').getByLabel(/^Location of /);
       await location.fill('Freezer A · box 1');
       await waitForSave(page);
@@ -974,6 +985,7 @@ for (const s of SETUPS) {
       // Stocks: a long location wraps.
       await nav('Stocks');
       await page.locator('.gc-viewtab', { hasText: 'Primers' }).click();
+      if (s.phone) await page.getByRole('button', { name: 'Show as a table' }).click();
       await page
         .locator('.gc-stock-table tr[data-stock="PR-0001"]')
         .getByLabel(/^Location of /)

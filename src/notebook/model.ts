@@ -370,6 +370,11 @@ export function backlinksOf(target: DocMeta, docs: Iterable<DocMeta>): DocMeta[]
   return out;
 }
 
+/** Seeded to show what Assaycraft can do (front matter `example: true`): left out of Home's plans and the calendar feed. */
+export function isExample(meta: Pick<DocMeta, 'extra'>): boolean {
+  return meta.extra?.example === true;
+}
+
 /** Calendar span of a doc, as YYYY-MM-DD strings (null when it has no date). */
 export function docSpan(meta: DocMeta): { start: string; end: string } | null {
   if (meta.kind === 'entry') {

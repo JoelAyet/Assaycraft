@@ -155,7 +155,8 @@ function Shell() {
     <div className={`gc-app ${navOpen ? 'nav-open' : ''}`}>
       <Sidebar />
       {navOpen && <div className="gc-nav-backdrop" onClick={() => setState({ navOpen: false })} aria-hidden="true" />}
-      <main className="gc-main" key={route.name === 'doc' ? 'doc' : route.name}>
+      {/* Behind the phone's open menu, the page cannot be reached. */}
+      <main className="gc-main" key={route.name === 'doc' ? 'doc' : route.name} inert={navOpen || undefined}>
         <Page />
       </main>
       <CardPeek />

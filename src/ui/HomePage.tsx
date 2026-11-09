@@ -17,7 +17,7 @@ import { Logo } from './Sidebar';
 import { ActivityGraph } from './ActivityGraph';
 import { ABOUT } from '../lib/about';
 import { navigate, setState, useNotebook } from '../notebook/store';
-import { backlinksOf, boardCards, docSpan, isTask, LAYOUT, type DocMeta } from '../notebook/model';
+import { backlinksOf, boardCards, docSpan, isExample, isTask, LAYOUT, type DocMeta } from '../notebook/model';
 import { createCard } from '../notebook/actions';
 import { excerpt, previewText } from '../notebook/text';
 import { openNewEntryDialog } from './NewEntryDialog';
@@ -48,7 +48,8 @@ export function HomePage() {
   const topProtocols = [...protocols]
     .sort((a, b) => (protocolUse.get(b.path) ?? 0) - (protocolUse.get(a.path) ?? 0) || (b.modified ?? '').localeCompare(a.modified ?? ''))
     .slice(0, 6);
-  const cards = all.filter((d) => isTask(d, docs));
+  // The seeded examples are not plans: Home's tasks and next 7 days are yours alone.
+  const cards = all.filter((d) => isTask(d, docs) && !isExample(d));
   const today = localDate();
   const weekEnd = localDate(new Date(Date.now() + 6 * 86400000));
 
@@ -80,7 +81,7 @@ export function HomePage() {
     return previewText(d.preview, boiler);
   };
   const upcoming = all
-    .filter((d) => (d.kind === 'entry' || (isTask(d, docs) && !isDoneCard(d))) && docSpan(d))
+    .filter((d) => (d.kind === 'entry' || (isTask(d, docs) && !isDoneCard(d))) && !isExample(d) && docSpan(d))
     .map((d) => ({ d, span: docSpan(d)! }))
     .filter(({ span }) => span.end >= today && span.start <= weekEnd)
     .sort((a, b) => a.span.start.localeCompare(b.span.start) || (a.d.time ?? '').localeCompare(b.d.time ?? ''))

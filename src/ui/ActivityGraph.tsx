@@ -41,10 +41,13 @@ export function ActivityGraph() {
   }, [counts, weekStart, todayYmd]);
 
   const level = (n: number) => (n === 0 ? 0 : Math.min(4, Math.ceil((n / max) * 4)));
-  const summary = active ? `Active on ${active} ${active === 1 ? 'day' : 'days'} in the last 6 months` : 'No edits in the last 6 months yet';
+  const summary = active
+    ? `Active on ${active} ${active === 1 ? 'day' : 'days'} in the last 6 months`
+    : 'No edits in the last 6 months yet: the days you work show here.';
 
+  // Nothing to show yet: a line, not an empty grid taking the room (the grid is kept, hidden, for when it fills).
   return (
-    <figure className="gc-activity">
+    <figure className={`gc-activity ${active ? '' : 'is-empty'}`}>
       <div className="gc-activity-grid" role="img" aria-label={summary} style={{ '--weeks': WEEKS } as CSSProperties}>
         {months.map((m) => (
           <span key={m.week} className="gc-activity-month" style={{ gridColumn: m.week + 2 }}>
