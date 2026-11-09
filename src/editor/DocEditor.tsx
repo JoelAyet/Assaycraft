@@ -28,7 +28,7 @@ import type { DocMeta } from '../notebook/model';
 import { openCitePicker, openEntryLinkPicker, openSubtemplatePicker } from '../ui/pickers';
 import { openProtocolPicker } from '../ui/protocols';
 import { openStockPicker, stockLinkTarget } from '../stocks/StockPicker';
-import { trackEditorFocus } from './insertion';
+import { syncSelection, trackEditorFocus } from './insertion';
 import { VariableHighlight } from './variables';
 import { ReminderView } from '../reminders/ReminderView';
 import { ListIndent } from './keys';
@@ -184,6 +184,9 @@ export function DocEditor({ path, meta, initialBody, readOnly, placeholder, comp
         return true;
       },
       handlePaste: (view, event) => {
+        // A paste just after a click goes where the click put the cursor, even if the browser has
+        // not yet told the editor (it does so a moment later): read it now (audit of 9 November).
+        syncSelection(view);
         const cd = event.clipboardData;
         if (!cd || !view.editable || !editorRef.current) return false;
         const html = cd.getData('text/html');

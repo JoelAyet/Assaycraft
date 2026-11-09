@@ -59,8 +59,6 @@ test('a highlight over H₂O is one straight band, and a second click shows its 
   await page.keyboard.press('ControlOrMeta+,');
   await page.keyboard.type('O at 37 °C');
   await page.keyboard.press(KEYS.selectToLineStart);
-  // The browser moves the selection; the editor reads it a moment later.
-  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   await page.getByRole('button', { name: 'Highlight', exact: true }).click();
   // One mark around the subscript, not three pieces.
   await expect(page.locator('.ProseMirror mark')).toHaveCount(1);

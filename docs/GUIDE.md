@@ -37,6 +37,7 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 - **The phone menu and a stock's details** hold focus while they are open, as dialogs do: Tab stays in them, the page behind cannot be reached, and Escape closes them.
 - **The activity graph** waits for your first edit: until then Home has one line where it will be.
 - **Fix:** a flow, a plate, a week or any other block just put in a page is no longer replaced by what you type straight after: the cursor goes to the line after it (or into the block's own field, such as a plate's _Add sample_).
+- **Fix:** pasting straight after a click puts what you paste where you clicked, and a toolbar button used straight after selecting with Shift and the arrows acts on that selection (before, done quickly enough, they could act on where the cursor was before).
 
 **5 November 2026**
 

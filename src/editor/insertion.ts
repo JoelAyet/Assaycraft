@@ -65,3 +65,12 @@ function leaveBlock(editor: Editor) {
   tr.setSelection(TextSelection.create(tr.doc, after + 1));
   editor.view.dispatch(tr.scrollIntoView());
 }
+
+/**
+ * Take in a selection the browser has made (a click, Shift+arrows) that the editor has not read yet:
+ * it reads it a moment later, and a paste or a toolbar button used straight away would act on the
+ * old one (audit of 9 November).
+ */
+export function syncSelection(view: object) {
+  (view as { domObserver?: { flush(): void } }).domObserver?.flush();
+}
