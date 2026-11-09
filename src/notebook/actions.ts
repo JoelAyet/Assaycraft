@@ -1821,7 +1821,8 @@ export async function trashBoard(folder: string): Promise<boolean> {
 function unsavedFiles(): Map<string, string> {
   const out = new Map<string, string>();
   const { docs } = getState();
-  for (const path of new Set([...failedWrites, ...pending.keys(), ...unsavedBodies.keys(), ...metaDirty.keys()])) {
+  // (Being written now counts too: it may yet fail.)
+  for (const path of new Set([...failedWrites, ...pending.keys(), ...chains.keys(), ...unsavedBodies.keys(), ...metaDirty.keys()])) {
     const meta = docs[path];
     const body = openBodies.get(path)?.() ?? unsavedBodies.get(path) ?? lastBodies.get(path);
     if (meta && body !== undefined) out.set(path, joinFrontMatter(frontMatterFromMeta(meta), body));
