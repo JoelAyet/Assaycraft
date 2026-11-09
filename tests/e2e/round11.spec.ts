@@ -44,6 +44,9 @@ test('blocks selected with the mouse are copied whole, and paste back as blocks'
   await expect(page.locator('.gc-block-selected')).toHaveCount(2);
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('one\n\ntwo');
   await ps.last().click();
+  // The browser tells the editor where the click put the cursor a moment later (a person never
+  // pastes within a millisecond of clicking).
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   await page.keyboard.press('ControlOrMeta+v');
   // (The empty line the blocks were pasted on is replaced by them.)
   await expect(ps).toHaveText(['one', 'two', 'three', 'one', 'two']);
