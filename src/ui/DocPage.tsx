@@ -62,7 +62,8 @@ import { MenuButton, confirmDialog, openDialog, promptDialog, type MenuItemSpec 
 import { OptionSelect } from './status';
 import { PropsFold } from './PropsFold';
 import { AutoTextarea, DateField, Prop, TagInput, TimeField, TitleInput } from './fields';
-import { moveDocWithPrompt } from './Sidebar';
+import { moveDocWithPrompt, SaveIndicator } from './Sidebar';
+import { PHONE, useMediaQuery } from '../lib/useMedia';
 import { openNewEntryDialog } from './NewEntryDialog';
 import { EntryPicker } from './pickers';
 import { basename, dirname, isInside } from '../lib/path';
@@ -945,6 +946,7 @@ function ImportedBanner({ meta, sourceOpen }: { meta: DocMeta; sourceOpen: boole
 
 function DocView({ meta, body }: { meta: DocMeta; body: string }) {
   const [editor, setEditor] = useState<Editor | null>(null);
+  const phone = useMediaQuery(PHONE);
   // Drag in the page's margins to select whole blocks.
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   useMarqueeSelect(meta.locked ? null : editor, scrollEl);
@@ -980,6 +982,12 @@ function DocView({ meta, body }: { meta: DocMeta; body: string }) {
         <NavToggle />
         <Breadcrumbs meta={meta} />
         <span className="spacer" />
+        {/* On phones the sidebar, with its save status, is closed while you write: the status is here too. */}
+        {phone && (
+          <span className="gc-topbar-save">
+            <SaveIndicator compact />
+          </span>
+        )}
         {meta.kind === 'template' && (
           <button
             className="btn btn-primary btn-sm"

@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { flushAllWrites } from '../notebook/actions';
-import { toast } from '../notebook/store';
+import { getState, toast } from '../notebook/store';
 
 const supported = () =>
   !import.meta.env.DEV &&
@@ -59,7 +59,7 @@ export function registerOffline() {
           worker?.addEventListener('statechange', () => {
             if (worker.state !== 'installed') return;
             if (sw.controller) offer(worker);
-            else toast('Assaycraft is saved on this device: it now opens without an internet connection.', 'success');
+            else toast(installedMessage(getState().vault?.kind), 'success');
           });
         });
         // Look for a new version when the app comes back to the screen, at most once an hour.
@@ -74,6 +74,21 @@ export function registerOffline() {
 
   if (document.readyState === 'complete') void register();
   else window.addEventListener('load', () => void register(), { once: true });
+}
+
+/**
+ * What a saved copy of the app means for the open notebook. The app's files open without a
+ * connection; a notebook on a server does not (it is read and saved there), one in this browser or
+ * in a folder does.
+ */
+export function notebookNeedsConnection(kind: string | undefined): boolean {
+  return kind === 'server';
+}
+
+export function installedMessage(kind: string | undefined): string {
+  return notebookNeedsConnection(kind)
+    ? 'Assaycraft is installed on this device. Your notebook is on the server: it needs a connection to open and save.'
+    : 'Assaycraft is saved on this device: it now opens without an internet connection.';
 }
 
 export type OfflineState = 'file' | 'ready' | 'pending' | 'unavailable';

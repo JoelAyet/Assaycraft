@@ -92,7 +92,9 @@ test.describe('offline copy of the hosted app', () => {
       await expect(page.locator('.gc-title-input')).toHaveValue('Gibson assembly of three fragments');
 
       await page.goto(site.url + '#/settings');
-      await expect(page.locator('.gc-about-offline')).toHaveText('Works offline: a copy of the app is saved on this device.');
+      await expect(page.locator('.gc-about-offline')).toHaveText(
+        'Works offline: a copy of the app is saved on this device, and this notebook is here too.',
+      );
       expect(errors.filter((e) => !/ERR_INTERNET_DISCONNECTED/.test(e))).toEqual([]);
     } finally {
       await context.setOffline(false);

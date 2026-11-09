@@ -28,6 +28,16 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 ## What's new
 
+**9 November 2026**
+
+- **Examples look like examples.** The tasks, stocks, note, paper and entry a new notebook comes with are marked _example_. The example tasks have no due date and the example stocks are in no freezer, so Home's _Next 7 days_, your calendar link and the stocks you hold start empty: only what you add is there. _Settings → Notebook → Remove the examples_ moves them all to the trash in one go (and takes the example rows out of your stocks); what your own pages link to stays.
+- **Stocks on a phone** are a list: each stock's full name, its ID, where it is and a fact or two (Tm, target, strain). Tap a row for everything about it. The table, to edit or add stocks, is one tap away (the button next to _Columns_); the phone remembers which you chose.
+- **Saved, on a phone.** A page's top bar shows whether it is saved (a tick), saving, or not saved, with the sidebar closed. Without a connection it says _Offline · not saved_: what you wrote is kept on the page and saved when the connection comes back (tap to try now).
+- **Menus by keyboard.** A menu opened from its button (⋯, _More to add_, a step's options) puts focus on its first choice; the arrow keys, Home and End move through it, Enter picks, Escape closes it and focus goes back to the button.
+- **The phone menu and a stock's details** hold focus while they are open, as dialogs do: Tab stays in them, the page behind cannot be reached, and Escape closes them.
+- **The activity graph** waits for your first edit: until then Home has one line where it will be.
+- **Fix:** a flow, a plate, a week or any other block just put in a page is no longer replaced by what you type straight after: the cursor goes to the line after it (or into the block's own field, such as a plate's _Add sample_).
+
 **5 November 2026**
 
 - **Tasks at a time.** A task has a _Time_ under its dates, as an experiment does (a start, and an end once that is set). With one, it sits at its hours in the calendar's week; drag it to another hour or day, or its bottom edge to make it longer. Click an empty hour in the week for _New task_ at that time.
@@ -137,7 +147,7 @@ The welcome screen offers two ways to keep a notebook:
 | **A folder on this computer** | Any folder you pick                                  | One computer, your own backups                      |
 | **Browser storage**           | Inside the browser (works in Firefox and Safari too) | Trying it out, or browsers that cannot open folders |
 
-Saving into a folder needs a Chromium browser (Chrome, Edge, Brave, Arc). Safari and Firefox can open a notebook folder but not save into it, so they copy its notebook into browser storage. The first time you open a notebook you can fill it with examples: templates, sub-templates, protocols, stocks, a paper, a task board and an **example entry** (`Projects/Getting started/EXAMPLE-1`) that shows a flow, a buffer and a citation in use. Its ID is outside your numbering, so your first entry is still `EXP-0001`; delete it whenever you like.
+Saving into a folder needs a Chromium browser (Chrome, Edge, Brave, Arc). Safari and Firefox can open a notebook folder but not save into it, so they copy its notebook into browser storage. The first time you open a notebook you can fill it with examples: templates, sub-templates, protocols, stocks, a paper, a task board and an **example entry** (`Projects/Getting started/EXAMPLE-1`) that shows a flow, a buffer and a citation in use. Its ID is outside your numbering, so your first entry is still `EXP-0001`. The example tasks, stocks, note, paper and entry are marked _example_ (`example: true` in their file, _Example_ in a stock's Notes): they plan nothing (no due dates, nothing on Home's _Next 7 days_ or in your calendar link) and hold nothing (no stock is in a freezer). _Settings → Notebook → Remove the examples_ clears them all at once; the templates and protocols stay, as they are tools rather than examples.
 
 **The tour.** A new notebook starts a short tour. It first asks for **your name**, which signs your entries as their author (the same setting as in _Settings → Notebook_). Then it points at each part of the app: the New entry button, the library (protocols, stocks and literature), templates, notes, boards and the calendar, then opens the example entry to show its **flow** and its **buffer calculator**, the `/` menu, search, **connecting your phone** and saving. Click _Next_ (or press →), _Back_ (←), or _Skip tour_ (Esc). It only starts once; take it again from _Settings → About_, the notebook menu or by searching “tour”.
 
@@ -470,6 +480,7 @@ The **Stocks** page holds your physical collections, one table each: primers, pl
 - **Primers** get their length, GC % and melting temperature (Tm) worked out from the sequence, using nearest-neighbor thermodynamics (SantaLucia 1998, 50 mM Na⁺, 250 nM primer).
 - In an entry, type `/stock` to link one (`PR-0001 EGFP-fwd`). Clicking it opens the stock with its full details and **every entry that uses it**: useful when a primer stock turns out to be bad.
 - Search (<kbd>Ctrl</kbd> <kbd>K</kbd>) finds single stocks by their ID, name or details.
+- **On a phone** a collection is a list to look things up in: each stock's name, ID and location, and a fact or two. Tap one for its details. The button next to _Columns_ switches to the table, to edit; _New_ does too.
 
 ## Literature
 
@@ -685,7 +696,8 @@ The same notebook on your computer and your phone, without storing it online.
 
 ## Offline, installing and phones
 
-- After the first visit the app works **without a connection**: it keeps a copy of itself on the device (_Settings → About_ says so). When a new version is published, open copies download it and offer a **Reload**.
+- After the first visit the app works **without a connection**: it keeps a copy of itself on the device (_Settings → About_ says so, and says whether the notebook is there too: a notebook on an Assaycraft server needs the server to open and save). When a new version is published, open copies download it and offer a **Reload**.
+- **Saved or not** shows at the bottom of the sidebar and, on a phone, in a page's top bar.
 - **Install it as an app** from the browser's address bar (Chrome, Edge) or with _Add to Home Screen_ on a phone. It then opens in its own window.
 - On phones and tablets the sidebar becomes a menu, dialogs fill the screen, boards swipe by column and the calendar opens as an agenda: handy for following a protocol at the bench.
 - **Phones cannot open folders from a website.** To use a notebook on a phone, [connect the phone](#your-phone-at-the-bench-connect-a-phone) to the computer. Or carry a copy by hand: export a .zip on the computer and choose _Open a .zip…_ on the phone; notes made on the phone come back the same way, with _Import .zip into notebook…_.
@@ -695,7 +707,7 @@ The same notebook on your computer and your phone, without storing it online.
 
 The notebook menu (top of the sidebar) → _Settings_:
 
-- **Notebook**: its name, your name (the author of new entries; the tour asks for it too), and the ID prefixes and digits for entries (`EXP-`), tasks (`T-`) and protocols (`P-`). Changing a prefix only affects new items; existing IDs never change.
+- **Notebook**: its name, your name (the author of new entries; the tour asks for it too), and the ID prefixes and digits for entries (`EXP-`), tasks (`T-`) and protocols (`P-`). Changing a prefix only affects new items; existing IDs never change. While the examples of a new notebook are still there, _Remove the examples_ clears them.
 - **Entry statuses**: rename, recolor, add or remove the statuses of entries.
 - **Appearance**: light or dark, the accent color, sans or serif font, and the first day of the week (for the calendar and the activity graph). These are kept per browser.
 - **Storage**: where this notebook lives and how its files are laid out.

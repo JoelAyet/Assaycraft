@@ -1,5 +1,5 @@
 import type { Editor, JSONContent } from '@tiptap/core';
-import { NodeSelection } from '@tiptap/pm/state';
+import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 
 /**
  * Where toolbar/menu insertions should go when the text cursor is not active, e.g. right after
@@ -41,6 +41,27 @@ export function insertionPoint(editor: Editor): number | undefined {
 export function insertBlocks(editor: Editor, content: JSONContent | JSONContent[]) {
   const at = insertionPoint(editor) ?? (editor.state.selection instanceof NodeSelection ? editor.state.selection.to : undefined);
   points.delete(editor);
-  if (at !== undefined) return editor.chain().insertContentAt(at, content).focus().scrollIntoView().run();
-  return editor.chain().focus().insertContent(content).scrollIntoView().run();
+  const done =
+    at !== undefined
+      ? editor.chain().insertContentAt(at, content).focus().scrollIntoView().run()
+      : editor.chain().focus().insertContent(content).scrollIntoView().run();
+  leaveBlock(editor);
+  return done;
+}
+
+/**
+ * A block just put in (a flow, a picture, a plate) is left selected by the editor: a key typed then
+ * (before the block's own field has focus, on a busy computer) would replace it. The cursor goes
+ * to the line after it instead, made if there is none.
+ */
+function leaveBlock(editor: Editor) {
+  const { state } = editor;
+  const sel = state.selection;
+  if (!(sel instanceof NodeSelection) || !sel.node.isBlock || !sel.node.isAtom) return;
+  const after = sel.to;
+  const next = state.doc.resolve(after).nodeAfter;
+  const tr = state.tr;
+  if (!next || !next.isTextblock) tr.insert(after, state.schema.nodes.paragraph.create());
+  tr.setSelection(TextSelection.create(tr.doc, after + 1));
+  editor.view.dispatch(tr.scrollIntoView());
 }

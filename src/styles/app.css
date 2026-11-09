@@ -965,6 +965,15 @@
   outline: 1px solid var(--text-3);
   outline-offset: 1px;
 }
+/* Before any work: one line where the graph will be. */
+.gc-activity.is-empty {
+  align-self: flex-end;
+  max-width: 240px;
+}
+.gc-activity.is-empty .gc-activity-grid,
+.gc-activity.is-empty .gc-activity-legend {
+  display: none;
+}
 .gc-activity-foot {
   display: flex;
   align-items: center;
@@ -1739,6 +1748,12 @@
 .gc-storage-card p {
   margin: 4px 0 0;
   font-size: 13px;
+}
+.gc-examples-card {
+  margin: 16px 0 0;
+}
+.gc-examples-card .btn {
+  margin-top: 10px;
 }
 .gc-row-buttons {
   display: flex;

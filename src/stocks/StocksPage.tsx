@@ -22,6 +22,8 @@ import {
   FileText,
   FileUp,
   Hash,
+  List,
+  MapPin,
   Microscope,
   MoreHorizontal,
   Package,
@@ -32,14 +34,17 @@ import {
   Target,
   TestTube,
   TestTubes,
+  Table2,
   Trash2,
   X,
 } from 'lucide-react';
 import { FilterField, NewButton, PageHead, PhoneBar, ViewBar } from '../ui/PageHeader';
 import { openVersionHistory } from '../history/HistoryDialog';
-import { Dialog, MenuButton, confirmDialog, openContextMenu, openDialog, promptDialog, type MenuItemSpec } from '../ui/overlay';
+import { Dialog, MenuButton, confirmDialog, openContextMenu, openDialog, promptDialog, useSheetFocus, type MenuItemSpec } from '../ui/overlay';
+import { PHONE, useMediaQuery } from '../lib/useMedia';
 import { navigate, toast, useNotebook } from '../notebook/store';
 import { LAYOUT, type DocMeta } from '../notebook/model';
+import { EXAMPLE_STOCK_NOTE } from '../notebook/seed';
 import {
   createStockCollection,
   flushWrite,
@@ -87,6 +92,9 @@ const COMPUTED_HELP: Partial<Record<ColumnRole, string>> = {
   gc: 'Worked out from the sequence',
   tm: TM_HELP,
 };
+
+/** This browser's choice, on a phone, of list or table. */
+const STOCK_LAYOUT_KEY = 'assaycraft:stock-layout';
 
 function columnWidth(role: ColumnRole, name: string): number {
   if (role === 'id') return 104;
@@ -390,6 +398,64 @@ const StockRow = memo(function StockRow({ row, index, roles, columns, selected, 
   );
 });
 
+/** The column that says where a stock is kept. */
+const locationColumn = (columns: string[]) => columns.findIndex((c) => /^(location|place|where|storage)$/i.test(c.trim()));
+
+/**
+ * A stock as a phone shows it (audit D05): its name in full (two lines), its ID and where it is,
+ * with a fact or two (Tm, target, strain…). The whole row opens its details.
+ */
+const StockCard = memo(function StockCard({
+  row,
+  roles,
+  columns,
+  selected,
+  flash,
+  onSelect,
+}: {
+  row: string[];
+  roles: ColumnRole[];
+  columns: string[];
+  selected: boolean;
+  flash: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const shown = withComputed(row, roles);
+  const id = row[roles.indexOf('id')] ?? '';
+  const name = row[roles.indexOf('name')]?.trim() ?? '';
+  const loc = locationColumn(columns);
+  const where = loc >= 0 ? (row[loc] ?? '').trim() : '';
+  const notes = roles.indexOf('notes');
+  const example = notes >= 0 && row[notes]?.trim() === EXAMPLE_STOCK_NOTE;
+  const facts = [
+    ...roles.map((r, c) => (r === 'tm' && shown[c] ? `Tm ${shown[c]} °C` : '')),
+    ...roles.map((r, c) => (r === 'text' && c !== loc && !/date/i.test(columns[c]) ? (shown[c] ?? '').trim() : '')),
+  ]
+    .filter(Boolean)
+    .slice(0, 2);
+  return (
+    <button
+      className={`gc-stock-card ${selected ? 'is-selected' : ''} ${flash ? 'is-flash' : ''}`}
+      data-stock={id}
+      aria-label={`${id} ${name || 'Unnamed'}${where ? `, ${where}` : ''}`}
+      onClick={() => onSelect(id)}
+    >
+      <span className="gc-stock-card-name">{name || <span className="gc-stock-none">Unnamed</span>}</span>
+      <span className="id-chip">{id || '—'}</span>
+      <span className={`gc-stock-card-loc ${where ? '' : 'is-none'}`}>
+        <MapPin />
+        {where || 'No location'}
+      </span>
+      {(facts.length > 0 || example) && (
+        <span className="gc-stock-card-facts">
+          {example && <span className="pill pill-sq">Example</span>}
+          {facts.join(' · ')}
+        </span>
+      )}
+    </button>
+  );
+});
+
 // ───────────── Details ─────────────
 
 function StockDetail({
@@ -419,8 +485,18 @@ function StockDetail({
       toast('Could not copy to the clipboard.', 'error');
     }
   };
+  // On a phone the details are a sheet over the table: a dialog, with focus in it until it closes.
+  const phone = useMediaQuery(PHONE);
+  const sheetRef = useRef<HTMLElement>(null);
+  useSheetFocus(sheetRef, phone, close);
   return (
-    <aside className="gc-stock-detail" aria-label={`${id} ${name}`}>
+    <aside
+      ref={sheetRef}
+      className="gc-stock-detail"
+      aria-label={`${id} ${name}`}
+      role={phone ? 'dialog' : undefined}
+      aria-modal={phone || undefined}
+    >
       <header className="gc-stock-detail-head">
         <span className="gc-stock-detail-icon">{stockIcon(meta.extra.stock)}</span>
         <div>
@@ -499,6 +575,24 @@ function Collection({ meta, target, tabs }: { meta: DocMeta; target?: string; ta
   const [flash, setFlash] = useState<string | null>(null);
   const [sort, setSort] = useState<{ col: number; dir: 1 | -1 } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  // On a phone the stocks are a list to look things up in; the spreadsheet is one tap away.
+  const phone = useMediaQuery(PHONE);
+  const [layout, setLayoutState] = useState<'list' | 'table'>(() => {
+    try {
+      return localStorage.getItem(STOCK_LAYOUT_KEY) === 'table' ? 'table' : 'list';
+    } catch {
+      return 'list';
+    }
+  });
+  const setLayout = (next: 'list' | 'table') => {
+    setLayoutState(next);
+    try {
+      localStorage.setItem(STOCK_LAYOUT_KEY, next);
+    } catch {
+      // Not remembered in a private window: the list again next time.
+    }
+  };
+  const asList = phone && layout === 'list';
 
   const load = useCallback(async () => {
     const { body } = await readDoc(path);
@@ -537,7 +631,7 @@ function Collection({ meta, target, tabs }: { meta: DocMeta; target?: string; ta
     if (!target || !table) return;
     setSelected(target);
     setFlash(target);
-    requestAnimationFrame(() => rootRef.current?.querySelector(`tr[data-stock="${CSS.escape(target)}"]`)?.scrollIntoView({ block: 'center' }));
+    requestAnimationFrame(() => rootRef.current?.querySelector(`[data-stock="${CSS.escape(target)}"]`)?.scrollIntoView({ block: 'center' }));
     const t = setTimeout(() => setFlash(null), 2400);
     return () => clearTimeout(t);
   }, [target, table === null]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -588,6 +682,8 @@ function Collection({ meta, target, tabs }: { meta: DocMeta; target?: string; ta
   const addRow = (focusCol?: number) => {
     const t = tableRef.current;
     if (!t) return;
+    // A new stock is typed into the table.
+    if (asList) setLayout('table');
     const ids = t.rows.map((r) => r[idCol] ?? '');
     const at = t.rows.length;
     change((x) => ({ ...x, rows: [...x.rows, newRow(x, ids)] }));
@@ -807,6 +903,16 @@ function Collection({ meta, target, tabs }: { meta: DocMeta; target?: string; ta
                   {view.length} of {table.rows.length}
                 </span>
               )}
+              {phone && (
+                <button
+                  className="icon-btn"
+                  aria-label={asList ? 'Show as a table' : 'Show as a list'}
+                  title={asList ? 'Show as a table, to edit' : 'Show as a list'}
+                  onClick={() => setLayout(asList ? 'table' : 'list')}
+                >
+                  {asList ? <Table2 /> : <List />}
+                </button>
+              )}
               <button
                 className="btn btn-sm"
                 onClick={() => openDialog((close) => <ColumnsDialog table={tableRef.current!} close={close} onSave={(t) => change(() => t)} />)}
@@ -826,47 +932,64 @@ function Collection({ meta, target, tabs }: { meta: DocMeta; target?: string; ta
         >
           {tabs}
         </ViewBar>
-        <div className="gc-stock-scroll">
-          <table className="gc-stock-table" style={{ minWidth: width }}>
-            <colgroup>
-              {table.columns.map((c, i) => (
-                <col key={i} style={{ width: columnWidth(roles[i], c) }} />
-              ))}
-            </colgroup>
-            <thead>
-              <tr>
-                {table.columns.map((c, i) => (
-                  <th key={i} className={`col-${isComputed(roles[i]) ? 'computed' : roles[i]}`} title={COMPUTED_HELP[roles[i]]}>
-                    <button
-                      className="gc-th-btn"
-                      onClick={() => setSort((s) => (s?.col === i ? (s.dir === 1 ? { col: i, dir: -1 } : null) : { col: i, dir: 1 }))}
-                    >
-                      {c}
-                      {sort?.col === i && (sort.dir === 1 ? <ArrowUp /> : <ArrowDown />)}
-                    </button>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
+        <div className={`gc-stock-scroll ${asList ? 'is-list' : ''}`}>
+          {asList ? (
+            <ul className="gc-stock-list" aria-label={meta.title}>
               {view.map(({ row, i }) => (
-                <StockRow
-                  key={row[idCol] || i}
-                  row={row}
-                  index={i}
-                  roles={roles}
-                  columns={table.columns}
-                  selected={row[idCol] === selected}
-                  flash={row[idCol] === flash}
-                  onEdit={onEdit}
-                  onSelect={select}
-                  onKey={onKey}
-                  onPaste={onPaste}
-                  onMenu={onMenu}
-                />
+                <li key={row[idCol] || i}>
+                  <StockCard
+                    row={row}
+                    roles={roles}
+                    columns={table.columns}
+                    selected={row[idCol] === selected}
+                    flash={row[idCol] === flash}
+                    onSelect={select}
+                  />
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+          ) : (
+            <table className="gc-stock-table" style={{ minWidth: width }}>
+              <colgroup>
+                {table.columns.map((c, i) => (
+                  <col key={i} style={{ width: columnWidth(roles[i], c) }} />
+                ))}
+              </colgroup>
+              <thead>
+                <tr>
+                  {table.columns.map((c, i) => (
+                    <th key={i} className={`col-${isComputed(roles[i]) ? 'computed' : roles[i]}`} title={COMPUTED_HELP[roles[i]]}>
+                      <button
+                        className="gc-th-btn"
+                        onClick={() => setSort((s) => (s?.col === i ? (s.dir === 1 ? { col: i, dir: -1 } : null) : { col: i, dir: 1 }))}
+                      >
+                        {c}
+                        {sort?.col === i && (sort.dir === 1 ? <ArrowUp /> : <ArrowDown />)}
+                      </button>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {view.map(({ row, i }) => (
+                  <StockRow
+                    key={row[idCol] || i}
+                    row={row}
+                    index={i}
+                    roles={roles}
+                    columns={table.columns}
+                    selected={row[idCol] === selected}
+                    flash={row[idCol] === flash}
+                    onEdit={onEdit}
+                    onSelect={select}
+                    onKey={onKey}
+                    onPaste={onPaste}
+                    onMenu={onMenu}
+                  />
+                ))}
+              </tbody>
+            </table>
+          )}
           {view.length === 0 && (
             <div className="gc-stock-empty">
               {table.rows.length ? (

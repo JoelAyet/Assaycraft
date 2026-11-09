@@ -15,6 +15,9 @@ export const EXAMPLE_FOLDER = 'Getting started';
 export const EXAMPLE_ENTRY_ID = 'EXAMPLE-1';
 export const EXAMPLE_ENTRY_TITLE = 'Example: knock out EGFP with Cas9';
 export const EXAMPLE_PAPER_ID = 'Jinek2012';
+/** What marks a seeded stock row as an example (its Notes), so "Remove the examples" can find it. */
+export const EXAMPLE_STOCK_NOTE = 'Example';
+const EXAMPLE_TASK_NOTE = '_An example task. Settings → Notebook → Remove the examples clears them all._';
 
 const include = (id: string, name: string) => `<!-- gc:include ${JSON.stringify({ id, name })} -->`;
 
@@ -502,6 +505,7 @@ export async function seedNotebook(vault: Vault, config: NotebookConfig) {
   await vault.mkdir(join(LAYOUT.projects, 'General'));
 
   // Two stock collections to start from: primers (Tm worked out from the sequence) and glycerol stocks.
+  // Their rows are examples, with no place in a freezer: a new notebook holds no stocks until you add yours.
   const primers = stockType('primer');
   const glycerol = stockType('glycerol');
   const collection = (type: typeof primers, rows: string[][]) =>
@@ -517,14 +521,14 @@ export async function seedNotebook(vault: Vault, config: NotebookConfig) {
   await vault.write(
     join(LAYOUT.stocks, `${primers.name}.md`),
     collection(primers, [
-      ['PR-0001', 'EGFP-fwd', 'ATGGTGAGCAAGGGCGAGGAG', '', '', '', 'EGFP', 'Primer box 1 · A1', today, ''],
-      ['PR-0002', 'EGFP-rev', 'TTACTTGTACAGCTCGTCCATGCC', '', '', '', 'EGFP', 'Primer box 1 · A2', today, ''],
-      ['PR-0003', 'M13-fwd (-20)', 'GTAAAACGACGGCCAGT', '', '', '', 'pUC / M13 vectors', 'Primer box 1 · A3', today, 'Sequencing primer'],
+      ['PR-0001', 'EGFP-fwd', 'ATGGTGAGCAAGGGCGAGGAG', '', '', '', 'EGFP', '', today, EXAMPLE_STOCK_NOTE],
+      ['PR-0002', 'EGFP-rev', 'TTACTTGTACAGCTCGTCCATGCC', '', '', '', 'EGFP', '', today, EXAMPLE_STOCK_NOTE],
+      ['PR-0003', 'M13-fwd (-20)', 'GTAAAACGACGGCCAGT', '', '', '', 'pUC / M13 vectors', '', today, EXAMPLE_STOCK_NOTE],
     ]),
   );
   await vault.write(
     join(LAYOUT.stocks, `${glycerol.name}.md`),
-    collection(glycerol, [['GS-0001', 'pUC19 in NEB 5-alpha', 'NEB 5-alpha', 'pUC19', 'Ampicillin', '−80 °C · Box 2 · A1', today, '']]),
+    collection(glycerol, [['GS-0001', 'pUC19 in NEB 5-alpha', 'NEB 5-alpha', 'pUC19', 'Ampicillin', '', today, EXAMPLE_STOCK_NOTE]]),
   );
 
   const board = join(LAYOUT.boards, 'Lab tasks');
@@ -545,8 +549,9 @@ export async function seedNotebook(vault: Vault, config: NotebookConfig) {
       '',
     ),
   );
-  const day = (offset: number) => localDate(new Date(Date.now() + offset * 86400000));
+  // Example tasks, with no due date: a new notebook has nothing to do until you plan it.
   const p = config.cardPrefix;
+  const example = { example: true };
   const cards: SeedMeta[] = [
     {
       kind: 'card',
@@ -554,11 +559,11 @@ export async function seedNotebook(vault: Vault, config: NotebookConfig) {
       title: 'Order Q5 polymerase and dNTPs',
       status: 'todo',
       order: 1,
-      due: day(3),
       priority: 'high',
-      tags: ['orders'],
+      tags: ['example'],
       created: now,
       modified: now,
+      extra: example,
     },
     {
       kind: 'card',
@@ -566,22 +571,41 @@ export async function seedNotebook(vault: Vault, config: NotebookConfig) {
       title: 'Pour LB + ampicillin plates',
       status: 'doing',
       order: 1,
-      due: day(1),
       priority: 'medium',
-      tags: ['prep'],
+      tags: ['example'],
       created: now,
       modified: now,
+      extra: example,
     },
-    { kind: 'card', id: `${p}0003`, title: 'Autoclave pipette tips', status: 'done', order: 1, tags: ['prep'], created: now, modified: now },
+    {
+      kind: 'card',
+      id: `${p}0003`,
+      title: 'Autoclave pipette tips',
+      status: 'done',
+      order: 1,
+      tags: ['example'],
+      created: now,
+      modified: now,
+      extra: example,
+    },
   ];
   for (const c of cards) {
-    const body = c.id.endsWith('0001') ? '- [ ] Get a quote\n- [ ] Check freezer stock first\n' : '';
+    const body = `${EXAMPLE_TASK_NOTE}\n${c.id.endsWith('0001') ? '\n- [ ] Get a quote\n- [ ] Check freezer stock first\n' : ''}`;
     await vault.write(join(board, `${c.id} ${c.title}.md`), file(c, body));
   }
   await vault.write(
     join(LAYOUT.notes, 'Lab meeting.md'),
     file(
-      { kind: 'note', id: 'note-lab-meeting', title: 'Lab meeting', tags: ['meeting'], date: today, created: now, modified: now },
+      {
+        kind: 'note',
+        id: 'note-lab-meeting',
+        title: 'Lab meeting',
+        tags: ['example'],
+        date: today,
+        created: now,
+        modified: now,
+        extra: example,
+      },
       `## Updates
 
 - Cloning of the EGFP construct: colonies on the plate, minipreps tomorrow.
@@ -613,7 +637,15 @@ export async function seedNotebook(vault: Vault, config: NotebookConfig) {
   await vault.write(
     paperPath,
     file(
-      { kind: 'reference', id: EXAMPLE_PAPER_ID, title: paper.title, tags: ['crispr'], created: now, modified: now, extra: refExtra(paper) },
+      {
+        kind: 'reference',
+        id: EXAMPLE_PAPER_ID,
+        title: paper.title,
+        tags: ['crispr', 'example'],
+        created: now,
+        modified: now,
+        extra: { ...refExtra(paper), ...example },
+      },
       `## Key points
 
 - Cas9 cuts double-stranded DNA where a dual RNA (crRNA and tracrRNA) pairs with the target, next to a PAM.
@@ -652,8 +684,9 @@ export async function seedNotebook(vault: Vault, config: NotebookConfig) {
         protocols: [protocolId(config, 3)],
         created: now,
         modified: now,
+        extra: example,
       },
-      `> **This is an example entry.** It shows what an entry can hold. Try things here, then delete it (⋯ → Move to trash) when you no longer need it.
+      `> **This is an example entry.** It shows what an entry can hold. Try things here. When you no longer need the examples, Settings → Notebook → Remove the examples moves them all to the trash.
 
 ## Goal
 

@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { create } from 'zustand';
 import { X } from 'lucide-react';
@@ -102,9 +102,43 @@ export interface MenuRow {
 
 export type MenuItemSpec = MenuEntry | 'sep' | { heading: string } | MenuRow;
 
+/** Where focus was before a menu opened: it goes back there when the menu closes (if nothing else took it). */
+function restoreFocus(to: HTMLElement | null | undefined) {
+  requestAnimationFrame(() => {
+    const now = document.activeElement;
+    if (to?.isConnected && (!now || now === document.body)) to.focus();
+  });
+}
+
+/**
+ * A menu: its first choice has focus when it opens; the arrow keys (and Home, End) move through its
+ * choices, Enter picks one, Escape or Tab closes it (focus goes back to what opened it).
+ */
 export function MenuList({ items, onClose }: { items: MenuItemSpec[]; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const choices = () => Array.from(ref.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([disabled])') ?? []);
+  useEffect(() => {
+    choices()[0]?.focus({ preventScroll: true });
+  }, []);
+  const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    const list = choices();
+    if (!list.length) return;
+    const at = list.indexOf(document.activeElement as HTMLElement);
+    const go = (i: number) => {
+      e.preventDefault();
+      list[(i + list.length) % list.length].focus();
+    };
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') go(at + 1);
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') go(at < 0 ? list.length - 1 : at - 1);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(list.length - 1);
+    else if (e.key === 'Tab') {
+      e.preventDefault();
+      onClose();
+    }
+  };
   return (
-    <div role="menu">
+    <div role="menu" ref={ref} onKeyDown={onKeyDown}>
       {items.map((it, i) => {
         if (it === 'sep') return <div key={i} className="menu-sep" />;
         if ('heading' in it)
@@ -175,6 +209,10 @@ export function MenuButton({
   placement?: Placement;
 }) {
   const p = usePopover();
+  const close = () => {
+    p.close();
+    restoreFocus(p.ref.current);
+  };
   return (
     <>
       <button
@@ -182,6 +220,8 @@ export function MenuButton({
         className={className}
         title={label ? undefined : title}
         aria-label={label ?? title}
+        aria-haspopup="menu"
+        aria-expanded={p.open}
         onClick={(e) => {
           e.stopPropagation();
           p.toggle();
@@ -190,8 +230,8 @@ export function MenuButton({
         {children}
       </button>
       {p.open && (
-        <Popover anchor={p.ref.current} onClose={p.close} placement={placement}>
-          <MenuList items={typeof items === 'function' ? items() : items} onClose={p.close} />
+        <Popover anchor={p.ref.current} onClose={close} placement={placement}>
+          <MenuList items={typeof items === 'function' ? items() : items} onClose={close} />
         </Popover>
       )}
     </>
@@ -199,17 +239,20 @@ export function MenuButton({
 }
 
 /** Context menu at the mouse position. */
-const useContextMenu = create<{ at: DOMRect | null; items: MenuItemSpec[] }>(() => ({ at: null, items: [] }));
+const useContextMenu = create<{ at: DOMRect | null; items: MenuItemSpec[]; from: HTMLElement | null }>(() => ({ at: null, items: [], from: null }));
 
 export function openContextMenu(e: { clientX: number; clientY: number; preventDefault: () => void }, items: MenuItemSpec[]) {
   e.preventDefault();
-  useContextMenu.setState({ at: new DOMRect(e.clientX, e.clientY, 0, 0), items });
+  useContextMenu.setState({ at: new DOMRect(e.clientX, e.clientY, 0, 0), items, from: document.activeElement as HTMLElement | null });
 }
 
 export function ContextMenuHost() {
-  const { at, items } = useContextMenu();
+  const { at, items, from } = useContextMenu();
   if (!at) return null;
-  const close = () => useContextMenu.setState({ at: null });
+  const close = () => {
+    useContextMenu.setState({ at: null, from: null });
+    restoreFocus(from);
+  };
   return (
     <Popover anchor={at} onClose={close}>
       <MenuList items={items} onClose={close} />
@@ -248,6 +291,62 @@ export function DialogHost() {
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+
+/**
+ * Something that covers the page on a phone (the sidebar's drawer, a sheet from the bottom), while
+ * `active`: focus goes into it, Tab stays in it, Escape closes it, and focus goes back to what opened
+ * it when it closes.
+ */
+export function useSheetFocus(ref: RefObject<HTMLElement | null>, active: boolean, onClose: () => void) {
+  const close = useRef(onClose);
+  close.current = onClose;
+  // What opened it (not something inside it, when the effect runs again while it is open).
+  const opener = useRef<HTMLElement | null>(null);
+  const runs = useRef(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!active || !el) return;
+    const run = ++runs.current;
+    const now = document.activeElement as HTMLElement | null;
+    if (!now || !el.contains(now)) opener.current = now;
+    const inside = () =>
+      Array.from(el.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((x) => x.offsetParent !== null || x === document.activeElement);
+    (inside()[0] ?? el).focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (document.querySelector('.dialog-backdrop, .popover')) return;
+        e.preventDefault();
+        close.current();
+      } else if (e.key === 'Tab') {
+        // The guided tour, a menu or a message over it keeps its own Tab.
+        const now = document.activeElement;
+        if (now instanceof Element && !el.contains(now) && now.closest('.gc-tour, .popover, .toasts, .dialog-backdrop')) return;
+        const list = inside();
+        if (!list.length) return;
+        const at = list.indexOf(document.activeElement as HTMLElement);
+        if (e.shiftKey && (at <= 0 || !el.contains(document.activeElement))) {
+          e.preventDefault();
+          list[list.length - 1].focus();
+        } else if (!e.shiftKey && (at === list.length - 1 || !el.contains(document.activeElement))) {
+          e.preventDefault();
+          list[0].focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      // Back to what opened it, unless focus has gone somewhere of its own choosing, or it is open
+      // again already (React runs an effect twice in development).
+      requestAnimationFrame(() => {
+        if (runs.current !== run) return;
+        const from = opener.current;
+        const now = document.activeElement;
+        if (from?.isConnected && (!now || now === document.body || el.contains(now) || !el.isConnected)) from.focus({ preventScroll: true });
+      });
+    };
+  }, [ref, active]);
+}
 
 /** Dialogs open now: while there is one, the page behind it cannot be reached (inert). */
 let openModals = 0;

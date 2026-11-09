@@ -3,7 +3,7 @@
  * their dates (at their times, when they have one) and open tasks on theirs. Only what a calendar
  * shows goes in: ID, title, project, status. Nothing from the pages themselves.
  */
-import { boardOf, docSpan, isTask, type DocMeta, type StatusOption } from '../notebook/model';
+import { boardOf, docSpan, isExample, isTask, type DocMeta, type StatusOption } from '../notebook/model';
 import { minutesOf } from '../lib/dates';
 
 /** Text in a property value: backslash, semicolon, comma and line breaks escaped. */
@@ -75,6 +75,8 @@ export function notebookCalendar(docs: Record<string, DocMeta>, opts: FeedOption
   const events: string[][] = [];
   const all = Object.values(docs).sort((a, b) => a.path.localeCompare(b.path));
   for (const d of all) {
+    // The seeded examples are not plans: they stay out of the calendar apps.
+    if (isExample(d)) continue;
     // Reminders still to do, in entries, notes and cards: at their time (15 minutes), or all day.
     for (const r of d.reminders ?? []) {
       if (r.done) continue;

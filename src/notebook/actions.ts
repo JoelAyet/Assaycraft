@@ -29,9 +29,11 @@ import { joinFrontMatter, splitFrontMatter } from './frontmatter';
 import {
   DEFAULT_ENTRY_STATUSES,
   LAYOUT,
+  backlinksOf,
   boardCards,
   cardNoun,
   frontMatterFromMeta,
+  isExample,
   metaFromFrontMatter,
   slugify,
   type BoardCards,
@@ -47,8 +49,8 @@ import { FIGURE_SRC } from '../pdf/layout';
 import type { ConvertedPdf } from '../pdf/convert';
 import { bodyFacts } from './text';
 import { replaceFlowStep, setFlowStepDate } from '../flow/model';
-import { seedNotebook } from './seed';
-import { stockType, writeStockTable, type StockTable } from '../stocks/model';
+import { EXAMPLE_FOLDER, EXAMPLE_STOCK_NOTE, seedNotebook } from './seed';
+import { columnRoles, parseStockTable, stockType, writeStockTable, type StockTable } from '../stocks/model';
 import { citationKey, refExtra, refFromMeta, type RefInfo } from '../literature/model';
 import { TRASH_DIR, TRASH_INDEX, listTrash, parseTrashIndex, serializeTrashIndex, type TrashItem, type TrashRecord } from './trash';
 import { HISTORY_DIR, historyPathFor, moveHistory, recordVersion } from '../history/store';
@@ -1570,10 +1572,13 @@ function trashStamp() {
   return localIso().slice(0, 19).replace(/[:T]/g, '-');
 }
 
-export async function trashDoc(path: string) {
+export async function trashDoc(path: string, opts: { quiet?: boolean } = {}) {
   const meta = getState().docs[path];
   if (!meta) return;
-  if (!(await savedInside(path))) return toast(`“${meta.title}” was not moved to the trash. ${NOT_SAVED}`, 'error');
+  if (!(await savedInside(path))) {
+    toast(`“${meta.title}” was not moved to the trash. ${NOT_SAVED}`, 'error');
+    return;
+  }
   const v = vault();
   const stamp = trashStamp();
   const name = `${stamp} ${basename(path)}`;
@@ -1602,7 +1607,63 @@ export async function trashDoc(path: string) {
   await loadTrash();
   const st = getState();
   if (st.route.name === 'doc' && st.route.path === path) navigate({ name: 'home' }, { replace: true });
-  toast(`Moved “${meta.title}” to the trash`, 'info', { label: 'Undo', run: () => void restoreFromTrash(record, { quiet: true }) });
+  if (!opts.quiet) toast(`Moved “${meta.title}” to the trash`, 'info', { label: 'Undo', run: () => void restoreFromTrash(record, { quiet: true }) });
+  return record;
+}
+
+/** The ids of a table's rows seeded as examples (their Notes say so). */
+function exampleRowIds(t: StockTable): Set<string> {
+  const roles = columnRoles(t.columns);
+  const id = roles.indexOf('id');
+  const notes = roles.indexOf('notes');
+  if (id < 0 || notes < 0) return new Set();
+  return new Set(t.rows.filter((r) => r[notes]?.trim() === EXAMPLE_STOCK_NOTE).map((r) => r[id]?.trim() ?? ''));
+}
+
+/**
+ * The seeded examples still in the notebook: pages marked `example: true`, and stock rows whose Notes
+ * say Example. What one of your own pages links to stays (removing it would break the link).
+ */
+export function exampleContent(): { docs: DocMeta[]; stocks: { path: string; ids: string[] }[] } {
+  const all = Object.values(getState().docs);
+  const yours = all.filter((d) => !isExample(d));
+  const linked = new Set(yours.flatMap((d) => [...(d.refs ?? []), ...(d.links ?? []), ...(d.protocols ?? [])]));
+  const docs = all.filter((d) => isExample(d) && !backlinksOf(d, yours).length);
+  const stocks: { path: string; ids: string[] }[] = [];
+  for (const d of all) {
+    if (d.kind !== 'stocks' || !d.stockItems?.length) continue;
+    const ids = d.stockItems.filter((i) => i.summary.split(' · ').includes(EXAMPLE_STOCK_NOTE) && !linked.has(i.id)).map((i) => i.id);
+    if (ids.length) stocks.push({ path: d.path, ids });
+  }
+  return { docs, stocks };
+}
+
+/** Settings → Remove the examples: the example pages go to the trash, the example stock rows are taken out. */
+export async function removeExamples(): Promise<{ pages: number; stocks: number }> {
+  const { docs, stocks } = exampleContent();
+  let pages = 0;
+  for (const d of docs) if (await trashDoc(d.path, { quiet: true })) pages++;
+  let rows = 0;
+  for (const { path, ids } of stocks) {
+    const { body } = await readDoc(path);
+    const t = parseStockTable(body);
+    const example = exampleRowIds(t);
+    const idCol = columnRoles(t.columns).indexOf('id');
+    const keep = t.rows.filter((r) => {
+      const id = r[idCol]?.trim() ?? '';
+      return !(example.has(id) && ids.includes(id));
+    });
+    rows += t.rows.length - keep.length;
+    if (keep.length !== t.rows.length) await saveStockTable(path, { ...t, rows: keep });
+  }
+  // The example's folder goes too once nothing is left in it.
+  const folder = join(LAYOUT.projects, EXAMPLE_FOLDER);
+  const v = vault();
+  if ((await v.exists(folder)) && !(await v.list(folder)).length) {
+    await v.remove(folder);
+    await rescan();
+  }
+  return { pages, stocks: rows };
 }
 
 export async function createFolder(parent: string, name: string): Promise<string> {
