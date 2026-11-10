@@ -28,6 +28,11 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 ## What's new
 
+**10 November 2026**
+
+- **Importing a .zip** made on Windows with a tool that writes `\` between folders now puts its pages in their folders, and a zip from elsewhere cannot put a file outside the notebook: a name that points outside is left out.
+- **Links** in a page, and a paper's _Link_, open only when they are a web page, an e-mail address or a phone number.
+
 **9 November 2026**
 
 - **Examples look like examples.** The tasks, stocks, note, paper and entry a new notebook comes with are marked _example_. The example tasks have no due date and the example stocks are in no freezer, so Home's _Next 7 days_, your calendar link and the stocks you hold start empty: only what you add is there. _Settings → Notebook → Remove the examples_ moves them all to the trash in one go (and takes the example rows out of your stocks); what your own pages link to stays.
