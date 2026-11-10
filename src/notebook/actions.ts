@@ -1855,10 +1855,30 @@ export async function exportZip(): Promise<{ blob: Blob; name: string }> {
   return { blob: new Blob([zipped.slice()], { type: 'application/zip' }), name };
 }
 
+/**
+ * A name in a zip as a path in the notebook: with / between folders (some Windows tools write \),
+ * and nothing before the first folder. Null for a name that points outside (".." in it): a zip from
+ * elsewhere must not put files anywhere but in the notebook.
+ */
+export function zipPath(name: string): string | null {
+  const parts = name
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter((p) => p !== '' && p !== '.');
+  if (!parts.length || parts.some((p) => p === '..' || p.includes('\0'))) return null;
+  return parts.join('/');
+}
+
 /** The files of a zip (e.g. an exported notebook) by path, without a single top-level folder around them all. */
 export function unpackZip(data: Uint8Array): { path: string; data: Uint8Array }[] {
-  const entries = unzipSync(data);
-  const names = Object.keys(entries).filter((n) => !n.endsWith('/') && !n.startsWith('__MACOSX'));
+  const packed = unzipSync(data);
+  // By the path each file gets in the notebook: one that would lead out of it is left out.
+  const entries: Record<string, Uint8Array> = {};
+  for (const [name, bytes] of Object.entries(packed)) {
+    const path = name.endsWith('/') || name.endsWith('\\') ? null : zipPath(name);
+    if (path && !path.startsWith('__MACOSX')) entries[path] = bytes;
+  }
+  const names = Object.keys(entries);
   // A zipped notebook folder ("My notebook/Projects/…") loses its outer folder, but not a zip of just "Projects/…".
   const own = new Set<string>([
     LAYOUT.projects,

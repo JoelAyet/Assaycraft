@@ -16,7 +16,7 @@ import { parseMarkdown } from '../markdown/parse';
 import { serializeMarkdown } from '../markdown/serialize';
 import { parseDelimited } from '../sheet/tsv';
 import { normalizeSheet } from '../sheet/model';
-import { dirname, extname, isRelativeFileLink, resolveLink, splitFragment, stem } from '../lib/path';
+import { dirname, extname, isRelativeFileLink, isWebLink, resolveLink, splitFragment, stem } from '../lib/path';
 import { CodeBlockView } from './CodeBlockView';
 import { adoptPastedFiles, markCopiedFiles, resolvePastedFiles } from './clipboardFiles';
 import { cleanOfficeHtml, pasteAsFiles } from './officePaste';
@@ -83,7 +83,7 @@ function openLink(href: string, folder: string) {
     }
     return;
   }
-  window.open(href, '_blank', 'noopener,noreferrer');
+  if (isWebLink(href)) window.open(href, '_blank', 'noopener,noreferrer');
 }
 
 export interface DocEditorProps {

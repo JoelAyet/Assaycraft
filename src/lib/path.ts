@@ -124,6 +124,14 @@ export function splitFragment(href: string): [string, string] {
 }
 
 /** True for links that point to another file in the notebook (not a URL). */
+/**
+ * Whether a link's address is one to open in a new tab: a web page, an e-mail or a phone number.
+ * Anything else a file might carry (javascript:, data:, a program's own scheme) is not opened.
+ */
+export function isWebLink(href: string): boolean {
+  return /^(https?:|mailto:|tel:|ftp:)/i.test(href.trim());
+}
+
 export function isRelativeFileLink(href: string): boolean {
   if (!href) return false;
   if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return false; // http:, mailto:, data:, …
