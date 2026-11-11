@@ -421,8 +421,8 @@ function PlaceDialog({ collection, id, close }: { collection: DocMeta; id: strin
     if (!chosen || !pos) return;
     setBusy(true);
     try {
+      // The stock's details show where it is now: no message over them.
       await placeTube(chosen.space, chosen.box, pos, collection, id);
-      toast(`${id} is in ${chosen.box.name}, ${pos}.`, 'success');
       close();
     } catch (err) {
       toast(`Could not put it there: ${(err as Error).message}`, 'error');
@@ -494,7 +494,8 @@ function MoveDialog({ space, box, pos, tube, close }: { space: string; box: Box;
     setBusy(true);
     try {
       await moveTubeTo(space, { box, pos }, { box: chosen, pos: to }, tube.slot);
-      toast(`${what} is in ${chosen.name}, ${to}.`, 'success');
+      // Within the box, the grid shows it; into another box, say where it went.
+      if (chosen.id !== box.id) toast(`${what} is in ${chosen.name}, ${to}.`, 'success');
       close();
     } catch (err) {
       toast(`Could not move it: ${(err as Error).message}`, 'error');
@@ -669,12 +670,7 @@ export function FreezerView({ space, boxId, tabs }: { space: string; boxId?: str
         close={close}
         title={`What is in ${b.name}, ${at}?`}
         filter={(c) => freezerSpacesFor(c.path, spaces).includes(space)}
-        onPick={({ item, collection }) =>
-          void run(
-            'put it there',
-            placeTube(space, b, at, collection, item.id).then(() => toast(`${item.id} is in ${b.name}, ${at}.`, 'success')),
-          )
-        }
+        onPick={({ item, collection }) => void run('put it there', placeTube(space, b, at, collection, item.id))}
       />
     ));
 

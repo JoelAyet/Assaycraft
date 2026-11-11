@@ -908,8 +908,13 @@
   border-color: var(--border-strong);
 }
 .gc-box-cell.is-free {
+  /* Faint, but seen in the dark theme too (the panel's own border is not). */
   border-style: dashed;
+  border-color: var(--text-4);
   background: transparent;
+}
+.gc-box-cell.is-free:hover {
+  border-color: var(--text-3);
 }
 .gc-box-cell.is-filled {
   background: var(--c-blue-bg);
@@ -992,4 +997,8 @@
 }
 .gc-place .gc-box-scroll {
   margin-top: 4px;
+}
+/* In a dialog, up to 42 px a place, so the box, its picker and the buttons fit a laptop's height. */
+.gc-place .gc-box-grid {
+  width: min(100%, calc(26px + var(--cols) * 42px));
 }
