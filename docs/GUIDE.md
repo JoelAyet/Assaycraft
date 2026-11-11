@@ -28,6 +28,12 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 ## What's new
 
+**11 November 2026**
+
+- **A new logo:** an A with a blue drop around it. It is on the sidebar, the welcome page, the browser tab and the icon of the installed app.
+- **Freezers.** _Stocks → Freezers_ keeps where your tubes are: freezers with their shelves, the boxes on them, and each box place by place (A1, A2…). Put a stock in a free place, or from its details with _Put in a box…_; its _Location_ then says where it is (“Glycerol box 1 · B4”) and its details link to the box. Move a tube to another place, or _Take out_ to free it.
+- **Swiping the calendar** again while the last swipe is still gliding moves it again: two quick swipes are two months (or weeks), without moving the pointer in between.
+
 **10 November 2026**
 
 - **Importing a .zip** made on Windows with a tool that writes `\` between folders now puts its pages in their folders, and a zip from elsewhere cannot put a file outside the notebook: a name that points outside is left out.
@@ -486,6 +492,7 @@ The **Stocks** page holds your physical collections, one table each: primers, pl
 - **Primers** get their length, GC % and melting temperature (Tm) worked out from the sequence, using nearest-neighbor thermodynamics (SantaLucia 1998, 50 mM Na⁺, 250 nM primer).
 - In an entry, type `/stock` to link one (`PR-0001 EGFP-fwd`). Clicking it opens the stock with its full details and **every entry that uses it**: useful when a primer stock turns out to be bad.
 - Search (<kbd>Ctrl</kbd> <kbd>K</kbd>) finds single stocks by their ID, name or details.
+- **Freezers.** The _Freezers_ tab holds your freezers (with their temperature and shelves) and the boxes on each shelf: 9 × 9, 10 × 10, 8 × 12 or 5 × 5. A box shows each place with the stock in it. Pick a free place and _Put a stock here…_, or, from a stock's details, _Put in a box…_. The stock's _Location_ then says where it is (“Glycerol box 1 · B4”), and its details link to the box. _Move…_ takes a tube to another place or box; _Take out_ frees the place and clears the Location it wrote (one you typed yourself stays). The freezers are kept in `Stocks/freezers.json`.
 - **On a phone** a collection is a list to look things up in: each stock's name, ID and location, and a fact or two. Tap one for its details. The button next to _Columns_ switches to the table, to edit; _New_ does too.
 
 ## Literature
