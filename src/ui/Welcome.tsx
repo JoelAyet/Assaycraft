@@ -180,7 +180,7 @@ export function Welcome() {
     <div className="gc-welcome">
       <div className="gc-welcome-inner">
         <header className="gc-welcome-nav">
-          <Logo size={30} />
+          <Logo size={34} mark />
           <h1 className="gc-wordmark">Assaycraft</h1>
           <span className="gc-welcome-tag">Electronic lab notebook</span>
         </header>
