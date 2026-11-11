@@ -99,6 +99,8 @@ test('stocks of one’s own go in freezers: boxes on shelves, tubes put, moved a
   const move = page.getByRole('dialog', { name: 'Move GS-0001' });
   await move.getByRole('button', { name: 'C3, free' }).click();
   await move.getByRole('button', { name: 'Move to C3' }).click();
+  // The dialog shows the move too while it closes: look at the box once it has.
+  await expect(move).toBeHidden();
   await expect(page.getByRole('button', { name: /^C3, GS-0001/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'A1, free' })).toBeVisible();
   await expect.poll(() => readFile(page, 'Stocks/Glycerol stocks.md')).toMatch(/GS-0001 [^\n]*\| Glycerol box 1 · C3 \|/);
