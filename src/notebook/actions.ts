@@ -651,6 +651,27 @@ async function rewriteBody(stalePath: string, edit: (body: string) => string | u
   }
 }
 
+/**
+ * Change one cell of a stock (in the row with that ID) of a collection, open or not: `column` finds
+ * the column from the headers (-1: none, nothing changes), `value` gives the new value from the old.
+ */
+export function setStockCell(stalePath: string, id: string, column: (columns: string[]) => number, value: (old: string) => string) {
+  return rewriteBody(
+    stalePath,
+    (body) => {
+      const t = parseStockTable(body);
+      const idCol = columnRoles(t.columns).indexOf('id');
+      const col = column(t.columns);
+      const row = t.rows.findIndex((r) => r[idCol] === id);
+      if (col < 0 || row < 0) return body;
+      const next = value(t.rows[row][col] ?? '');
+      if (next === (t.rows[row][col] ?? '')) return body;
+      return writeStockTable({ ...t, rows: t.rows.map((r, i) => (i === row ? r.map((v, c) => (c === col ? next : v)) : r)) });
+    },
+    'That collection is no longer in the notebook',
+  );
+}
+
 /** Plan step `index` of the flow in a page for another day (from the calendar). */
 export function updateFlowStepDate(stalePath: string, index: number, date: string) {
   return rewriteBody(stalePath, (body) => setFlowStepDate(body, index, date), 'That step is no longer in its flow');

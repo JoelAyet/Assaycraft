@@ -14,13 +14,24 @@ interface Pick {
   collection: DocMeta;
 }
 
-/** All stocks of the notebook, to link one from an entry. */
-export function StockPicker({ close, onPick }: { close: () => void; onPick: (p: Pick) => void }) {
+/** All stocks of the notebook, to link one from an entry, or to put one in a box. */
+export function StockPicker({
+  close,
+  onPick,
+  title = 'Link a stock',
+  filter,
+}: {
+  close: () => void;
+  onPick: (p: Pick) => void;
+  title?: string;
+  /** Only the stocks of these collections. */
+  filter?: (collection: DocMeta) => boolean;
+}) {
   const docs = useNotebook((s) => s.docs);
   const all = useMemo(
     () =>
       Object.values(docs)
-        .filter((d) => d.kind === 'stocks')
+        .filter((d) => d.kind === 'stocks' && (!filter || filter(d)))
         .sort((a, b) => a.title.localeCompare(b.title))
         .flatMap((collection) => (collection.stockItems ?? []).map((item) => ({ item, collection }))),
     [docs],
@@ -43,7 +54,7 @@ export function StockPicker({ close, onPick }: { close: () => void; onPick: (p: 
     onPick(p);
   };
   return (
-    <Dialog title="Link a stock" icon={<TestTubes className="gc-dialog-icon" />} onClose={close}>
+    <Dialog title={title} icon={<TestTubes className="gc-dialog-icon" />} onClose={close}>
       <div className="gc-picker-search">
         <Search />
         <input
