@@ -557,6 +557,26 @@
   .toast {
     max-width: none;
   }
+
+  /* Freezers: the list of freezers above the box picked. */
+  .gc-freezer {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .gc-box {
+    padding: 12px 12px 10px;
+  }
+  .gc-box-grid {
+    grid-template-columns: 18px repeat(var(--cols), minmax(0, 1fr));
+    gap: 3px;
+    min-width: calc(21px + var(--cols) * 33px);
+  }
+  .gc-box-cell {
+    font-size: 10.5px;
+  }
+  .gc-box-cell small {
+    font-size: 8px;
+  }
 }
 
 /* Fingers need bigger targets than a mouse: at least 24 px, so small controls grow on touch screens. */

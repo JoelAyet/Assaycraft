@@ -1307,22 +1307,39 @@ export function useSwipe(ref: RefObject<HTMLElement | null>, enabled: boolean, o
     if (!el || !enabled) return;
     let sum = 0;
     let fired = false;
+    // The swipe that moved the calendar: its way, how fast it went at most, and how slow its glide has got since.
+    let dir = 0;
+    let peak = 0;
+    let low = Infinity;
     let quiet: ReturnType<typeof setTimeout> | undefined;
+    const reset = () => {
+      sum = 0;
+      fired = false;
+      peak = 0;
+      low = Infinity;
+    };
     const onWheel = (e: WheelEvent) => {
       // Up and down scrolls, and pinching (Ctrl + wheel) zooms, as always.
       if (e.ctrlKey || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       if (scrollsSideways(e.target, el, e.deltaX)) return;
       e.preventDefault();
-      // The swipe ends when the wheel has been still for a moment (its glide included).
+      const dx = e.deltaMode === 1 ? e.deltaX * 16 : e.deltaX;
+      const speed = Math.abs(dx);
+      // The swipe ends when the wheel has been still for a moment (its glide included)…
       clearTimeout(quiet);
-      quiet = setTimeout(() => {
-        sum = 0;
-        fired = false;
-      }, 220);
+      quiet = setTimeout(reset, 220);
+      // …or when the next one starts while the glide still goes on (a trackpad keeps sending it for
+      // a second or more): it goes the other way, or speeds up again after the glide slowed down.
+      if (fired && ((Math.sign(dx) !== dir && speed >= 4) || (low <= peak * 0.3 && speed >= Math.max(6, low * 2.5)))) reset();
+      if (speed >= peak) {
+        peak = speed;
+        low = speed;
+      } else low = Math.min(low, speed);
       if (fired) return;
-      sum += e.deltaMode === 1 ? e.deltaX * 16 : e.deltaX;
+      sum += dx;
       if (Math.abs(sum) < 60) return;
       fired = true;
+      dir = Math.sign(sum);
       cb.current(sum > 0 ? 1 : -1);
     };
     let start: { x: number; y: number } | null = null;

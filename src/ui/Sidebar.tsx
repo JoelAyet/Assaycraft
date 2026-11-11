@@ -58,6 +58,7 @@ import {
   trashFolder,
   UnsavedChangesError,
 } from '../notebook/actions';
+import { Logo } from './Logo';
 import { MenuButton, openContextMenu, openDialog, promptDialog, confirmDialog, useSheetFocus, type MenuItemSpec } from './overlay';
 import { openNewBoardDialog } from './NewBoardDialog';
 import { startTour } from './Tour';
@@ -78,19 +79,8 @@ function loadExpanded(): Set<string> {
   }
 }
 
-/** Assaycraft mark: a double helix (clay and ivory strands) on an ink tile. Colors come from CSS (.gc-logo). */
-export function Logo({ size = 22 }: { size?: number }) {
-  return (
-    <svg className="gc-logo" width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
-      <rect width="64" height="64" rx="16" fill="var(--logo-tile)" />
-      <g fill="none" strokeLinecap="round">
-        <path d="M24 13c0 10 16 9 16 19s-16 9-16 19" stroke="var(--logo-b)" strokeWidth="4.5" opacity=".92" />
-        <path d="M40 13c0 10-16 9-16 19s16 9 16 19" stroke="var(--logo-a)" strokeWidth="4.5" />
-        <path d="M27.5 20.5h9M27.5 43.5h9" stroke="var(--logo-b)" strokeWidth="3" opacity=".5" />
-      </g>
-    </svg>
-  );
-}
+/** The logo, for the pages that show it beside the name (Home, Settings → About). */
+export { Logo };
 
 /**
  * A sidebar row is a place to go: reachable with Tab, opened with Enter or Space, and marked as the

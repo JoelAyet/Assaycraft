@@ -22,6 +22,11 @@ const PHONE_UA = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (K
  */
 /** Runs in the page: contrast, clipped text, overlaps, small targets, unnamed controls. */
 function audit(phone: boolean) {
+  // Measure the page as it settles: a toast caught fading in is not low contrast. (Endless ones,
+  // like a spinner, keep going.)
+  for (const a of document.getAnimations()) {
+    if (a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity) a.finish();
+  }
   const parse = (c: string): number[] | null => {
     let m = c.match(/^rgba?\(([^)]+)\)/);
     if (m) {
@@ -1046,6 +1051,84 @@ for (const s of SETUPS) {
       await page.locator('.gc-weekblock').scrollIntoViewIfNeeded();
       await expect(page.locator('.gc-weekblock .gc-cal-item.is-done')).toHaveCount(1);
       await check('Week with a failed experiment');
+      expect(problems).toEqual({});
+      expect(errors).toEqual([]);
+    });
+
+    test('the logo, and freezers with their boxes, pass the design checks', async ({ page }) => {
+      test.setTimeout(150_000);
+      const errors = trackErrors(page);
+      const problems: Record<string, unknown> = {};
+      const check = async (screen: string) => {
+        await page.waitForTimeout(300);
+        const found = faults(await page.evaluate(audit, s.phone));
+        if (found) problems[screen] = found;
+        await shot(page, s.name, screen);
+      };
+      const nav = async (item: string) => {
+        if (s.phone) await page.locator('.gc-nav-toggle').first().click();
+        await page.locator('.gc-nav-item', { hasText: item }).click();
+      };
+      await openFolderNotebook(page);
+      // The logo: beside the notebook's name, on Home and in About.
+      await expect(page.locator('.gc-logo').first()).toBeAttached();
+      await check('Home, with the logo');
+      if (s.phone) {
+        await page.locator('.gc-nav-toggle').first().click();
+        await check('The menu, with the logo');
+        await page.keyboard.press('Escape');
+      }
+      await page.goto('/#/settings');
+      await page.locator('#gc-about-title').scrollIntoViewIfNeeded();
+      await check('Settings, About, with the logo');
+
+      // Freezers: none yet, then a freezer with two boxes.
+      await nav('Stocks');
+      await page.getByRole('tab', { name: 'Freezers' }).click();
+      await expect(page.getByRole('heading', { name: 'No freezers yet' })).toBeVisible();
+      await check('Freezers, none yet');
+      await page.locator('.empty-state').getByRole('button', { name: 'New freezer' }).click();
+      await page.getByLabel('Name').fill('−80 °C freezer A');
+      await check('New freezer dialog');
+      await page.getByRole('button', { name: 'Add freezer' }).click();
+      for (const name of ['Glycerol box 1', 'Primer box 1']) {
+        await page.locator('.gc-viewbar').getByRole('button', { name: 'New box' }).click();
+        await page.getByLabel('Name').fill(name);
+        if (name === 'Primer box 1') await check('New box dialog');
+        await page.getByRole('button', { name: 'Add box' }).click();
+        await expect(page.getByRole('heading', { name, level: 2 })).toBeVisible();
+      }
+      await page.locator('.gc-freezer-box', { hasText: 'Glycerol box 1' }).click();
+      await page.getByRole('button', { name: 'A1, free' }).click();
+      await check('A box, a free place picked');
+      await page.getByRole('button', { name: 'Put a stock here…' }).click();
+      await page.getByRole('dialog').getByLabel('Search stocks').fill('GS-0001');
+      await check('Putting a stock in a place');
+      await page.getByRole('dialog').locator('.gc-picker-item', { hasText: 'GS-0001' }).click();
+      await expect(page.getByRole('button', { name: /^A1, GS-0001/ })).toBeVisible();
+      await waitForSave(page);
+      await page.getByRole('button', { name: /^A1, GS-0001/ }).click();
+      await check('A box, a tube picked');
+      await page.locator('.gc-box-place').getByRole('button', { name: 'Move…' }).click();
+      await page.getByRole('dialog', { name: 'Move GS-0001' }).getByRole('button', { name: 'C3, free' }).click();
+      await check('Moving a tube');
+      await page.getByRole('dialog').getByRole('button', { name: 'Move to C3' }).click();
+      await expect(page.getByRole('button', { name: /^C3, GS-0001/ })).toBeVisible();
+
+      // A primer, from its details.
+      await page.getByRole('tab', { name: 'Primers' }).click();
+      await page.locator(s.phone ? '.gc-stock-card[data-stock="PR-0001"]' : '.gc-stock-table tr[data-stock="PR-0001"] .gc-stock-id').click();
+      await expect(page.locator('.gc-stock-detail')).toContainText('Not in a freezer box yet.');
+      await check('A stock not in a box');
+      await page.getByRole('button', { name: 'Put in a box…' }).click();
+      await page
+        .getByRole('dialog')
+        .getByLabel('Box', { exact: true })
+        .selectOption({ label: '−80 °C freezer A › Shelf 1 › Primer box 1 (81 free)' });
+      await check('Put in a box dialog');
+      await page.getByRole('dialog').getByRole('button', { name: 'Put in A1' }).click();
+      await expect(page.locator('.gc-stock-place-text').first()).toContainText('Primer box 1 · A1');
+      await check('A stock in a box');
       expect(problems).toEqual({});
       expect(errors).toEqual([]);
     });

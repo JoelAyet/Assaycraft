@@ -66,7 +66,7 @@ import { moveDocWithPrompt, SaveIndicator } from './Sidebar';
 import { PHONE, useMediaQuery } from '../lib/useMedia';
 import { openNewEntryDialog } from './NewEntryDialog';
 import { EntryPicker } from './pickers';
-import { basename, dirname, isInside } from '../lib/path';
+import { isWebLink, basename, dirname, isInside } from '../lib/path';
 import { formatDate, formatRelative } from '../lib/dates';
 import { downloadBlob } from '../lib/download';
 import type { TemplateIssue, TemplateVariable } from '../templates/engine';
@@ -407,7 +407,7 @@ function ReferenceProps({ meta, readOnly }: { meta: DocMeta; readOnly: boolean }
           </a>
         </Prop>
       )}
-      {info.url && !info.doi && (
+      {info.url && isWebLink(info.url) && !info.doi && (
         <Prop label="Link">
           <a className="gc-prop-text gc-ext-link" href={info.url} target="_blank" rel="noopener noreferrer">
             {info.url.replace(/^https?:\/\//, '')} <ExternalLink />

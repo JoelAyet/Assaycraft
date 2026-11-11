@@ -37,9 +37,12 @@ import {
   Table2,
   Trash2,
   X,
+  Snowflake,
 } from 'lucide-react';
 import { FilterField, NewButton, PageHead, PhoneBar, ViewBar } from '../ui/PageHeader';
 import { openVersionHistory } from '../history/HistoryDialog';
+import { FreezerView, openPlaceDialog, retargetTubes, useAllFreezers, useTubePlaces } from './FreezerView';
+import { freezerPath, isFreezerPath } from './freezerActions';
 import { Dialog, MenuButton, confirmDialog, openContextMenu, openDialog, promptDialog, useSheetFocus, type MenuItemSpec } from '../ui/overlay';
 import { PHONE, useMediaQuery } from '../lib/useMedia';
 import { navigate, toast, useNotebook } from '../notebook/store';
@@ -477,6 +480,7 @@ function StockDetail({
   const id = row[roles.indexOf('id')] ?? '';
   const name = row[roles.indexOf('name')] ?? '';
   const usedIn = useMemo(() => Object.values(docs).filter((d) => d.kind !== 'stocks' && d.refs?.includes(id)), [docs, id]);
+  const places = useTubePlaces(meta.path, id);
   const copy = async (text: string, what: string) => {
     try {
       await writeClipboard(text);
@@ -534,6 +538,30 @@ function StockDetail({
           );
         })}
       </dl>
+      <section className="gc-stock-used">
+        <h3>In the freezer</h3>
+        {places.map((p) => (
+          <button
+            key={`${p.space}/${p.box.id}/${p.pos}`}
+            className="gc-stock-used-item"
+            onClick={() => navigate({ name: 'stocks', path: freezerPath(p.space), id: p.box.id })}
+          >
+            <Snowflake />
+            <span className="gc-stock-place-text">
+              <strong>
+                {p.box.name} · {p.pos}
+              </strong>
+              <small>
+                {p.freezer?.name} › Shelf {p.box.shelf}
+              </small>
+            </span>
+          </button>
+        ))}
+        {!places.length && <p className="muted">Not in a freezer box yet.</p>}
+        <button className="btn btn-sm gc-stock-place" onClick={() => openPlaceDialog(meta, id)}>
+          <Snowflake /> {places.length ? 'Put another tube in a box…' : 'Put in a box…'}
+        </button>
+      </section>
       <section className="gc-stock-used">
         <h3>Used in</h3>
         {usedIn.length ? (
@@ -819,8 +847,11 @@ function Collection({ meta, target, tabs }: { meta: DocMeta; target?: string; ta
       icon: <Pencil />,
       onSelect: () =>
         void promptDialog({ title: 'Rename collection', label: 'Name', defaultValue: meta.title }).then(async (n) => {
-          if (n && n.trim() !== meta.title)
-            navigate({ name: 'stocks', path: await renameStockCollection(path, n), id: selected ?? undefined }, { replace: true });
+          if (!n || n.trim() === meta.title) return;
+          const to = await renameStockCollection(path, n);
+          // Its tubes in the freezers follow it.
+          await retargetTubes(path, to);
+          navigate({ name: 'stocks', path: to, id: selected ?? undefined }, { replace: true });
         }),
     },
     {
@@ -1018,6 +1049,8 @@ function Collection({ meta, target, tabs }: { meta: DocMeta; target?: string; ta
 
 export function StocksPage({ path, id }: { path?: string; id?: string }) {
   const docs = useNotebook((s) => s.docs);
+  useAllFreezers();
+  const freezersOpen = isFreezerPath(path);
   const collections = useMemo(
     () =>
       Object.values(docs)
@@ -1025,7 +1058,34 @@ export function StocksPage({ path, id }: { path?: string; id?: string }) {
         .sort((a, b) => a.title.localeCompare(b.title)),
     [docs],
   );
-  const current = (path && docs[path]?.kind === 'stocks' ? docs[path] : null) ?? collections[0] ?? null;
+  const current = freezersOpen ? null : ((path && docs[path]?.kind === 'stocks' ? docs[path] : null) ?? collections[0] ?? null);
+
+  // A tab per collection, and the freezers where their tubes are.
+  const tabs = (
+    <div className="gc-viewtabs" role="tablist" aria-label="Collections">
+      {collections.map((c) => (
+        <button
+          key={c.path}
+          role="tab"
+          aria-selected={c.path === current?.path}
+          className={`gc-viewtab ${c.path === current?.path ? 'active' : ''}`}
+          onClick={() => navigate({ name: 'stocks', path: c.path })}
+        >
+          {stockIcon(c.extra.stock)}
+          <span>{c.title}</span>
+        </button>
+      ))}
+      <button
+        role="tab"
+        aria-selected={freezersOpen}
+        className={`gc-viewtab ${freezersOpen ? 'active' : ''}`}
+        onClick={() => navigate({ name: 'stocks', path: freezerPath() })}
+      >
+        <Snowflake />
+        <span>Freezers</span>
+      </button>
+    </div>
+  );
 
   return (
     <div className="gc-page gc-stocks-page">
@@ -1035,13 +1095,16 @@ export function StocksPage({ path, id }: { path?: string; id?: string }) {
           title="Stocks"
           lede={
             <>
-              Primers, plasmids, cell lines and other stocks, one table per collection. Link one from an entry with <kbd>/</kbd> → Stock.
+              Primers, plasmids, cell lines and other stocks, one table per collection, and the freezers and boxes their tubes are in. Link one from
+              an entry with <kbd>/</kbd> → Stock.
             </>
           }
         />
-        {!current ? (
+        {freezersOpen ? (
+          <FreezerView space="" boxId={id} tabs={tabs} />
+        ) : !current ? (
           <>
-            <ViewBar tools={<NewButton what="collection" onClick={openNewCollectionDialog} />} />
+            <ViewBar tools={<NewButton what="collection" onClick={openNewCollectionDialog} />}>{tabs}</ViewBar>
             <div className="empty-state">
               <TestTubes />
               <h3>No stock collections yet</h3>
@@ -1049,29 +1112,7 @@ export function StocksPage({ path, id }: { path?: string; id?: string }) {
             </div>
           </>
         ) : (
-          <>
-            <Collection
-              key={current.path}
-              meta={current}
-              target={current.path === path ? id : undefined}
-              tabs={
-                <div className="gc-viewtabs" role="tablist" aria-label="Collections">
-                  {collections.map((c) => (
-                    <button
-                      key={c.path}
-                      role="tab"
-                      aria-selected={c.path === current.path}
-                      className={`gc-viewtab ${c.path === current.path ? 'active' : ''}`}
-                      onClick={() => navigate({ name: 'stocks', path: c.path })}
-                    >
-                      {stockIcon(c.extra.stock)}
-                      <span>{c.title}</span>
-                    </button>
-                  ))}
-                </div>
-              }
-            />
-          </>
+          <Collection key={current.path} meta={current} target={current.path === path ? id : undefined} tabs={tabs} />
         )}
       </div>
     </div>

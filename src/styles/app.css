@@ -55,9 +55,8 @@
   padding: 12px 10px 6px;
 }
 .gc-logo {
-  --logo-tile: var(--ink);
-  --logo-b: var(--on-ink);
-  --logo-a: var(--brand);
+  /* The A of the bare mark: black on a light page, light on a dark one. */
+  --logo-ink: var(--ink);
   display: block;
   flex: none;
 }

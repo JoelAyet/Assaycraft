@@ -684,3 +684,321 @@
   font-size: 12px;
   color: var(--text-3);
 }
+
+/* ───────────── Freezers: where the stocks' tubes are ───────────── */
+
+.gc-stock-place {
+  margin-top: 6px;
+}
+.gc-stock-place-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 3px 0;
+  line-height: 1.3;
+}
+.gc-stock-place-text strong {
+  font-weight: 600;
+}
+.gc-stock-place-text small {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ───────────── Freezers ───────────── */
+
+.gc-freezer {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.gc-freezer-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.gc-freezer-unit {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  padding: 6px 8px 10px;
+}
+.gc-freezer-unit-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 4px 8px;
+}
+.gc-freezer-unit-head > svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--accent-text);
+}
+.gc-freezer-unit-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.gc-freezer-unit-name strong {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gc-freezer-unit-name small {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.gc-freezer-shelves {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.gc-freezer-shelves li {
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+}
+/* A shelf with nothing on it takes one short line. */
+.gc-freezer-shelves li.is-empty {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+}
+.gc-freezer-shelves li.is-empty .gc-freezer-shelf,
+.gc-freezer-shelves li.is-empty .gc-freezer-none {
+  padding: 4px 6px;
+}
+.gc-freezer-shelf {
+  display: block;
+  padding: 4px 6px 2px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.gc-freezer-none {
+  display: block;
+  padding: 2px 6px 4px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.gc-freezer-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.gc-freezer-box:hover {
+  background: var(--bg-hover);
+}
+.gc-freezer-box.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.gc-freezer-box svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--text-3);
+}
+.gc-freezer-box.active svg {
+  color: var(--accent-text);
+}
+.gc-freezer-box-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gc-freezer-count {
+  flex: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+.gc-freezer-box.active .gc-freezer-count {
+  color: var(--accent-text);
+}
+
+.gc-box {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  padding: 16px 18px 14px;
+}
+.gc-box-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.gc-box-head h2 {
+  margin: 0 0 2px;
+  font-size: 18px;
+  font-weight: 650;
+}
+.gc-box-head .muted {
+  font-size: 13px;
+}
+.gc-box-scroll {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.gc-box-grid {
+  display: grid;
+  /* As wide as there is room for, up to 52 px a place; narrower than 30 px a place, it scrolls. */
+  grid-template-columns: 22px repeat(var(--cols), minmax(0, 1fr));
+  gap: 4px;
+  width: min(100%, calc(26px + var(--cols) * 56px));
+  min-width: calc(26px + var(--cols) * 34px);
+}
+.gc-box-colname,
+.gc-box-rowname {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.gc-box-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-subtle);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.05;
+  cursor: pointer;
+}
+.gc-box-cell small {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.gc-box-cell:hover {
+  border-color: var(--border-strong);
+}
+.gc-box-cell.is-free {
+  /* Faint, but seen in the dark theme too (the panel's own border is not). */
+  border-style: dashed;
+  border-color: var(--text-4);
+  background: transparent;
+}
+.gc-box-cell.is-free:hover {
+  border-color: var(--text-3);
+}
+.gc-box-cell.is-filled {
+  background: var(--c-blue-bg);
+  border-color: color-mix(in srgb, var(--c-blue) 45%, transparent);
+  color: var(--c-blue-fg);
+}
+.gc-box-cell.is-filled small {
+  color: var(--c-blue-fg);
+}
+.gc-box-cell.is-private {
+  background: var(--bg-muted);
+  color: var(--text-3);
+}
+.gc-box-cell.is-private svg {
+  width: 13px;
+  height: 13px;
+}
+.gc-box-cell.is-missing {
+  background: var(--c-orange-bg);
+  border-color: color-mix(in srgb, var(--c-orange) 45%, transparent);
+  color: var(--c-orange-fg);
+}
+.gc-box-cell.is-selected {
+  border-color: var(--accent);
+  box-shadow: var(--focus);
+}
+.gc-box-cell:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.gc-box-cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.gc-box-place {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+  font-size: 13.5px;
+}
+.gc-box-place p {
+  margin: 0;
+}
+.gc-box-place-pos {
+  font-family: var(--mono);
+  font-weight: 700;
+}
+.gc-box-place-what {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 7px;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.gc-box-place-what svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--text-3);
+}
+.gc-box-place-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.gc-box-empty {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+}
+.gc-place {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gc-place .gc-box-scroll {
+  margin-top: 4px;
+}
+/* In a dialog, up to 42 px a place, so the box, its picker and the buttons fit a laptop's height. */
+.gc-place .gc-box-grid {
+  width: min(100%, calc(26px + var(--cols) * 42px));
+}
