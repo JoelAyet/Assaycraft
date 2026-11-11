@@ -1,8 +1,7 @@
 /**
  * The Assaycraft logo, as drawn by its designer: an A of three joined strokes over a blue drop
  * that wraps around it (the drop passes over the A's right leg, under the rest). The paths are the
- * designer's own (Asset 3, the mark; Asset 4, the mark on its light-blue tile), in the mark's
- * coordinates: 321 × 307.
+ * designer's own (Asset 3), in the mark's coordinates: 321 × 307.
  *
  * The same paths make the logo in the app (Logo.tsx) and its icons (scripts/icons.mjs).
  */
@@ -19,31 +18,33 @@ export const DROP_PATH =
 export const OVER_PATH =
   'M-2-2v292.15h324.94V-2H-2ZM284.68,233.21c-8.21,5.42-20.69,13.74-35.93,22.87l.18-.83-.53.05c-.04-.39-.83-9.69,3.08-18.5,3.36-7.56,8.06-11.67,9.74-12.97-1.28-3.92-8.28-24.62-23.08-56.83.29-.17.58-.34.87-.51,4.96-2.86,9.93-4.89,14.81-6.19,16.66,23.27,43.31,52.44,47.88,57.4-4,5.36-9.58,10.61-17.01,15.51Z';
 
-/** The designer's colors. */
+/** The designer's colors; icons sit on white (phones and desktops want an icon with a square behind it). */
 export const LOGO_BLUE = '#2f7bff';
-export const LOGO_TILE = '#a5cceb';
 export const LOGO_INK = '#000000';
+export const LOGO_PAPER = '#ffffff';
 
 /** The mark's size, in its own coordinates. */
 export const MARK_W = 320.94;
 export const MARK_H = 307.07;
 
 /**
- * The logo as SVG markup, for files (icons, the favicon). `tile`: on the light-blue tile (a rounded
- * one, `radius` > 0, or a full square for icons a phone rounds itself); `scale`: how much of the
- * tile the mark spans (the designer's tile: 0.81).
+ * The logo as SVG markup, for files. With no `background`, the mark alone, its A light when the
+ * browser is dark (for the browser tab). With one, the mark on a square of that color: rounded
+ * (`radius` > 0) or to its edges for icons a phone rounds itself, the mark spanning `scale` of it.
  */
-export function logoSvg(opts: { tile?: boolean; radius?: number; scale?: number; size?: number; id?: string } = {}): string {
-  const { tile = true, radius = 30, scale = 0.81, size, id = 'a' } = opts;
+export function logoSvg(opts: { background?: string; radius?: number; scale?: number; size?: number; id?: string } = {}): string {
+  const { background, radius = 0, scale = 0.81, size, id = 'a' } = opts;
   const clip = `<clipPath id="${id}"><path d="${OVER_PATH}"/></clipPath>`;
-  const mark = `<path d="${A_PATH}" fill="${LOGO_INK}"/><path d="${DROP_PATH}" fill="${LOGO_BLUE}"/><path d="${A_PATH}" fill="${LOGO_INK}" clip-path="url(#${id})"/>`;
+  const mark = `<path class="ink" d="${A_PATH}" fill="${LOGO_INK}"/><path d="${DROP_PATH}" fill="${LOGO_BLUE}"/><path class="ink" d="${A_PATH}" fill="${LOGO_INK}" clip-path="url(#${id})"/>`;
   const dims = size ? ` width="${size}" height="${size}"` : '';
-  if (!tile)
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 ${-(MARK_W - MARK_H) / 2} ${MARK_W} ${MARK_W}"${dims}><defs>${clip}</defs>${mark}</svg>`;
-  // A square tile of 402, with the mark centered on it at `scale` of its width.
+  if (!background) {
+    const dark = '<style>@media (prefers-color-scheme: dark) { .ink { fill: #fff; } }</style>';
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 ${-(MARK_W - MARK_H) / 2} ${MARK_W} ${MARK_W}"${dims}>${dark}<defs>${clip}</defs>${mark}</svg>`;
+  }
+  // A square of 402 (the designer's tile width), with the mark centered on it at `scale` of its width.
   const S = 402;
   const k = (S * scale) / MARK_W;
   const x = (S - MARK_W * k) / 2;
   const y = (S - MARK_H * k) / 2;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}"${dims}><defs>${clip}</defs><rect width="${S}" height="${S}" rx="${radius}" fill="${LOGO_TILE}"/><g transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${k.toFixed(4)})">${mark}</g></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}"${dims}><defs>${clip}</defs><rect width="${S}" height="${S}" rx="${radius}" fill="${background}"/><g transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${k.toFixed(4)})">${mark}</g></svg>`;
 }

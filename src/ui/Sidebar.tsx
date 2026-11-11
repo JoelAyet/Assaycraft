@@ -79,14 +79,13 @@ function loadExpanded(): Set<string> {
   }
 }
 
-/** Assaycraft mark: a double helix (clay and ivory strands) on an ink tile. Colors come from CSS (.gc-logo). */
+/** The logo, for the pages that show it beside the name (Home, Settings → About). */
+export { Logo };
 
 /**
  * A sidebar row is a place to go: reachable with Tab, opened with Enter or Space, and marked as the
  * current page when it is. (A row holds buttons of its own, so it cannot be a button itself.)
  */
-export { Logo };
-
 function goTo(open: () => void, current?: boolean) {
   return {
     role: 'link',
