@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { FileStat, Vault, VaultEntry, WriteData } from '../../src/fs/types';
 import { SyncEngine, syncable } from '../../src/sync/engine';
 import { fromB64url, isSecret, newSecret, pairKeys, seal, unseal } from '../../src/sync/crypto';
-import { decodeMessage, encodeMessage, linkPair } from '../../src/sync/link';
+import { decodeMessage, encodeMessage, linkPair, type Link } from '../../src/sync/link';
 import { SyncableVault } from '../../src/sync/vault';
 
 /** A notebook in memory. */
@@ -82,8 +82,12 @@ function devices(computerFiles: Record<string, string>, phoneFiles: Record<strin
   let base: Record<string, string> = {};
   const conflicts: [string, string][] = [];
   const busy = new Set<string>();
-  const connect = async () => {
-    const [a, b] = linkPair();
+  /** One session. `silence()` makes what the computer sends vanish, as into a phone's dead connection. */
+  let silent = false;
+  const connect = async (opts: { quiet?: boolean } = {}) => {
+    silent = !!opts.quiet;
+    const [pair, b] = linkPair();
+    const a: Link = { ...pair, send: (data) => (silent ? Promise.resolve() : pair.send(data)) };
     const leader = new SyncEngine({
       role: 'leader',
       vault: computer,
@@ -103,8 +107,8 @@ function devices(computerFiles: Record<string, string>, phoneFiles: Record<strin
     });
     leader.start();
     follower.start();
-    await Promise.all([leader.synced, follower.synced]);
-    return { disconnect: () => a.close(), leader, follower };
+    await (opts.quiet ? leader.synced : Promise.all([leader.synced, follower.synced]));
+    return { disconnect: () => a.close(), silence: () => (silent = true), leader, follower };
   };
   const mem = (v: SyncableVault) => v.raw as MemVault;
   return { computer, phone, connect, conflicts, busy, pc: mem(computer), mobile: mem(phone), base: () => base };
@@ -249,6 +253,44 @@ describe('sync engine', () => {
     await d.pc.write('Projects/attachments/scan.tif', big);
     await d.connect();
     expect([...d.mobile.files.get('Projects/attachments/scan.tif')!.data]).toEqual([...big]);
+  });
+
+  it('a change sent into a connection that had died without a word is not lost at the next connection', async () => {
+    const d = devices({ 'A.md': 'a1', 'B.md': 'b1' });
+    const session = await d.connect();
+    // The phone is put away: its connection looks open, but nothing reaches it.
+    session.silence();
+    await d.computer.write('A.md', 'a2 while the phone was away');
+    await new Promise((r) => setTimeout(r, 400));
+    session.disconnect();
+    await d.connect();
+    expect(d.pc.text('A.md')).toBe('a2 while the phone was away');
+    same(d);
+    expect(d.conflicts).toEqual([]);
+  });
+
+  it('a first copy cut off before the phone had the files does not delete them on the computer', async () => {
+    const d = devices({ 'A.md': 'a1', 'B.md': 'b1' });
+    // The computer sends the notebook, but none of it arrives before the connection is gone.
+    const first = await d.connect({ quiet: true });
+    await new Promise((r) => setTimeout(r, 100));
+    first.disconnect();
+    await d.connect();
+    expect(d.pc.syncedFiles()).toEqual({ 'A.md': 'a1', 'B.md': 'b1' });
+    same(d);
+  });
+
+  it('the computer counts a change as agreed only once the phone has it', async () => {
+    const d = devices({ 'A.md': 'a1' });
+    const session = await d.connect();
+    await vi.waitFor(() => expect(Object.keys(d.base())).toEqual(['A.md']));
+    const agreed = d.base()['A.md'];
+    session.silence();
+    await d.computer.write('A.md', 'a2');
+    await new Promise((r) => setTimeout(r, 1800));
+    session.disconnect();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(d.base()['A.md']).toBe(agreed);
   });
 
   it('changes made while the devices are still comparing are sent once they agree', async () => {

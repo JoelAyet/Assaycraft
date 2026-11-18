@@ -2030,25 +2030,60 @@ async function openNotebookCopy(
 
 /** Paths changed by the other device, reloaded without the "changed outside" note. */
 let remoteRescan: ReturnType<typeof setTimeout> | undefined;
+let remotePaths = new Set<string>();
 function remoteChanged(paths: string[]) {
   for (const p of paths) {
     quietReloads.add(p);
     setTimeout(() => quietReloads.delete(p), 3000);
+    remotePaths.add(p);
   }
   clearTimeout(remoteRescan);
-  remoteRescan = setTimeout(
-    () =>
-      void rescan().then(async () => {
-        // The other device may have changed the notebook's settings (name, ID prefixes, statuses).
-        const v = getState().vault;
-        if (v && paths.some(isConfigFile)) {
-          const config = await loadConfig(v);
-          if (config) setState({ config });
-        }
-        warnDuplicateIds();
-      }),
-    100,
-  );
+  remoteRescan = setTimeout(() => {
+    const changed = [...remotePaths];
+    remotePaths = new Set();
+    void refreshRemote(changed).then(async () => {
+      // The other device may have changed the notebook's settings (name, ID prefixes, statuses).
+      const v = getState().vault;
+      if (v && changed.some(isConfigFile)) {
+        const config = await loadConfig(v);
+        if (config) setState({ config });
+      }
+      warnDuplicateIds();
+    });
+  }, 100);
+}
+
+/**
+ * Take in what the other device changed. Pages it edited (the usual case, a page saved as someone
+ * types on the other device) are read again one by one; anything else (a page added, deleted or
+ * moved, a folder, the trash) rescans the notebook.
+ */
+async function refreshRemote(paths: string[]): Promise<void> {
+  const v = getState().vault;
+  if (!v) return;
+  const docs = getState().docs;
+  const editedPages = paths.filter((p) => docs[p] || isConfigFile(p));
+  if (editedPages.length !== paths.length) return rescan();
+  const fresh: Record<string, DocMeta> = {};
+  for (const path of paths) {
+    if (isConfigFile(path)) continue;
+    const stat = await v.stat(path);
+    if (!stat) return rescan(); // gone after all
+    if (pending.has(path) || failedWrites.has(path) || metaDirty.has(path)) continue; // the store is ahead of the disk
+    const meta = await readMeta(v, path, docs[path].kind, stat.lastModified).catch(() => null);
+    if (!meta) return rescan();
+    fresh[path] = meta;
+  }
+  if (!Object.keys(fresh).length) return;
+  setState((s) => ({ docs: { ...s.docs, ...fresh } }));
+  for (const [path, now] of Object.entries(fresh)) {
+    const listener = externalListeners.get(path);
+    const known = lastWritten.get(path);
+    if (listener && known !== undefined && now.mtime !== known && !pending.has(path)) {
+      lastWritten.set(path, now.mtime);
+      listener();
+    }
+  }
 }
 
 /**

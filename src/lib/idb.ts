@@ -3,13 +3,37 @@
 // Safari sometimes fails a request without saying why (its error is null): reject with a real error anyway.
 const failed = (error: DOMException | null, what: string) => error ?? new Error(`The browser could not ${what} (no reason given).`);
 
-export function openDb(name: string, version: number, upgrade: (db: IDBDatabase) => void): Promise<IDBDatabase> {
+/**
+ * Open (and if needed upgrade) a database. `upgrade` gets the version it had (0 for a new one) and
+ * the upgrade's transaction, to move what is there. The connection closes itself when a newer
+ * version of the app needs to upgrade the database from another tab.
+ */
+export function openDb(
+  name: string,
+  version: number,
+  upgrade: (db: IDBDatabase, oldVersion: number, tx: IDBTransaction) => void,
+): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(name, version);
-    req.onupgradeneeded = () => upgrade(req.result);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(failed(req.error, 'open its storage'));
-    req.onblocked = () => reject(new Error(`Database "${name}" is blocked by another tab`));
+    let blocked: ReturnType<typeof setTimeout> | undefined;
+    req.onupgradeneeded = (e) => upgrade(req.result, e.oldVersion, req.transaction!);
+    req.onsuccess = () => {
+      clearTimeout(blocked);
+      const db = req.result;
+      db.onversionchange = () => db.close();
+      resolve(db);
+    };
+    req.onerror = () => {
+      clearTimeout(blocked);
+      reject(failed(req.error, 'open its storage'));
+    };
+    // An older version of the app in another tab holds the database: it opens once that tab lets go.
+    req.onblocked = () => {
+      blocked ??= setTimeout(
+        () => reject(new Error('Assaycraft is open in another tab with an older version. Reload or close that tab, then try again.')),
+        5000,
+      );
+    };
   });
 }
 

@@ -47,7 +47,14 @@ export interface ConnectionOptions {
 const ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.cloudflare.com:3478' }, { urls: 'stun:stun.l.google.com:19302' }];
 /** Give up on a direct channel after this long and keep using the relay. */
 const DIRECT_TIMEOUT = 20_000;
+/** A direct channel that has lost its way (Wi-Fi to 5G, the phone put away) gets this long to come back. */
+const DIRECT_GRACE = 5_000;
 const HIGH_WATER = 1 << 20;
+/** The relay answers each ping: one every PING, and silence for SILENT means the connection is gone. */
+const PING = 15_000;
+const SILENT = 40_000;
+/** Back on screen, a connection must answer a ping this soon (a phone that slept keeps sockets that look open). */
+const PROBE = 4_000;
 
 enum Kind {
   Signal = 1,
@@ -90,7 +97,11 @@ class DualLink implements Link {
       if (this.out === 'direct' && this.dc) {
         const dc = this.dc;
         if (dc.bufferedAmount > HIGH_WATER)
-          await new Promise<void>((resolve) => dc.addEventListener('bufferedamountlow', () => resolve(), { once: true }));
+          await new Promise<void>((resolve) => {
+            dc.addEventListener('bufferedamountlow', () => resolve(), { once: true });
+            dc.addEventListener('close', () => resolve(), { once: true });
+          });
+        if (this.closed || dc.readyState !== 'open') throw new Error('Connection lost');
         dc.send(data);
       } else await this.relaySend(Kind.Data, data);
     };
@@ -103,8 +114,10 @@ class DualLink implements Link {
     this.listeners.push(fn);
     for (const d of this.early.splice(0)) fn(d);
   }
+  /** Told when the link closes; at once, if it already has. */
   onClose(fn: () => void) {
-    this.closers.push(fn);
+    if (this.closed) queueMicrotask(fn);
+    else this.closers.push(fn);
   }
 
   private deliver(d: Uint8Array<ArrayBuffer>) {
@@ -152,6 +165,7 @@ export class Connection {
   private retry = 0;
   private retryTimer?: ReturnType<typeof setTimeout>;
   private pingTimer?: ReturnType<typeof setInterval>;
+  private probeTimer?: ReturnType<typeof setTimeout>;
   private lastHeard = 0;
   private incoming: Promise<void> = Promise.resolve();
   private outgoing: Promise<void> = Promise.resolve();
@@ -174,6 +188,7 @@ export class Connection {
     this.keys = await pairKeys(this.o.secret);
     window.addEventListener('online', this.wake);
     window.addEventListener('offline', this.lost);
+    window.addEventListener('pageshow', this.wake);
     document.addEventListener('visibilitychange', this.wake);
     this.open();
   }
@@ -182,8 +197,10 @@ export class Connection {
     this.stopped = true;
     window.removeEventListener('online', this.wake);
     window.removeEventListener('offline', this.lost);
+    window.removeEventListener('pageshow', this.wake);
     document.removeEventListener('visibilitychange', this.wake);
     clearTimeout(this.retryTimer);
+    clearTimeout(this.probeTimer);
     clearInterval(this.pingTimer);
     this.endSession();
     this.ws?.close(1000);
@@ -217,6 +234,7 @@ export class Connection {
       }
     }
     clearInterval(this.pingTimer);
+    clearTimeout(this.probeTimer);
     this.endSession();
     if (this.stopped) return;
     this.setState('offline');
@@ -226,17 +244,50 @@ export class Connection {
 
   private lost = () => this.drop(false);
 
-  /** Back on the network, or back on screen: reconnect now rather than at the next retry. */
+  /**
+   * Back on the network, or back on screen: reconnect now rather than at the next retry. A phone or
+   * tablet that was put away (Safari freezes the page) keeps sockets that look open but are gone, and
+   * a direct channel that may be too: the relay must answer a ping at once, and the direct channel
+   * must still be connected, or they are let go and made again.
+   */
   private wake = () => {
     if (this.stopped || document.visibilityState === 'hidden') return;
-    // A phone that was asleep can keep a socket that looks open but is gone.
-    if (this.ws?.readyState === WebSocket.OPEN && Date.now() - this.lastHeard > 40_000) this.drop(false);
+    const ws = this.ws;
+    if (ws?.readyState === WebSocket.OPEN) {
+      if (Date.now() - this.lastHeard > SILENT) {
+        this.drop(false);
+        this.setState('connecting');
+      } else {
+        const asked = Date.now();
+        try {
+          ws.send('ping');
+        } catch {
+          /* closing: onclose follows */
+        }
+        clearTimeout(this.probeTimer);
+        this.probeTimer = setTimeout(() => {
+          if (this.ws === ws && this.lastHeard < asked) this.wakeAgain();
+        }, PROBE);
+        const pc = this.pc;
+        const state = pc && (pc.connectionState ?? pc.iceConnectionState);
+        if (this.dual?.out === 'direct' && (state === 'disconnected' || state === 'failed' || state === 'closed')) this.dual.close();
+      }
+    }
     if (!this.ws || this.ws.readyState > WebSocket.OPEN) {
       clearTimeout(this.retryTimer);
       this.retry = 0;
       this.open();
     }
   };
+
+  /** The relay did not answer: the socket is gone. Make a new one now. */
+  private wakeAgain() {
+    this.drop(false);
+    // Not "offline": the network is there, the old connection just has to be replaced.
+    this.setState('connecting');
+    this.retry = 0;
+    this.open();
+  }
 
   private open() {
     if (this.stopped || !this.keys) return;
@@ -250,11 +301,11 @@ export class Connection {
       this.lastHeard = Date.now();
       this.setState('waiting');
       clearInterval(this.pingTimer);
-      // The relay answers every ping: silence for over a minute means the connection is gone.
+      // The relay answers every ping: silence means the connection is gone.
       this.pingTimer = setInterval(() => {
-        if (Date.now() - this.lastHeard > 70_000) this.drop(true);
+        if (Date.now() - this.lastHeard > SILENT) this.drop(true);
         else if (ws.readyState === WebSocket.OPEN) ws.send('ping');
-      }, 25_000);
+      }, PING);
     };
     ws.onmessage = (e) => {
       this.lastHeard = Date.now();
@@ -416,12 +467,25 @@ export class Connection {
     const giveUp = setTimeout(() => {
       if (dual.out !== 'direct') pc.close();
     }, DIRECT_TIMEOUT);
-    pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-        clearTimeout(giveUp);
-        if (dual.out === 'direct') dual.close();
+    // "disconnected" can last half a minute before "failed" (Safari may never say failed), with
+    // everything sent meanwhile stuck: after a short grace, the session starts again on the relay.
+    let grace: ReturnType<typeof setTimeout> | undefined;
+    const lost = () => {
+      clearTimeout(giveUp);
+      clearTimeout(grace);
+      if (dual.out === 'direct') dual.close();
+    };
+    const watch = (state: string) => {
+      if (state === 'failed' || state === 'closed') lost();
+      else if (state === 'disconnected') grace ??= setTimeout(lost, DIRECT_GRACE);
+      else if (state === 'connected' || state === 'completed') {
+        clearTimeout(grace);
+        grace = undefined;
       }
     };
+    pc.onconnectionstatechange = () => watch(pc.connectionState);
+    pc.oniceconnectionstatechange = () => watch(pc.iceConnectionState);
+    dual.onClose(() => clearTimeout(grace));
     const channel = (dc: RTCDataChannel) => {
       dc.binaryType = 'arraybuffer';
       dc.onmessage = (e) => dual.fromDirect(new Uint8Array(e.data as ArrayBuffer));

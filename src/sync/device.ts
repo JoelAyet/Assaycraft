@@ -47,3 +47,18 @@ export function deviceId(): string {
     return 'unknown';
   }
 }
+
+/**
+ * An iPhone or iPad, in a Safari tab rather than the app added to the Home Screen. Safari can clear a
+ * website's data when it is not opened for about a week; an app on the Home Screen keeps its own.
+ */
+export function iosBrowserTab(): boolean {
+  const kind = deviceName().split(' · ')[0];
+  if (kind !== 'iPhone' && kind !== 'iPad') return false;
+  const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true || matchMedia?.('(display-mode: standalone)').matches;
+  return !standalone;
+}
+
+/** What to do about it, for the pages that copy a notebook onto the device. */
+export const IOS_KEEP_NOTE =
+  'On iPhone and iPad, Safari can clear a website’s data when it is not opened for about a week, and this copy with it. To keep it, add Assaycraft to your Home Screen (Share → Add to Home Screen), open it from there and connect from it: the Home Screen app keeps its own copy, which Safari does not clear.';
