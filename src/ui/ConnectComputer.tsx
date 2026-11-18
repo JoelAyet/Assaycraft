@@ -4,6 +4,7 @@ import { openNotebook } from '../notebook/actions';
 import { toast } from '../notebook/store';
 import { linkToComputer, parsePairCode, syncSupported, type LinkProgress } from '../sync/manager';
 import { QrScanner } from '../sync/qr';
+import { IOS_KEEP_NOTE, iosBrowserTab } from '../sync/device';
 import { Dialog, openDialog } from './overlay';
 
 /** Welcome → Connect to a computer, or a pairing link opened on this device. */
@@ -31,6 +32,31 @@ function ConnectComputer({ close, initial, paste }: { close: () => void; initial
   // The dialog host makes a new `close` at each render; the connection must not restart for that.
   const closeRef = useRef(close);
   closeRef.current = close;
+
+  // A phone's screen locks after half a minute, and the copy stops with it: keep it awake meanwhile.
+  useEffect(() => {
+    if (!secret || problem) return;
+    type Lock = { release(): Promise<void> };
+    const wl = (navigator as Navigator & { wakeLock?: { request(type: 'screen'): Promise<Lock> } }).wakeLock;
+    if (!wl) return;
+    let lock: Lock | undefined;
+    let on = true;
+    const take = () => {
+      if (on && document.visibilityState === 'visible')
+        void wl.request('screen').then(
+          (l) => (on ? (lock = l) : void l.release()),
+          () => undefined,
+        );
+    };
+    take();
+    // The browser lets go of it when the page is hidden: take it again on return.
+    document.addEventListener('visibilitychange', take);
+    return () => {
+      on = false;
+      document.removeEventListener('visibilitychange', take);
+      void lock?.release().catch(() => undefined);
+    };
+  }, [secret, problem]);
 
   useEffect(() => {
     if (!secret) return;
@@ -90,6 +116,7 @@ function ConnectComputer({ close, initial, paste }: { close: () => void; initial
             On the computer, open the notebook in Assaycraft and choose <strong>Connect a phone</strong> in the notebook menu. Then scan the code it
             shows.
           </p>
+          {iosBrowserTab() && <p className="gc-option-note">{IOS_KEEP_NOTE}</p>}
           {mode === 'scan' ? (
             <>
               <QrScanner onCode={onCode} onError={onCameraError} />

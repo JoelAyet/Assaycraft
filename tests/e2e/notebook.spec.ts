@@ -373,6 +373,8 @@ test('rename, move and trash entries (with undo)', async ({ page }) => {
   await page.locator('.gc-section', { hasText: 'Projects' }).getByRole('button', { name: 'New project folder' }).click();
   await page.getByLabel('Project name').fill('CRISPR');
   await page.getByRole('button', { name: 'OK', exact: true }).click();
+  // The new folder opens: only then open the entry (a click before it would be undone by it).
+  await expect(page.getByRole('heading', { name: 'CRISPR', level: 1 })).toBeVisible();
   await page.locator('.gc-tree-row', { hasText: 'Gel extraction' }).click();
   await page.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Move to…' }).click();

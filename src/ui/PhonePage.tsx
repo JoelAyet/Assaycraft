@@ -5,6 +5,7 @@ import { formatRelative } from '../lib/dates';
 import { PageHead, PhoneBar } from './PageHeader';
 import { confirmDialog } from './overlay';
 import { cancelPendingPairing, forgetPairing, newPairing, syncSupported, unlinkFromComputer, useSync, type PeerStatus } from '../sync/manager';
+import { IOS_KEEP_NOTE, iosBrowserTab } from '../sync/device';
 import { QrCode } from '../sync/qr';
 import { writeClipboard } from '../lib/clipboard';
 
@@ -196,6 +197,7 @@ function PhoneView({ notebook }: { notebook: string }) {
             {st.tone === 'idle' && <p className="muted">Open “{notebook}” in Assaycraft on the computer: the two connect and sync by themselves.</p>}
           </div>
         </div>
+        {iosBrowserTab() && <p className="gc-option-note">{IOS_KEEP_NOTE}</p>}
         <div className="gc-row-buttons">
           {st.tone === 'idle' && (
             <button className="btn" onClick={() => window.dispatchEvent(new Event('online'))}>

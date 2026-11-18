@@ -6,6 +6,12 @@
  * a file changed on one side is copied to the other, one deleted on one side and unchanged on the
  * other is deleted there too, and one changed on both is kept twice ("… (from phone).md") so no
  * work is lost. After that, every change made on either device is sent to the other as it is saved.
+ *
+ * The base is what both devices are known to have, so the leader only adds to it what the phone
+ * says it has (or what came from the phone). A change sent into a connection that had died without
+ * a word (a phone put away: its socket looks open) never arrived; counted as agreed, the next
+ * comparison would have taken the phone's older version over it, and a first copy cut off midway
+ * would have read as files deleted on the phone.
  */
 import type { FileStat, Vault } from '../fs/types';
 import { fingerprint } from './crypto';
@@ -125,8 +131,12 @@ function parts<T>(items: T[]): T[][] {
 const newId = () => Math.random().toString(36).slice(2, 10);
 
 export class SyncEngine {
-  /** What both devices have, as far as this one knows. */
+  /** What both devices have, as far as this one knows (what it sent counts, before it arrives). */
   private known = new Map<string, Hash>();
+  /** The leader's base: what the follower has confirmed, or sent itself. Saved for the next comparison. */
+  private agreed = new Map<string, Hash>();
+  /** The comparison's result, agreed once the follower confirms it has all of it. */
+  private pendingFinal?: Map<string, Hash>;
   private live = false;
   private stopped = false;
   /** Files changed here while the devices were still comparing. */
@@ -239,6 +249,7 @@ export class SyncEngine {
     if (this.reconciling) return;
     this.reconciling = true;
     const base = (await this.o.base?.load()) ?? {};
+    this.agreed = new Map(Object.entries(base));
     const L = this.mine!;
     const F = this.theirs;
     const push: string[] = [];
@@ -303,7 +314,8 @@ export class SyncEngine {
       for (let i = 0; i < list.length; i++) await this.send({ t: 'known', entries: list[i] });
       await this.send({ t: 'synced' });
       this.known = final;
-      await this.saveBase();
+      // Saved as the base once the follower says it has it all (see 'ack').
+      this.pendingFinal = new Map(final);
       this.goLive();
     };
     for (const [i, paths] of parts(pull).entries()) await this.send({ t: 'get', paths, conflicts: i === 0 ? conflicts : [] });
@@ -385,7 +397,6 @@ export class SyncEngine {
       if (local.h === before) return;
       await this.sendBytes(path, local.bytes, local.h, 'put', before);
       this.known.set(path, local.h);
-      this.baseChanged();
       return;
     }
     if (await raw.exists(path)) {
@@ -396,7 +407,6 @@ export class SyncEngine {
     await this.send({ t: 'del', path, base: this.known.get(path), dir: inside.length > 0 || !this.known.has(path) });
     this.known.delete(path);
     for (const k of inside) this.known.delete(k);
-    this.baseChanged();
   }
 
   // ───────────── receiving ─────────────
@@ -428,8 +438,12 @@ export class SyncEngine {
       case 'synced':
         this.known = new Map(this.incomingKnown);
         this.incomingKnown = [];
+        // Everything the comparison sent came before this, and is written: say so.
+        await this.send({ t: 'ack', synced: true });
         this.goLive();
         return;
+      case 'ack':
+        return this.onAck(header);
       case 'del':
         return this.onDelete(header);
       case 'mkdir':
@@ -499,6 +513,7 @@ export class SyncEngine {
     const current = await this.hashes.of(this.o.vault.raw, path);
     if (current === h) {
       this.known.set(path, h);
+      await this.have(path, h);
       return;
     }
     if (current === null) return; // too big to compare: keep this device's
@@ -506,7 +521,7 @@ export class SyncEngine {
     if (!busy && (current === undefined || current === base)) {
       await this.writeLocal(path, bytes, h);
       this.known.set(path, h);
-      this.baseChanged();
+      await this.have(path, h);
       return;
     }
     // Changed on both: keep this device's version, keep the other's as a copy, and send both back.
@@ -525,13 +540,13 @@ export class SyncEngine {
       await raw.remove(path);
       for (const k of [...this.known.keys()]) if (k === path || k.startsWith(path + '/')) this.known.delete(k);
       this.applied(path);
-      this.baseChanged();
+      await this.have(path, null, true);
       return;
     }
     const current = await this.hashes.of(raw, path);
     this.known.delete(path);
-    this.baseChanged();
-    if (current === undefined || current === null) return;
+    if (current === null) return;
+    if (current === undefined) return this.have(path, null);
     if (current !== header.base) {
       // Changed here since: keep it, and give it back to the other device.
       await this.sendChange(path);
@@ -539,6 +554,41 @@ export class SyncEngine {
     }
     await raw.remove(path);
     this.applied(path);
+    await this.have(path, null);
+  }
+
+  /**
+   * Both devices now have this version of `path` (null: neither has it). The follower tells the
+   * leader; the leader, which got it from the follower, takes it into the base.
+   */
+  private async have(path: string, h: Hash | null, dir = false) {
+    if (this.o.role === 'follower') {
+      await this.send({ t: 'ack', path, h, dir });
+      return;
+    }
+    this.agree(path, h, dir);
+  }
+
+  private agree(path: string, h: Hash | null, dir: boolean) {
+    if (h !== null) this.agreed.set(path, h);
+    else {
+      this.agreed.delete(path);
+      if (dir) for (const k of [...this.agreed.keys()]) if (k.startsWith(path + '/')) this.agreed.delete(k);
+    }
+    this.baseChanged();
+  }
+
+  /** The follower has what the leader sent: it is agreed, and the base for the next comparison. */
+  private async onAck(header: Message) {
+    if (this.o.role !== 'leader') return;
+    if (header.synced) {
+      if (!this.pendingFinal) return;
+      this.agreed = this.pendingFinal;
+      this.pendingFinal = undefined;
+      await this.saveBase();
+      return;
+    }
+    this.agree(header.path as string, (header.h as Hash | null) ?? null, !!header.dir);
   }
 
   private async writeLocal(path: string, bytes: Uint8Array<ArrayBuffer>, h: Hash) {
@@ -581,6 +631,6 @@ export class SyncEngine {
   private async saveBase() {
     clearTimeout(this.baseTimer);
     this.baseTimer = undefined;
-    await this.o.base?.save(Object.fromEntries(this.known)).catch((err) => console.warn('Could not save the sync state', err));
+    await this.o.base?.save(Object.fromEntries(this.agreed)).catch((err) => console.warn('Could not save the sync state', err));
   }
 }

@@ -28,6 +28,13 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 ## What's new
 
+**18 November 2026**
+
+- **A connected phone is faster.** A notebook kept in the browser (as on every phone, and in Safari and Firefox) now lists its pages without reading every file, attachments included: opening it, and catching up with the computer, take a fraction of the time. A page someone is typing on the computer is read again on its own on the phone, instead of the whole notebook.
+- **Back on screen, back in sync.** An iPhone or iPad put away (or locked) keeps connections that look open but are gone. Now, as soon as Assaycraft is back on screen, it checks and reconnects within seconds, instead of up to a minute. A direct connection that drops (Wi-Fi to mobile data) falls back to the relay within seconds too.
+- **Changes made while the phone was away are kept.** A change the computer sent while the phone's connection was silently gone could be undone at the next connection by the phone's older version; a first copy cut off midway could even read as pages deleted on the phone. The computer now counts a change as shared only once the phone says it has it.
+- **On iPhone and iPad**, the screen stays on while the notebook is copied (a locked screen stopped the copy), and connecting says how to keep the copy: Safari can clear a website's data after about a week unopened, unless Assaycraft is on the Home Screen. A phone out of space now says so, instead of trying again and again.
+
 **11 November 2026**
 
 - **A new logo:** an A with a blue drop around it. It is on the sidebar, the welcome page, the browser tab and the icon of the installed app.
@@ -699,6 +706,7 @@ The same notebook on your computer and your phone, without storing it online.
 - A page changed on both before they caught up is kept twice: the computer's version in its place, and the phone's next to it as “… (from iPhone).md”. Compare the two and delete the one you do not need. Nothing is overwritten without a trace: when a page is replaced by the other device's version, the version it replaces goes into its [version history](#version-history).
 - The phone reconnects by itself whenever the notebook is open on both. The icon at the foot of the sidebar shows how it is going (green: in sync); click it for the details. On the phone the menu item is _Computer connection_, with _Try to connect now_ while the two are apart.
 - Files over 50 MB, such as long microscopy stacks, stay on the device they were added on.
+- **On an iPhone or iPad**, add Assaycraft to the Home Screen (Share → _Add to Home Screen_), open it from there, and connect from it. Safari can clear a website's data when it is not opened for about a week, and the copy with it; the Home Screen app keeps its own copy, which Safari does not clear (it is separate from Safari's, so connect it on its own). While the notebook is first copied, the screen stays on: a locked screen pauses the copy, and it picks up where it was once the screen is back.
 - The computer can connect several phones; each is listed on _Connect a phone_, with **Disconnect**. Disconnecting (from either device) stops the sync, and the phone keeps its copy as a notebook stored in its browser.
 
 **Networks and privacy**

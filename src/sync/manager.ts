@@ -13,7 +13,7 @@ import { Connection, type Hello, type LinkState, type Role, type Session } from 
 import { isSecret, newSecret } from './crypto';
 import { deviceId, deviceName, shortDevice } from './device';
 import { HashCache, SyncEngine, type Progress } from './engine';
-import { deleteRecord, loadRecord, saveRecord } from './store';
+import { baseFiles, baseRecord, deleteRecord, loadRecord, saveRecord } from './store';
 import { SyncableVault } from './vault';
 
 export interface PeerStatus {
@@ -68,6 +68,8 @@ export function parsePairCode(text: string): string | null {
   return isSecret(secret) ? secret : null;
 }
 
+const isQuotaError = (err: unknown) => err instanceof Error && (err.name === 'QuotaExceededError' || /quota/i.test(err.message));
+
 /** Off only for tests of the relay path: localStorage 'assaycraft:direct' = 'off'. */
 function directAllowed() {
   try {
@@ -100,11 +102,43 @@ function setPeer(id: string, patch: Partial<PeerStatus>) {
   useSync.setState((s) => ({ peers: { ...s.peers, [id]: { ...(s.peers[id] ?? { device: '', link: 'connecting' }), ...patch } } }));
 }
 
+function saveHashes() {
+  clearTimeout(hashTimer);
+  if (current) void saveRecord('hashes', current.vault.id, current.hashes.toJSON()).catch(() => undefined);
+}
+
 function saveHashesSoon() {
   clearTimeout(hashTimer);
-  hashTimer = setTimeout(() => {
-    if (current) void saveRecord('hashes', current.vault.id, current.hashes.toJSON()).catch(() => undefined);
-  }, 5000);
+  hashTimer = setTimeout(saveHashes, 5000);
+}
+
+// A phone or tablet may discard a page that was put away without warning: the fingerprints of the
+// files are kept before that, or the next connection reads every file again to make them.
+if (typeof document !== 'undefined')
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && hashTimer !== undefined) saveHashes();
+  });
+if (typeof window !== 'undefined') window.addEventListener('pagehide', () => hashTimer !== undefined && saveHashes());
+
+/** Progress, at most every PROGRESS_EVERY ms (one update per file made a phone redraw thousands of times). */
+const PROGRESS_EVERY = 150;
+function progressReporter(report: (p: Progress) => void) {
+  let last = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let latest: Progress | undefined;
+  const flush = () => {
+    clearTimeout(timer);
+    timer = undefined;
+    last = Date.now();
+    if (latest) report(latest);
+  };
+  return (p: Progress) => {
+    latest = p;
+    // A new phase (comparing, copying, live) shows at once; counts in between, now and then.
+    if (p.phase !== 'copying' || p.done === 0 || p.done >= p.total) return flush();
+    if (Date.now() - last >= PROGRESS_EVERY) flush();
+    else timer ??= setTimeout(flush, PROGRESS_EVERY);
+  };
 }
 
 function hello(role: Role, vault?: SyncableVault): Hello {
@@ -134,8 +168,8 @@ function runEngine(run: Run, vault: SyncableVault, session: Session, hashes: Has
     hashes,
     base: base
       ? {
-          load: async () => (await loadRecord<Record<string, string>>('base', base)) ?? {},
-          save: (files) => saveRecord('base', base, files),
+          load: async () => baseFiles(await loadRecord('base', base)),
+          save: (files) => saveRecord('base', base, baseRecord(files)),
         }
       : undefined,
     isBusy: (path) => hooks?.isBusy(path) ?? false,
@@ -146,18 +180,31 @@ function runEngine(run: Run, vault: SyncableVault, session: Session, hashes: Has
       for (const other of current?.runs.values() ?? []) if (other !== run) for (const p of paths) other.engine?.changed(p);
       saveHashesSoon();
     },
-    onProgress: (progress) => {
+    onProgress: progressReporter((progress) => {
+      if (run.engine !== engine) return;
       setPeer(run.id, { progress });
       if (progress.phase === 'live') {
         const now = Date.now();
         setPeer(run.id, { lastSync: now });
         void rememberLastSync(run.id, now);
-        saveHashesSoon();
+        saveHashes();
       }
-    },
+    }),
     onSkipped: (paths) => setPeer(run.id, { skipped: paths.length }),
     onConflict: (path, copy) => hooks?.conflict(path, copy, shortDevice(session.peer.device)),
-    onError: (err) => console.warn('Sync stopped; it starts again on the next connection.', err),
+    onError: (err) => {
+      // Out of space: each new session would fail the same way, over and over. Stop and say so.
+      if (isQuotaError(err)) {
+        run.conn.stop();
+        setPeer(run.id, { link: 'offline', progress: undefined });
+        hooks?.notice(
+          'This device has no room left for the notebook in this browser, so syncing stopped. Free some space (or remove large attachments on the computer), then open the notebook again.',
+          'error',
+        );
+        return;
+      }
+      console.warn('Sync stopped; it starts again on the next connection.', err);
+    },
   });
   run.engine = engine;
   engine.start();
@@ -342,7 +389,8 @@ export interface LinkProgress {
 export function linkToComputer(secret: string, onStatus: (s: LinkProgress) => void, open: (vault: SyncableVault) => Promise<void>) {
   let status: LinkProgress = { link: 'connecting' };
   const report = (patch: Partial<LinkProgress>) => onStatus((status = { ...status, ...patch }));
-  let vault: SyncableVault | undefined;
+  /** Made once, even if the connection drops and a new session starts while it is being made. */
+  let making: Promise<SyncableVault> | undefined;
   let opened = false;
   let settle!: { resolve: () => void; reject: (err: unknown) => void };
   const done = new Promise<void>((resolve, reject) => (settle = { resolve, reject }));
@@ -370,25 +418,28 @@ export function linkToComputer(secret: string, onStatus: (s: LinkProgress) => vo
         const nb = s.peer.notebook;
         if (!nb) throw new Error('The computer has no notebook open.');
         report({ computer: s.peer.device, notebook: nb.name });
-        if (!vault) {
+        making ??= (async () => {
           const existing = (await listKnownNotebooks()).find((k) => k.link?.notebook === nb.id);
           const raw = existing ? await IdbVault.open(existing.id, existing.name) : await createBrowserVault(nb.name);
           const link: ComputerLink = { secret, computer: s.peer.device, notebook: nb.id, paired: Date.now() };
           await updateKnownNotebook(raw.id, (k) => ({ ...k, link }));
-          vault = new SyncableVault(raw);
-        }
-        const engine = runEngine(run, vault, s, hashes);
+          return new SyncableVault(raw);
+        })();
+        const v = await making;
+        const engine = runEngine(run, v, s, hashes);
         const off = useSync.subscribe((st) => {
           const progress = st.peers.computer?.progress;
           if (progress) report({ progress });
         });
-        await engine.synced.finally(off);
-        if (opened) return;
+        // Synced, or this session ended first (a new one picks up from there).
+        const ended = new Promise<boolean>((resolve) => s.link.onClose(() => resolve(false)));
+        const synced = await Promise.race([engine.synced.then(() => true), ended]).finally(off);
+        if (!synced || opened) return;
         opened = true;
         // The notebook takes over this connection when it opens (see startSync).
-        handover = { vaultId: vault.id, run, hashes };
+        handover = { vaultId: v.id, run, hashes };
         useSync.setState((st) => ({ role: 'phone', peers: { computer: { ...st.peers.computer, device: s.peer.device } } }));
-        await open(vault);
+        await open(v);
         settle.resolve();
       })().catch((err) => {
         stop();
