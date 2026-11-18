@@ -14,6 +14,8 @@ export function openConnectComputer(opts: { secret?: string; paste?: boolean } =
 
 function statusText(s: LinkProgress): string {
   if (s.link === 'offline') return 'No internet connection. Trying again…';
+  if (s.link === 'elsewhere')
+    return 'Assaycraft is connecting in another tab of this browser. Close that tab, or use this one again to connect here.';
   if (s.link === 'connecting') return 'Connecting…';
   if (s.link === 'waiting')
     return 'Waiting for the computer. On it, keep the Connect a phone page open (or the notebook, if this device was connected before).';

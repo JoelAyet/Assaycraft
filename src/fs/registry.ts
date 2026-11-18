@@ -6,8 +6,11 @@ import type { Vault, VaultKind } from './types';
 /** A phone connected to a notebook on this computer (Connect a phone). */
 export interface Pairing {
   id: string;
-  /** The pairing's secret, shared through the QR code. */
+  /** The pairing's secret: the QR code's at first, then one the two devices agreed on (`keyed`). */
   secret: string;
+  /** While switching to a secret of their own: the new one, until the two have met with it. */
+  next?: string;
+  keyed?: boolean;
   device: string;
   deviceId: string;
   paired: number;
@@ -16,7 +19,10 @@ export interface Pairing {
 
 /** On a phone: the computer whose notebook this is a copy of. */
 export interface ComputerLink {
+  /** As in Pairing: the QR code's secret at first, then the two devices' own (`keyed`). */
   secret: string;
+  next?: string;
+  keyed?: boolean;
   /** "Mac · Chrome" */
   computer: string;
   /** The notebook's id on the computer. */

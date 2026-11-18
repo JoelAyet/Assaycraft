@@ -4,14 +4,22 @@
  * When they connect, each lists its files with a fingerprint of each. The computer compares the
  * lists with the files as they were when the two last agreed (the base) to tell who changed what:
  * a file changed on one side is copied to the other, one deleted on one side and unchanged on the
- * other is deleted there too, and one changed on both is kept twice ("… (from phone).md") so no
- * work is lost. After that, every change made on either device is sent to the other as it is saved.
+ * other is deleted there too, and one changed on both keeps its latest edit (by the time the page
+ * says it was edited) while the other version goes into the page's version history, on both
+ * devices. Pictures and other files that are not text cannot go into a history: both are kept,
+ * the other device's as "… (from phone).png". After that, every change made on either device is
+ * sent to the other as it is saved.
  *
  * The base is what both devices are known to have, so the leader only adds to it what the phone
  * says it has (or what came from the phone). A change sent into a connection that had died without
  * a word (a phone put away: its socket looks open) never arrived; counted as agreed, the next
  * comparison would have taken the phone's older version over it, and a first copy cut off midway
  * would have read as files deleted on the phone.
+ *
+ * What the comparison decided is checked again, file by file, right before it is done: a file saved
+ * meanwhile (someone typing as the devices reconnect) is never deleted or overwritten by a decision
+ * made from the older list; the two versions are compared again. A folder deleted on one side is
+ * deleted file by file on the other, and what was changed or added there meanwhile stays.
  */
 import type { FileStat, Vault } from '../fs/types';
 import { fingerprint } from './crypto';
@@ -48,19 +56,36 @@ export interface EngineOptions {
   link: Link;
   /** Names the other device in the copies kept when both changed a file: "(from phone)". */
   peerLabel: string;
-  /** The leader's record of the files as they were when the two devices last agreed. */
-  base?: { load(): Promise<Record<string, Hash>>; save(files: Record<string, Hash>): Promise<void> };
+  /**
+   * The leader's record of the files as they were when the two devices last agreed. `confirmed`:
+   * every file in it was confirmed by the follower. One saved by an earlier version was not (it
+   * counted what was sent as agreed), so it is used for everything but deleting on the leader.
+   */
+  base?: { load(): Promise<{ files: Record<string, Hash>; confirmed: boolean }>; save(files: Record<string, Hash>): Promise<void> };
+  /**
+   * The leader once had this version of `path` (it is in its version history): the follower's copy
+   * is an older one, not a change of its own.
+   */
+  hadVersion?: (path: string, h: Hash) => Promise<boolean>;
+  /** Keep a version of `path` that lost to a later edit, in its history (`label` says where from). */
+  keepVersion?: (path: string, bytes: Uint8Array<ArrayBuffer>, label: string) => Promise<void>;
+  /** Both devices had changed `path`: the latest edit was kept (`here`, or the one from `there`). */
+  onResolved?: (path: string, kept: 'here' | 'there') => void;
   hashes?: HashCache;
   /** True while the app has unsaved edits of this file. */
   isBusy?: (path: string) => boolean;
   /** Called before a file is overwritten by the other device's version (to keep a version of it). */
-  beforeOverwrite?: (path: string) => Promise<void>;
+  /**
+   * Called before a file is replaced by the other device's version: `compare` when the devices meet,
+   * `live` as the other saves, `resolve` when the other's is the later of two edits (keep it for good).
+   */
+  beforeOverwrite?: (path: string, when: 'compare' | 'live' | 'resolve') => Promise<void>;
   /** Files changed by the other device (written, deleted, or created). */
   onApplied?: (paths: string[]) => void;
   onProgress?: (p: Progress) => void;
   /** Files too big to copy; they stay where they are. */
   onSkipped?: (paths: string[]) => void;
-  /** Both devices changed `path`: the other device's version was kept as `copy`. */
+  /** Both devices changed `path` (not a text file): the other device's version was kept as `copy`. */
   onConflict?: (path: string, copy: string) => void;
   onError?: (err: unknown) => void;
 }
@@ -110,6 +135,8 @@ async function walk(v: Vault): Promise<{ files: string[]; dirs: string[] }> {
 }
 
 const TEXT = /\.(md|markdown|json|txt|csv|tsv)$/i;
+/** Files whose versions can be kept in a page's history (and so resolved to the latest). */
+const isText = (path: string) => TEXT.test(path);
 const utf8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 
 function concat(pieces: Uint8Array[]): Uint8Array<ArrayBuffer> {
@@ -122,10 +149,33 @@ function concat(pieces: Uint8Array[]): Uint8Array<ArrayBuffer> {
   return out;
 }
 
+/** Lists go in parts of at most PART items and about PART_BYTES (long paths: a message must stay well under the relay's limit). */
+const PART_BYTES = 64 * 1024;
 function parts<T>(items: T[]): T[][] {
   const out: T[][] = [];
-  for (let i = 0; i < items.length; i += PART) out.push(items.slice(i, i + PART));
+  let part: T[] = [];
+  let size = 0;
+  for (const item of items) {
+    const n = JSON.stringify(item).length;
+    if (part.length && (part.length >= PART || size + n > PART_BYTES)) {
+      out.push(part);
+      part = [];
+      size = 0;
+    }
+    part.push(item);
+    size += n;
+  }
+  if (part.length) out.push(part);
   return out.length ? out : [[]];
+}
+
+/** When a page says it was last edited (its front matter's `modified`), in ms; undefined if it does not say. */
+export function editedAt(bytes: Uint8Array): number | undefined {
+  const head = new TextDecoder().decode(bytes.subarray(0, 4096));
+  const fm = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/.exec(head);
+  const m = fm && /^modified:\s*['"]?([^'"\r\n]+?)['"]?\s*$/m.exec(fm[1]);
+  const t = m ? Date.parse(m[1]) : NaN;
+  return Number.isNaN(t) ? undefined : t;
 }
 
 const newId = () => Math.random().toString(36).slice(2, 10);
@@ -158,6 +208,13 @@ export class SyncEngine {
   // The leader's bookkeeping while copying.
   private expecting = 0;
   private received = new Map<string, Hash>();
+  /** The follower's versions of files changed on both, held to compare (by the name they come under). */
+  private holding = new Set<string>();
+  private held = new Map<string, { bytes: Uint8Array<ArrayBuffer>; h: Hash }>();
+  /** Files whose version here won over the other device's while comparing: sent again before the end. */
+  private resend = new Set<string>();
+  /** Files to send (once live) as the winner of a comparison: the other side keeps what it replaces. */
+  private resolvedSend = new Set<string>();
   private finish?: () => Promise<void>;
 
   readonly synced: Promise<void>;
@@ -248,7 +305,7 @@ export class SyncEngine {
   private async reconcile() {
     if (this.reconciling) return;
     this.reconciling = true;
-    const base = (await this.o.base?.load()) ?? {};
+    const { files: base, confirmed } = (await this.o.base?.load()) ?? { files: {}, confirmed: true };
     this.agreed = new Map(Object.entries(base));
     const L = this.mine!;
     const F = this.theirs;
@@ -258,14 +315,19 @@ export class SyncEngine {
     const delTheirs: string[] = [];
     const mkdirMine: string[] = [];
     const mkdirTheirs: string[] = [];
+    const rmdirMine: string[] = [];
+    const rmdirTheirs: string[] = [];
     const conflicts: [string, string][] = [];
     const final = new Map<string, Hash>();
     for (const path of new Set([...L.keys(), ...F.keys()])) {
       const l = L.get(path);
       const f = F.get(path);
+      const b = base[path];
       if (l === DIR || f === DIR) {
-        if (l === DIR && f === undefined) mkdirTheirs.push(path);
-        else if (f === DIR && l === undefined) mkdirMine.push(path);
+        // A folder: one both had and one side removed goes on the other too (if nothing is left in it).
+        if (l === DIR && f === DIR) final.set(path, DIR);
+        else if (l === DIR && f === undefined) (confirmed && b === DIR ? rmdirMine : mkdirTheirs).push(path);
+        else if (f === DIR && l === undefined) (b === DIR ? rmdirTheirs : mkdirMine).push(path);
         continue;
       }
       if (l === null || f === null) continue; // too big: stays where it is
@@ -273,22 +335,35 @@ export class SyncEngine {
         if (l !== undefined) final.set(path, l);
         continue;
       }
-      const b = base[path];
-      if (f === undefined) (b !== undefined && l === b ? delMine : push).push(path);
+      // Missing on the follower: deleted there, if the base can be trusted to say it had it.
+      if (f === undefined) (confirmed && b !== undefined && l === b ? delMine : push).push(path);
       else if (l === undefined) (b !== undefined && f === b ? delTheirs : pull).push(path);
       else if (f === b) push.push(path);
       else if (l === b) pull.push(path);
+      // Not in the base (or none): the follower's may just be an older version the leader had.
+      else if (await this.o.hadVersion?.(path, f).catch(() => false)) push.push(path);
       else conflicts.push([path, await this.copyName(path, (p) => L.has(p) || F.has(p))]);
     }
+    for (const dir of [...mkdirMine, ...mkdirTheirs]) final.set(dir, DIR);
 
     this.report({ phase: 'copying', done: 0, total: push.length + pull.length + conflicts.length * 3 + delMine.length + delTheirs.length });
     const plan = parts(delTheirs);
     for (let i = 0; i < plan.length; i++)
-      await this.send({ t: 'plan', del: plan[i], mkdir: i === 0 ? mkdirTheirs : [], total: this.progress.total, last: i === plan.length - 1 });
+      await this.send({
+        t: 'plan',
+        del: plan[i],
+        mkdir: i === 0 ? mkdirTheirs : [],
+        rmdir: i === 0 ? rmdirTheirs : [],
+        total: this.progress.total,
+        last: i === plan.length - 1,
+      });
     const raw = this.o.vault.raw;
     for (const path of delMine) {
-      await raw.remove(path);
-      this.applied(path);
+      // Only if it is still as listed: saved meanwhile, it stays, and goes to the follower once live.
+      if ((await this.hashes.of(raw, path)) === L.get(path) && !this.busy(path)) {
+        await raw.remove(path);
+        this.applied(path);
+      } else this.dirty.add(path);
       this.step();
     }
     for (const dir of mkdirMine) {
@@ -297,19 +372,44 @@ export class SyncEngine {
     }
 
     this.expecting = pull.length + conflicts.length;
+    for (const [, copy] of conflicts) this.holding.add(copy);
     this.finish = async () => {
       this.finish = undefined;
       for (const [path, copy] of conflicts) {
-        const mineNow = await this.sendFile(path, 'sync');
-        if (mineNow) final.set(path, mineNow);
+        const theirs = this.held.get(copy);
+        this.held.delete(copy);
+        this.holding.delete(copy);
+        if (!theirs) {
+          // Gone from the follower meanwhile: it gets this one.
+          const h = await this.sendFile(path, 'sync');
+          if (h) final.set(path, h);
+        } else if (isText(path)) {
+          const kept = await this.both(path, theirs.bytes, theirs.h);
+          if (kept === 'there') final.set(path, theirs.h);
+          else {
+            const h = await this.sendFile(path, 'sync', { resolved: true });
+            if (h) final.set(path, h);
+          }
+        } else {
+          // Not text: both are kept, the follower's as a copy, on both devices.
+          await this.writeLocal(copy, theirs.bytes, theirs.h, 'compare');
+          final.set(copy, theirs.h);
+          const h = await this.sendFile(path, 'sync');
+          if (h) final.set(path, h);
+          await this.sendFile(copy, 'sync');
+          this.o.onConflict?.(path, copy);
+        }
         this.step();
-        const theirsNow = this.received.get(copy);
-        if (theirsNow && (await this.sendFile(copy, 'sync'))) final.set(copy, theirsNow);
         this.step();
-        this.o.onConflict?.(path, copy);
       }
       for (const [path, h] of this.received) if (!final.has(path)) final.set(path, h);
       this.received.clear();
+      for (const path of this.resend) {
+        const h = await this.sendFile(path, 'sync', { resolved: true });
+        if (h) final.set(path, h);
+      }
+      this.resend.clear();
+      for (const dir of rmdirMine) if (await this.emptyDir(dir)) await raw.remove(dir);
       const list = parts([...final]);
       for (let i = 0; i < list.length; i++) await this.send({ t: 'known', entries: list[i] });
       await this.send({ t: 'synced' });
@@ -325,6 +425,55 @@ export class SyncEngine {
       this.step();
     }
     if (this.expecting === 0) await this.finish();
+  }
+
+  private busy(path: string) {
+    return this.o.isBusy?.(path) ?? false;
+  }
+
+  /** No file (that syncs) left anywhere inside the folder. */
+  private async emptyDir(dir: string): Promise<boolean> {
+    const raw = this.o.vault.raw;
+    if (!(await raw.exists(dir))) return false;
+    for (const e of await raw.list(dir)) {
+      if (!syncable(e.path)) continue;
+      if (e.kind === 'file' || !(await this.emptyDir(e.path))) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Both devices changed `path`: this side's version against the other's (a text file). The latest
+   * edit is kept, by the time the page says it was edited; when that says nothing (or the same), the
+   * leader's. The one that loses goes into the page's version history: the other's here, through
+   * keepVersion; this side's, through beforeOverwrite as it is replaced. Being edited here right now
+   * makes this side's the latest. Returns which was kept; `here` must still be sent to the other side.
+   */
+  private async both(path: string, bytes: Uint8Array<ArrayBuffer>, h: Hash): Promise<'here' | 'there'> {
+    const local = await this.readLocal(path);
+    if (!local) {
+      await this.writeLocal(path, bytes, h, 'compare');
+      return 'there';
+    }
+    if (local.h === h) return 'there';
+    let kept: 'here' | 'there';
+    if (this.busy(path)) kept = 'here';
+    else {
+      const mine = editedAt(local.bytes);
+      const theirs = editedAt(bytes);
+      kept =
+        mine !== undefined && theirs !== undefined && mine !== theirs
+          ? mine > theirs
+            ? 'here'
+            : 'there'
+          : this.o.role === 'leader'
+            ? 'here'
+            : 'there';
+    }
+    if (kept === 'there') await this.writeLocal(path, bytes, h, 'resolve');
+    else await this.o.keepVersion?.(path, bytes, `From ${this.o.peerLabel}`);
+    this.o.onResolved?.(path, kept);
+    return kept;
   }
 
   private goLive() {
@@ -347,17 +496,19 @@ export class SyncEngine {
     return { bytes, h, st };
   }
 
-  private async sendBytes(path: string, bytes: Uint8Array, h: Hash, mode: 'sync' | 'put', base?: Hash) {
+  /** `resolved`: the latest of two edits; the receiver keeps the version it replaces in the page's history. */
+  private async sendBytes(path: string, bytes: Uint8Array, h: Hash, mode: 'sync' | 'put', base?: Hash, resolved = false) {
     const id = newId();
     const n = Math.max(1, Math.ceil(bytes.length / CHUNK));
-    for (let i = 0; i < n; i++) await this.send({ t: 'file', id, path, h, mode, base, i, n }, bytes.subarray(i * CHUNK, (i + 1) * CHUNK));
+    for (let i = 0; i < n; i++)
+      await this.send({ t: 'file', id, path, h, mode, base, i, n, ...(resolved ? { resolved } : {}) }, bytes.subarray(i * CHUNK, (i + 1) * CHUNK));
   }
 
   /** Send a file as it is now; `as` sends it under another name. Returns its fingerprint, or nothing if it is gone. */
-  private async sendFile(path: string, mode: 'sync' | 'put', opts: { as?: string; base?: Hash } = {}): Promise<Hash | undefined> {
+  private async sendFile(path: string, mode: 'sync' | 'put', opts: { as?: string; base?: Hash; resolved?: boolean } = {}): Promise<Hash | undefined> {
     const local = await this.readLocal(path);
     if (!local) return undefined;
-    await this.sendBytes(opts.as ?? path, local.bytes, local.h, mode, opts.base);
+    await this.sendBytes(opts.as ?? path, local.bytes, local.h, mode, opts.base, opts.resolved);
     return local.h;
   }
 
@@ -394,8 +545,9 @@ export class SyncEngine {
     const local = await this.readLocal(path);
     if (local) {
       const before = this.known.get(path);
+      const resolved = this.resolvedSend.delete(path);
       if (local.h === before) return;
-      await this.sendBytes(path, local.bytes, local.h, 'put', before);
+      await this.sendBytes(path, local.bytes, local.h, 'put', before, resolved);
       this.known.set(path, local.h);
       return;
     }
@@ -404,7 +556,8 @@ export class SyncEngine {
       return;
     }
     const inside = [...this.known.keys()].filter((k) => k.startsWith(path + '/'));
-    await this.send({ t: 'del', path, base: this.known.get(path), dir: inside.length > 0 || !this.known.has(path) });
+    const dir = this.known.get(path) === DIR || inside.length > 0 || !this.known.has(path);
+    await this.send({ t: 'del', path, base: this.known.get(path), dir });
     this.known.delete(path);
     for (const k of inside) this.known.delete(k);
   }
@@ -449,6 +602,7 @@ export class SyncEngine {
       case 'mkdir':
         await this.o.vault.raw.mkdir(header.path as string);
         this.applied(header.path as string);
+        if (this.live) await this.have(header.path as string, DIR);
         return;
     }
   }
@@ -460,12 +614,17 @@ export class SyncEngine {
       await raw.mkdir(dir);
       this.applied(dir);
     }
+    for (const dir of (header.rmdir as string[] | undefined) ?? [])
+      if (await this.emptyDir(dir)) {
+        await raw.remove(dir);
+        this.applied(dir);
+      }
     for (const path of header.del as string[]) {
       // Only if it has not changed here since the list was made (if it has, the change is sent once live).
-      if ((await this.hashes.of(raw, path)) === this.mine?.get(path)) {
+      if ((await this.hashes.of(raw, path)) === this.mine?.get(path) && !this.busy(path)) {
         await raw.remove(path);
         this.applied(path);
-      }
+      } else this.dirty.add(path);
       this.step();
     }
   }
@@ -496,20 +655,61 @@ export class SyncEngine {
     if ((await fingerprint(bytes)) !== h) throw new Error(`${path} arrived damaged`);
     if (!syncable(path)) return;
     if (header.mode === 'sync') {
-      await this.writeLocal(path, bytes, h);
+      await this.onSyncFile(path, bytes, h, !!header.resolved);
       this.step();
       if (this.o.role === 'leader') {
-        this.received.set(path, h);
         this.expecting--;
         if (this.expecting === 0) await this.finish?.();
       }
       return;
     }
-    await this.onPut(path, bytes, h, header.base as Hash | undefined);
+    await this.onPut(path, bytes, h, header.base as Hash | undefined, !!header.resolved);
   }
 
-  /** A file changed on the other device. */
-  private async onPut(path: string, bytes: Uint8Array<ArrayBuffer>, h: Hash, base: Hash | undefined) {
+  /**
+   * A file the comparison decided this side should take. Written only if the file is still as this
+   * side listed it (and not being edited): saved meanwhile, the two versions are compared again.
+   */
+  private async onSyncFile(path: string, bytes: Uint8Array<ArrayBuffer>, h: Hash, resolved: boolean) {
+    if (this.holding.has(path)) {
+      this.held.set(path, { bytes, h });
+      return;
+    }
+    const now = await this.hashes.of(this.o.vault.raw, path);
+    if (now === null) return; // too big here to compare: stays
+    const leader = this.o.role === 'leader';
+    if (now !== h && (now !== this.mine?.get(path) || this.busy(path))) {
+      const kept = isText(path) ? await this.both(path, bytes, h) : await this.keepBoth(path, bytes, h);
+      if (kept === 'there') {
+        if (leader) this.received.set(path, h);
+      } else if (leader) this.resend.add(path);
+      else {
+        // The follower's own goes back once live, as the latest.
+        this.resolvedSend.add(path);
+        this.dirty.add(path);
+      }
+      return;
+    }
+    if (now !== h) {
+      await this.writeLocal(path, bytes, h, resolved && now !== undefined ? 'resolve' : 'compare');
+      // The other side's edit was the latest: this side's is in the page's history.
+      if (resolved && now !== undefined) this.o.onResolved?.(path, 'there');
+    }
+    if (leader) this.received.set(path, h);
+  }
+
+  /** Not text: this side's stays, the other's is kept beside it as a copy, and both go to the other side. */
+  private async keepBoth(path: string, bytes: Uint8Array<ArrayBuffer>, h: Hash): Promise<'here'> {
+    const copy = await this.copyName(path, (p) => this.o.vault.raw.exists(p));
+    await this.writeLocal(copy, bytes, h, 'live');
+    this.o.onConflict?.(path, copy);
+    this.dirty.add(copy);
+    if (this.live) this.schedule(copy);
+    return 'here';
+  }
+
+  /** A file changed on the other device. `resolved`: it won over this side's version, which goes into the history. */
+  private async onPut(path: string, bytes: Uint8Array<ArrayBuffer>, h: Hash, base: Hash | undefined, resolved = false) {
     const current = await this.hashes.of(this.o.vault.raw, path);
     if (current === h) {
       this.known.set(path, h);
@@ -517,30 +717,58 @@ export class SyncEngine {
       return;
     }
     if (current === null) return; // too big to compare: keep this device's
-    const busy = this.o.isBusy?.(path) ?? false;
+    const busy = this.busy(path);
     if (!busy && (current === undefined || current === base)) {
-      await this.writeLocal(path, bytes, h);
+      await this.writeLocal(path, bytes, h, resolved ? 'resolve' : 'live');
+      if (resolved && current !== undefined) this.o.onResolved?.(path, 'there');
       this.known.set(path, h);
       await this.have(path, h);
       return;
     }
-    // Changed on both: keep this device's version, keep the other's as a copy, and send both back.
-    const copy = await this.copyName(path, (p) => this.o.vault.raw.exists(p));
-    await this.writeLocal(copy, bytes, h);
+    // Changed on both: the latest edit is kept (text), or both (anything else).
     this.known.set(path, h);
-    this.o.onConflict?.(path, copy);
-    await this.sendChange(copy);
-    if (!busy) await this.sendChange(path);
+    if (!isText(path)) {
+      await this.keepBoth(path, bytes, h);
+      if (!busy) await this.sendChange(path);
+      return;
+    }
+    const kept = await this.both(path, bytes, h);
+    if (kept === 'there') await this.have(path, h);
+    else {
+      this.resolvedSend.add(path);
+      if (!busy) await this.sendChange(path);
+    }
   }
 
   private async onDelete(header: Message) {
     const raw = this.o.vault.raw;
     const path = header.path as string;
     if (header.dir) {
-      await raw.remove(path);
+      // File by file: what was changed or added here since stays (and goes back to the other side).
+      const kept: string[] = [];
+      const removed: string[] = [];
+      const visit = async (dir: string) => {
+        for (const e of await raw.list(dir).catch(() => [])) {
+          if (e.kind === 'directory') await visit(e.path);
+          else if (!syncable(e.path)) continue;
+          else if ((await this.hashes.of(raw, e.path)) === this.known.get(e.path) && !this.busy(e.path)) removed.push(e.path);
+          else kept.push(e.path);
+        }
+      };
+      await visit(path);
       for (const k of [...this.known.keys()]) if (k === path || k.startsWith(path + '/')) this.known.delete(k);
-      this.applied(path);
-      await this.have(path, null, true);
+      if (!kept.length) {
+        await raw.remove(path);
+        this.applied(path);
+        await this.have(path, null, true);
+        return;
+      }
+      for (const file of removed) {
+        await raw.remove(file);
+        this.applied(file);
+        await this.have(file, null);
+      }
+      for (const file of kept) await this.sendChange(file);
       return;
     }
     const current = await this.hashes.of(raw, path);
@@ -591,9 +819,9 @@ export class SyncEngine {
     this.agree(header.path as string, (header.h as Hash | null) ?? null, !!header.dir);
   }
 
-  private async writeLocal(path: string, bytes: Uint8Array<ArrayBuffer>, h: Hash) {
+  private async writeLocal(path: string, bytes: Uint8Array<ArrayBuffer>, h: Hash, when: 'compare' | 'live' | 'resolve') {
     const raw = this.o.vault.raw;
-    if (this.o.beforeOverwrite && (await raw.stat(path))) await this.o.beforeOverwrite(path);
+    if (this.o.beforeOverwrite && (await raw.stat(path))) await this.o.beforeOverwrite(path, when);
     let data: string | Uint8Array<ArrayBuffer> = bytes;
     if (TEXT.test(path)) {
       try {

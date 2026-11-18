@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Check, Copy, Laptop, RefreshCw, Smartphone, Unlink } from 'lucide-react';
-import { useNotebook, toast } from '../notebook/store';
+import { Check, Copy, CopyCheck, Laptop, RefreshCw, Smartphone, Unlink } from 'lucide-react';
+import { navigate, useNotebook, toast } from '../notebook/store';
+import { findSyncCopies, trashSyncCopies, type SyncCopy } from '../notebook/actions';
 import { formatRelative } from '../lib/dates';
 import { PageHead, PhoneBar } from './PageHeader';
 import { confirmDialog } from './overlay';
@@ -18,6 +19,7 @@ export function peerStatus(p: PeerStatus, other: 'phone' | 'computer'): { text: 
     return { text: p.path === 'direct' ? 'Connected directly' : 'Connected through the relay', tone: 'live' };
   }
   if (p.link === 'offline') return { text: 'No internet connection; trying again', tone: 'idle' };
+  if (p.link === 'elsewhere') return { text: 'Connected in another tab of this browser', tone: 'idle' };
   return { text: other === 'computer' ? 'Waiting for the computer' : 'Not connected', tone: 'idle' };
 }
 
@@ -44,11 +46,102 @@ function CopyLink({ url }: { url: string }) {
   );
 }
 
+/**
+ * The copies kept when a page had been changed on both devices. Most are only the other device's
+ * older version of the page (it had not caught up yet): those can go, in one go, to the trash.
+ */
+function SyncCopies() {
+  // Looked for again when such a copy comes or goes.
+  const key = useNotebook((s) =>
+    Object.keys(s.docs)
+      .filter((p) => p.includes(' (from '))
+      .sort()
+      .join('|'),
+  );
+  const [found, setFound] = useState<{ older: SyncCopy[]; differ: SyncCopy[] } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [round, setRound] = useState(0);
+  useEffect(() => {
+    let live = true;
+    void findSyncCopies()
+      .then((f) => live && setFound(f))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [key, round]);
+  if (!found || (!found.older.length && !found.differ.length)) return null;
+  const { older, differ } = found;
+  const tidy = async () => {
+    setBusy(true);
+    try {
+      const n = await trashSyncCopies(older);
+      toast(`${n} older ${n === 1 ? 'copy' : 'copies'} moved to the trash.`, 'success');
+    } catch (err) {
+      toast(`The copies could not all be moved: ${(err as Error).message}`, 'error');
+    } finally {
+      setBusy(false);
+      setRound((r) => r + 1);
+    }
+  };
+  return (
+    <section className="gc-settings-section">
+      <h2>Pages kept twice</h2>
+      <p className="muted">
+        When a page had been changed on both devices before they caught up, the other device’s version was kept next to it, as “… (from …)”.
+      </p>
+      {older.length > 0 && (
+        <div className="gc-storage-card">
+          <CopyCheck />
+          <div>
+            <strong>
+              {older.length} {older.length === 1 ? 'copy is' : 'copies are'} only an older version
+            </strong>
+            <p className="muted">
+              Each is the same as its page, or a version the page had before (it is in the page’s version history): nothing is lost without it. They
+              go to the trash, where they can be restored.
+            </p>
+            <button className="btn btn-sm gc-pair-again" disabled={busy} onClick={() => void tidy()}>
+              Move {older.length} older {older.length === 1 ? 'copy' : 'copies'} to the trash
+            </button>
+          </div>
+        </div>
+      )}
+      {differ.length > 0 && (
+        <>
+          <p>
+            {differ.length} {differ.length === 1 ? 'copy has' : 'copies have'} changes of {differ.length === 1 ? 'its' : 'their'} own: compare each
+            with its page, and delete the one you do not need.
+          </p>
+          <ul className="gc-pair-notes">
+            {differ.map((c) => (
+              <li key={c.copy}>
+                <a
+                  href={`#/doc/${encodeURIComponent(c.copy)}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate({ name: 'doc', path: c.copy });
+                  }}
+                >
+                  {c.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}
+
 /** On the computer: the code a phone scans, and the phones already connected. */
 function ComputerView({ notebook }: { notebook: string }) {
   const pending = useSync((s) => s.pending);
+  const expired = useSync((s) => s.expired);
   const peers = useSync((s) => s.peers);
   const [showCode, setShowCode] = useState(true);
+  /** Counts the codes shown, to show a new one. */
+  const [round, setRound] = useState(0);
   const [error, setError] = useState('');
   const [justPaired, setJustPaired] = useState<string | null>(null);
 
@@ -69,7 +162,7 @@ function ComputerView({ notebook }: { notebook: string }) {
       off();
       cancelPendingPairing();
     };
-  }, [showCode]);
+  }, [showCode, round]);
 
   const disconnect = async (id: string, p: PeerStatus) => {
     const ok = await confirmDialog({
@@ -96,13 +189,20 @@ function ComputerView({ notebook }: { notebook: string }) {
               )}
               <div className="gc-pair-wait" role="status">
                 {error ||
-                  (pending?.link === 'offline'
-                    ? 'No connection to the relay. Check the internet connection.'
-                    : pending?.link === 'connected'
-                      ? 'A phone is connecting…'
-                      : 'Waiting for a phone…')}
+                  (expired && !pending
+                    ? 'This code has expired: a code works for 10 minutes.'
+                    : pending?.link === 'offline'
+                      ? 'No connection to the relay. Check the internet connection.'
+                      : pending?.link === 'connected'
+                        ? 'A phone is connecting…'
+                        : 'Waiting for a phone…')}
               </div>
               {pending && <CopyLink url={pending.url} />}
+              {expired && !pending && (
+                <button className="btn btn-sm" onClick={() => setRound((r) => r + 1)}>
+                  <RefreshCw /> Show a new code
+                </button>
+              )}
             </div>
             <ol className="gc-pair-steps">
               <li>
@@ -159,6 +259,7 @@ function ComputerView({ notebook }: { notebook: string }) {
         )}
       </section>
 
+      <SyncCopies />
       <HowItWorks />
     </>
   );
@@ -209,6 +310,7 @@ function PhoneView({ notebook }: { notebook: string }) {
           </button>
         </div>
       </section>
+      <SyncCopies />
       <HowItWorks />
     </>
   );
