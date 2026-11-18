@@ -41,7 +41,10 @@ export const useSync = create<SyncState>(() => ({ role: null, peers: {}, pending
 /** What the app does for sync (set by notebook/actions, which this module must not import). */
 export interface SyncHooks {
   isBusy(path: string): boolean;
-  beforeOverwrite(path: string): Promise<void>;
+  /** `compare`: replaced when the two devices meet (always kept); `live`: as the other device saves (once per editing session). */
+  beforeOverwrite(path: string, when: 'compare' | 'live'): Promise<void>;
+  /** This version of `path` (a fingerprint) is in its version history on this device. */
+  hadVersion(path: string, h: string): Promise<boolean>;
   applied(paths: string[]): void;
   conflict(path: string, copy: string, from: string): void;
   notice(message: string, kind?: 'info' | 'error'): void;
@@ -173,7 +176,8 @@ function runEngine(run: Run, vault: SyncableVault, session: Session, hashes: Has
         }
       : undefined,
     isBusy: (path) => hooks?.isBusy(path) ?? false,
-    beforeOverwrite: (path) => hooks?.beforeOverwrite(path) ?? Promise.resolve(),
+    beforeOverwrite: (path, when) => hooks?.beforeOverwrite(path, when) ?? Promise.resolve(),
+    hadVersion: (path, h) => hooks?.hadVersion(path, h) ?? Promise.resolve(false),
     onApplied: (paths) => {
       hooks?.applied(paths);
       // On a computer with several phones, what one phone sent goes to the others.

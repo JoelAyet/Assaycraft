@@ -81,8 +81,14 @@ function devices(computerFiles: Record<string, string>, phoneFiles: Record<strin
   const computer = new SyncableVault(new MemVault('computer', computerFiles));
   const phone = new SyncableVault(new MemVault('phone', phoneFiles));
   let base: Record<string, string> = {};
+  /** False: the base was saved by an earlier version (see baseFiles). */
+  let confirmed = true;
+  /** Versions the computer had before, by path (its version history). */
+  const history = new Map<string, Set<string>>();
   const conflicts: [string, string][] = [];
   const busy = new Set<string>();
+  /** Files replaced on the computer by the phone's version, and when: "compare:A.md", "live:A.md". */
+  const overwrites: string[] = [];
   /** One session. `silence()` makes what the computer sends vanish, as into a phone's dead connection. */
   let silent = false;
   const connect = async (opts: { quiet?: boolean } = {}) => {
@@ -94,7 +100,9 @@ function devices(computerFiles: Record<string, string>, phoneFiles: Record<strin
       vault: computer,
       link: a,
       peerLabel: 'phone',
-      base: { load: async () => ({ ...base }), save: async (files) => void (base = files) },
+      base: { load: async () => ({ files: { ...base }, confirmed }), save: async (files) => void ((base = files), (confirmed = true)) },
+      hadVersion: async (path, h) => history.get(path)?.has(h) ?? false,
+      beforeOverwrite: async (path, when) => void overwrites.push(`${when}:${path}`),
       onConflict: (path, copy) => conflicts.push([path, copy]),
       isBusy: (p) => busy.has('computer:' + p),
     });
@@ -112,7 +120,20 @@ function devices(computerFiles: Record<string, string>, phoneFiles: Record<strin
     return { disconnect: () => a.close(), silence: () => (silent = true), leader, follower };
   };
   const mem = (v: SyncableVault) => v.raw as MemVault;
-  return { computer, phone, connect, conflicts, busy, pc: mem(computer), mobile: mem(phone), base: () => base };
+  return {
+    computer,
+    phone,
+    connect,
+    conflicts,
+    busy,
+    overwrites,
+    pc: mem(computer),
+    mobile: mem(phone),
+    base: () => base,
+    /** As a base saved by an earlier version: unconfirmed. */
+    oldBase: (files: Record<string, string>) => void ((base = files), (confirmed = false)),
+    hadBefore: (path: string, h: string) => history.set(path, new Set([...(history.get(path) ?? []), h])),
+  };
 }
 
 const same = (d: ReturnType<typeof devices>) => expect(d.mobile.syncedFiles()).toEqual(d.pc.syncedFiles());
@@ -281,11 +302,40 @@ describe('sync engine', () => {
     same(d);
   });
 
-  it('a base saved by an earlier version is not used: it could list files the phone never got', () => {
-    // As saved before: the bare list. Used, A.md and B.md, missing on the phone, read as deleted there.
-    expect(baseFiles({ 'A.md': 'f55ff16f66f43360266b95db6f8fec01', 'B.md': '2c3a4249d77070058649dbd822dcaf79' })).toEqual({});
-    expect(baseFiles(undefined)).toEqual({});
-    expect(baseFiles(baseRecord({ 'A.md': 'h1' }))).toEqual({ 'A.md': 'h1' });
+  it('a base saved by an earlier version is read as unconfirmed', () => {
+    expect(baseFiles({ 'A.md': 'h1' })).toEqual({ files: { 'A.md': 'h1' }, confirmed: false });
+    expect(baseFiles(undefined)).toEqual({ files: {}, confirmed: true });
+    expect(baseFiles(baseRecord({ 'A.md': 'h1' }))).toEqual({ files: { 'A.md': 'h1' }, confirmed: true });
+  });
+
+  it('an unconfirmed base still says who changed what, but never deletes on the computer', async () => {
+    const d = devices({ 'A.md': 'a1', 'B.md': 'b1', 'C.md': 'c1' }, { 'A.md': 'a1', 'B.md': 'b1', 'C.md': 'c1' });
+    await d.connect();
+    const agreed = d.base();
+    (await d.connect()).disconnect();
+    // Apart: the computer edits A, the phone edits B; C never reached the phone (as from a cut-off copy).
+    await d.computer.write('A.md', 'a2 at the desk');
+    await d.phone.write('B.md', 'b2 at the bench');
+    await d.phone.raw.remove('C.md');
+    d.oldBase(agreed);
+    await d.connect();
+    expect(d.pc.syncedFiles()).toEqual({ 'A.md': 'a2 at the desk', 'B.md': 'b2 at the bench', 'C.md': 'c1' });
+    same(d);
+    expect(d.conflicts).toEqual([]);
+  });
+
+  it('with no base, a page the phone has in a version the computer had before is not kept twice', async () => {
+    const d = devices({ 'A.md': 'a1' }, { 'A.md': 'a1' });
+    await d.connect();
+    const a1 = d.base()['A.md'];
+    // The computer edited A since (its version history has a1); the base is gone.
+    await d.computer.write('A.md', 'a2');
+    d.oldBase({});
+    d.hadBefore('A.md', a1);
+    await d.connect();
+    expect(d.pc.text('A.md')).toBe('a2');
+    same(d);
+    expect(d.conflicts).toEqual([]);
   });
 
   it('with no base, files the phone does not have are copied to it, never deleted on the computer', async () => {
@@ -293,6 +343,17 @@ describe('sync engine', () => {
     await d.connect();
     expect(d.pc.syncedFiles()).toEqual({ 'A.md': 'a1', 'B.md': 'b1' });
     same(d);
+  });
+
+  it('a file replaced when the devices meet is told apart from one replaced as the other saves', async () => {
+    const d = devices({ 'A.md': 'a1', 'B.md': 'b1' });
+    const session = await d.connect();
+    await d.phone.write('A.md', 'a2 typed at the bench');
+    await vi.waitFor(() => expect(d.pc.text('A.md')).toBe('a2 typed at the bench'));
+    session.disconnect();
+    await d.phone.write('B.md', 'b2 while apart');
+    await d.connect();
+    expect(d.overwrites).toEqual(['live:A.md', 'compare:B.md']);
   });
 
   it('the computer counts a change as agreed only once the phone has it', async () => {

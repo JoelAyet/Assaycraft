@@ -53,7 +53,8 @@ import { EXAMPLE_FOLDER, EXAMPLE_STOCK_NOTE, seedNotebook } from './seed';
 import { columnRoles, parseStockTable, stockType, writeStockTable, type StockTable } from '../stocks/model';
 import { citationKey, refExtra, refFromMeta, type RefInfo } from '../literature/model';
 import { TRASH_DIR, TRASH_INDEX, listTrash, parseTrashIndex, serializeTrashIndex, type TrashItem, type TrashRecord } from './trash';
-import { HISTORY_DIR, historyPathFor, moveHistory, recordVersion } from '../history/store';
+import { HISTORY_DIR, historyPathFor, moveHistory, readHistory, recordVersion, versionTexts } from '../history/store';
+import { fingerprint } from '../sync/crypto';
 import { ACTIVITY_FILE, flushActivity, importActivity, loadActivity, recordEdit, reloadActivity } from './activity';
 import { SyncableVault } from '../sync/vault';
 import { setSyncHooks, startSync, stopSync } from '../sync/manager';
@@ -2114,18 +2115,123 @@ function warnDuplicateIds() {
   }
 }
 
+/** Whether this version of a page (a fingerprint of its file) is in its version history here. */
+async function inHistory(path: string, h: string): Promise<boolean> {
+  const v = getState().vault;
+  const meta = getState().docs[path];
+  if (!v || !meta) return false;
+  const history = await readHistory(v, historyPathFor(meta));
+  if (!history) return false;
+  const enc = new TextEncoder();
+  for (const text of versionTexts(history)) if ((await fingerprint(enc.encode(text))) === h) return true;
+  return false;
+}
+
+/** "Gel (from iPhone).md", "Gel (from iPhone 2).md": a copy kept when both devices had changed "Gel.md". */
+const SYNC_COPY = /^(.+) \(from [^()/]+\)(\.[^./ ]+)?$/;
+
+export interface SyncCopy {
+  copy: string;
+  original: string;
+  title: string;
+}
+
+const fileHash = async (v: Vault, path: string) => fingerprint(new Uint8Array(await (await v.readBlob(path)).arrayBuffer()));
+
+/**
+ * The copies kept when both devices had changed a file, beside their originals. `older`: the copy
+ * is the same as the original, or a version the original had before (in its version history): the
+ * other device just had an older one, and the copy can go. `differ`: changes of their own, to compare.
+ */
+export async function findSyncCopies(): Promise<{ older: SyncCopy[]; differ: SyncCopy[] }> {
+  const v = vault();
+  const files: string[] = [];
+  const visit = async (dir: string) => {
+    for (const e of await v.list(dir)) {
+      if (e.name.startsWith('.')) continue;
+      if (e.kind === 'directory') await visit(e.path);
+      else files.push(e.path);
+    }
+  };
+  await visit('');
+  const have = new Set(files);
+  const docs = getState().docs;
+  const older: SyncCopy[] = [];
+  const differ: SyncCopy[] = [];
+  for (const copy of files) {
+    const m = SYNC_COPY.exec(basename(copy));
+    if (!m) continue;
+    const original = join(dirname(copy), m[1] + (m[2] ?? ''));
+    if (!have.has(original)) continue;
+    const item = { copy, original, title: docs[copy]?.title ?? basename(copy) };
+    try {
+      const h = await fileHash(v, copy);
+      ((await fileHash(v, original)) === h || (await inHistory(original, h)) ? older : differ).push(item);
+    } catch {
+      differ.push(item);
+    }
+  }
+  return { older, differ };
+}
+
+/** Move copies to the trash: each file alone (a copy shares its original's ID, and so its attachments folder). */
+export async function trashSyncCopies(copies: SyncCopy[]): Promise<number> {
+  const v = vault();
+  let moved = 0;
+  for (const { copy } of copies) {
+    if (!(await v.exists(copy))) continue;
+    const meta = getState().docs[copy];
+    let name = `${trashStamp()} ${basename(copy)}`;
+    for (let n = 2; await v.exists(join(TRASH_DIR, name)); n++) name = `${trashStamp()} ${n} ${basename(copy)}`;
+    await updateTrashIndex((items) => [
+      ...items,
+      { name, kind: 'doc', from: copy, title: meta?.title ?? basename(copy), docKind: meta?.kind, deleted: localIso() } satisfies TrashRecord,
+    ]);
+    await serialized(copy, () => moveFile(v, copy, join(TRASH_DIR, name)));
+    moved++;
+  }
+  await rescan();
+  return moved;
+}
+
+const conflicts: { path: string; copy: string }[] = [];
+let conflictTimer: ReturnType<typeof setTimeout> | undefined;
+
 setSyncHooks({
   isBusy: (path) => pending.has(path) || chains.has(path),
-  // Overwriting a page with the other device's version: the version it replaces goes into its history.
-  beforeOverwrite: async (path) => {
+  // Overwriting a page with the other device's version: the version it replaces goes into its
+  // history. When the two devices meet, always (what they decide then is the risky part); as the
+  // other device saves while someone types there, once per editing session, as for edits here.
+  beforeOverwrite: async (path, when) => {
     const meta = getState().docs[path];
     const v = getState().vault;
-    if (meta && v) await versionBeforeWrite(v, path, meta);
+    if (!meta || !v) return;
+    if (when === 'live') return versionBeforeWrite(v, path, meta);
+    try {
+      const stat = await v.stat(path);
+      if (stat) await recordVersion(v, meta, await v.readText(path), stat.lastModified || Date.now(), { label: 'Before sync' });
+    } catch (err) {
+      console.warn('Could not keep a version of', path, err);
+    }
   },
+  hadVersion: (path, h) => inHistory(path, h),
   applied: remoteChanged,
-  conflict: (path, copy, from) =>
-    toast(`“${basename(path)}” was changed here and on the ${from}: both versions are kept (${basename(copy)}).`, 'info', undefined, {
-      sticky: true,
-    }),
+  conflict: (path, copy, from) => {
+    // One message for all the pages of one comparison, not one each.
+    conflicts.push({ path, copy });
+    clearTimeout(conflictTimer);
+    conflictTimer = setTimeout(() => {
+      const all = conflicts.splice(0);
+      const review = { label: 'Review', run: () => navigate({ name: 'phone' }) };
+      toast(
+        all.length === 1
+          ? `“${basename(all[0].path)}” was changed here and on the ${from}: both versions are kept (${basename(all[0].copy)}).`
+          : `${all.length} pages were changed here and on the ${from}: both versions of each are kept.`,
+        'info',
+        review,
+        { sticky: true },
+      );
+    }, 800);
+  },
   notice: (message, kind = 'info') => toast(message, kind),
 });

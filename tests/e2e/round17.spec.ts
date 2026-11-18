@@ -283,3 +283,52 @@ test('on an iPhone in Safari, connecting says how to keep the copy; elsewhere it
     await context.close();
   }
 });
+
+test('copies kept twice that are only older versions go to the trash in one go; the page and its attachments stay', async ({ browser }) => {
+  const { context, page, errors } = await device(browser);
+  try {
+    await computerWithEntry(page);
+    // Three copies "(from iPhone)" beside the entry, as a comparison without a base made them: one the
+    // same as the page, one a version it had before (in its history), one with changes of its own.
+    const paths = await page.evaluate(async () => {
+      const { getState } = await import(/* @vite-ignore */ '/src/notebook/store.ts' as string);
+      const { recordVersion } = await import(/* @vite-ignore */ '/src/history/store.ts' as string);
+      const v = getState().vault;
+      const meta = (Object.values(getState().docs) as { title: string; path: string; id: string }[]).find((d) => d.title === 'Bench log')!;
+      const text: string = await v.readText(meta.path);
+      const older = text.replace('Written on the computer.', 'Started on the computer.');
+      await recordVersion(v.raw, meta, older, Date.now() - 60_000);
+      const stem = meta.path.replace(/\.md$/, '');
+      await v.raw.write(`${stem} (from iPhone).md`, text);
+      await v.raw.write(`${stem} (from iPhone 2).md`, older);
+      await v.raw.write(`${stem} (from iPhone 3).md`, text.replace('Written on the computer.', 'Written on the computer. And at the bench.'));
+      await v.raw.write(`Projects/General/attachments/${meta.id}/gel.png`, new Uint8Array([1, 2, 3]));
+      return { page: meta.path, stem, attachment: `Projects/General/attachments/${meta.id}/gel.png` };
+    });
+    await page.reload();
+    await page.goto('/#/phone');
+    const section = page.locator('.gc-settings-section', { has: page.getByRole('heading', { name: 'Pages kept twice' }) });
+    await expect(section).toContainText('2 copies are only an older version');
+    await expect(section).toContainText('1 copy has changes of its own');
+    await section.getByRole('button', { name: 'Move 2 older copies to the trash' }).click();
+    await expect(page.locator('.toast', { hasText: '2 older copies moved to the trash.' })).toBeVisible();
+    await expect(section).not.toContainText('only an older version');
+    const left = await page.evaluate(async (p) => {
+      const { getState } = await import(/* @vite-ignore */ '/src/notebook/store.ts' as string);
+      const v = getState().vault;
+      return {
+        page: await v.exists(p.page),
+        attachment: await v.exists(p.attachment),
+        same: await v.exists(`${p.stem} (from iPhone).md`),
+        older: await v.exists(`${p.stem} (from iPhone 2).md`),
+        own: await v.exists(`${p.stem} (from iPhone 3).md`),
+      };
+    }, paths);
+    expect(left).toEqual({ page: true, attachment: true, same: false, older: false, own: true });
+    await page.goto('/#/trash');
+    await expect(page.locator('.gc-trash-row')).toHaveCount(2);
+    expect(errors).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});

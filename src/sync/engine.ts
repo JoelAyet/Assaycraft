@@ -48,13 +48,22 @@ export interface EngineOptions {
   link: Link;
   /** Names the other device in the copies kept when both changed a file: "(from phone)". */
   peerLabel: string;
-  /** The leader's record of the files as they were when the two devices last agreed. */
-  base?: { load(): Promise<Record<string, Hash>>; save(files: Record<string, Hash>): Promise<void> };
+  /**
+   * The leader's record of the files as they were when the two devices last agreed. `confirmed`:
+   * every file in it was confirmed by the follower. One saved by an earlier version was not (it
+   * counted what was sent as agreed), so it is used for everything but deleting on the leader.
+   */
+  base?: { load(): Promise<{ files: Record<string, Hash>; confirmed: boolean }>; save(files: Record<string, Hash>): Promise<void> };
+  /**
+   * The leader once had this version of `path` (it is in its version history): the follower's copy
+   * is an older one, not a change of its own.
+   */
+  hadVersion?: (path: string, h: Hash) => Promise<boolean>;
   hashes?: HashCache;
   /** True while the app has unsaved edits of this file. */
   isBusy?: (path: string) => boolean;
   /** Called before a file is overwritten by the other device's version (to keep a version of it). */
-  beforeOverwrite?: (path: string) => Promise<void>;
+  beforeOverwrite?: (path: string, when: 'compare' | 'live') => Promise<void>;
   /** Files changed by the other device (written, deleted, or created). */
   onApplied?: (paths: string[]) => void;
   onProgress?: (p: Progress) => void;
@@ -248,7 +257,7 @@ export class SyncEngine {
   private async reconcile() {
     if (this.reconciling) return;
     this.reconciling = true;
-    const base = (await this.o.base?.load()) ?? {};
+    const { files: base, confirmed } = (await this.o.base?.load()) ?? { files: {}, confirmed: true };
     this.agreed = new Map(Object.entries(base));
     const L = this.mine!;
     const F = this.theirs;
@@ -274,10 +283,13 @@ export class SyncEngine {
         continue;
       }
       const b = base[path];
-      if (f === undefined) (b !== undefined && l === b ? delMine : push).push(path);
+      // Missing on the follower: deleted there, if the base can be trusted to say it had it.
+      if (f === undefined) (confirmed && b !== undefined && l === b ? delMine : push).push(path);
       else if (l === undefined) (b !== undefined && f === b ? delTheirs : pull).push(path);
       else if (f === b) push.push(path);
       else if (l === b) pull.push(path);
+      // Not in the base (or none): the follower's may just be an older version the leader had.
+      else if (await this.o.hadVersion?.(path, f).catch(() => false)) push.push(path);
       else conflicts.push([path, await this.copyName(path, (p) => L.has(p) || F.has(p))]);
     }
 
@@ -496,7 +508,7 @@ export class SyncEngine {
     if ((await fingerprint(bytes)) !== h) throw new Error(`${path} arrived damaged`);
     if (!syncable(path)) return;
     if (header.mode === 'sync') {
-      await this.writeLocal(path, bytes, h);
+      await this.writeLocal(path, bytes, h, 'compare');
       this.step();
       if (this.o.role === 'leader') {
         this.received.set(path, h);
@@ -519,14 +531,14 @@ export class SyncEngine {
     if (current === null) return; // too big to compare: keep this device's
     const busy = this.o.isBusy?.(path) ?? false;
     if (!busy && (current === undefined || current === base)) {
-      await this.writeLocal(path, bytes, h);
+      await this.writeLocal(path, bytes, h, 'live');
       this.known.set(path, h);
       await this.have(path, h);
       return;
     }
     // Changed on both: keep this device's version, keep the other's as a copy, and send both back.
     const copy = await this.copyName(path, (p) => this.o.vault.raw.exists(p));
-    await this.writeLocal(copy, bytes, h);
+    await this.writeLocal(copy, bytes, h, 'live');
     this.known.set(path, h);
     this.o.onConflict?.(path, copy);
     await this.sendChange(copy);
@@ -591,9 +603,9 @@ export class SyncEngine {
     this.agree(header.path as string, (header.h as Hash | null) ?? null, !!header.dir);
   }
 
-  private async writeLocal(path: string, bytes: Uint8Array<ArrayBuffer>, h: Hash) {
+  private async writeLocal(path: string, bytes: Uint8Array<ArrayBuffer>, h: Hash, when: 'compare' | 'live') {
     const raw = this.o.vault.raw;
-    if (this.o.beforeOverwrite && (await raw.stat(path))) await this.o.beforeOverwrite(path);
+    if (this.o.beforeOverwrite && (await raw.stat(path))) await this.o.beforeOverwrite(path, when);
     let data: string | Uint8Array<ArrayBuffer> = bytes;
     if (TEXT.test(path)) {
       try {
