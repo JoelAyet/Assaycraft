@@ -5,6 +5,7 @@ import { SyncEngine, syncable } from '../../src/sync/engine';
 import { fromB64url, isSecret, newSecret, pairKeys, seal, unseal } from '../../src/sync/crypto';
 import { decodeMessage, encodeMessage, linkPair, type Link } from '../../src/sync/link';
 import { SyncableVault } from '../../src/sync/vault';
+import { baseFiles, baseRecord } from '../../src/sync/store';
 
 /** A notebook in memory. */
 class MemVault implements Vault {
@@ -275,6 +276,20 @@ describe('sync engine', () => {
     const first = await d.connect({ quiet: true });
     await new Promise((r) => setTimeout(r, 100));
     first.disconnect();
+    await d.connect();
+    expect(d.pc.syncedFiles()).toEqual({ 'A.md': 'a1', 'B.md': 'b1' });
+    same(d);
+  });
+
+  it('a base saved by an earlier version is not used: it could list files the phone never got', () => {
+    // As saved before: the bare list. Used, A.md and B.md, missing on the phone, read as deleted there.
+    expect(baseFiles({ 'A.md': 'f55ff16f66f43360266b95db6f8fec01', 'B.md': '2c3a4249d77070058649dbd822dcaf79' })).toEqual({});
+    expect(baseFiles(undefined)).toEqual({});
+    expect(baseFiles(baseRecord({ 'A.md': 'h1' }))).toEqual({ 'A.md': 'h1' });
+  });
+
+  it('with no base, files the phone does not have are copied to it, never deleted on the computer', async () => {
+    const d = devices({ 'A.md': 'a1', 'B.md': 'b1' }, { 'A.md': 'a1' });
     await d.connect();
     expect(d.pc.syncedFiles()).toEqual({ 'A.md': 'a1', 'B.md': 'b1' });
     same(d);

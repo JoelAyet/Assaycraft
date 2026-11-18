@@ -13,7 +13,7 @@ import { Connection, type Hello, type LinkState, type Role, type Session } from 
 import { isSecret, newSecret } from './crypto';
 import { deviceId, deviceName, shortDevice } from './device';
 import { HashCache, SyncEngine, type Progress } from './engine';
-import { deleteRecord, loadRecord, saveRecord } from './store';
+import { baseFiles, baseRecord, deleteRecord, loadRecord, saveRecord } from './store';
 import { SyncableVault } from './vault';
 
 export interface PeerStatus {
@@ -168,8 +168,8 @@ function runEngine(run: Run, vault: SyncableVault, session: Session, hashes: Has
     hashes,
     base: base
       ? {
-          load: async () => (await loadRecord<Record<string, string>>('base', base)) ?? {},
-          save: (files) => saveRecord('base', base, files),
+          load: async () => baseFiles(await loadRecord('base', base)),
+          save: (files) => saveRecord('base', base, baseRecord(files)),
         }
       : undefined,
     isBusy: (path) => hooks?.isBusy(path) ?? false,
