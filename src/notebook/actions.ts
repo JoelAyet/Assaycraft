@@ -55,6 +55,7 @@ import { citationKey, refExtra, refFromMeta, type RefInfo } from '../literature/
 import { TRASH_DIR, TRASH_INDEX, listTrash, parseTrashIndex, serializeTrashIndex, type TrashItem, type TrashRecord } from './trash';
 import { HISTORY_DIR, historyPathFor, moveHistory, readHistory, recordVersion, versionTexts } from '../history/store';
 import { fingerprint } from '../sync/crypto';
+import { noteResolved, useResolvedPages } from '../sync/resolved';
 import { ACTIVITY_FILE, flushActivity, importActivity, loadActivity, recordEdit, reloadActivity } from './activity';
 import { SyncableVault } from '../sync/vault';
 import { setSyncHooks, startSync, stopSync } from '../sync/manager';
@@ -273,6 +274,7 @@ export async function closeNotebook(opts: { discard?: boolean } = {}) {
   metaDirty.clear();
   stopSync();
   stopFeed();
+  useResolvedPages.setState({ list: [] });
   await loadActivity(null);
   setState({ vault: null, docs: {}, folders: [], route: { name: 'home' }, peek: null });
   history.replaceState(null, '', '#/');
@@ -2196,6 +2198,8 @@ export async function trashSyncCopies(copies: SyncCopy[]): Promise<number> {
 
 const conflicts: { path: string; copy: string }[] = [];
 let conflictTimer: ReturnType<typeof setTimeout> | undefined;
+const resolvedNow: { path: string; kept: 'here' | 'there' }[] = [];
+let resolvedTimer: ReturnType<typeof setTimeout> | undefined;
 
 setSyncHooks({
   isBusy: (path) => pending.has(path) || chains.has(path),
@@ -2205,14 +2209,54 @@ setSyncHooks({
   beforeOverwrite: async (path, when) => {
     const meta = getState().docs[path];
     const v = getState().vault;
-    if (!meta || !v) return;
-    if (when === 'live') return versionBeforeWrite(v, path, meta);
+    if (!v || !/\.(md|markdown|json|txt|csv|tsv)$/i.test(path)) return;
+    if (when === 'live') return meta ? versionBeforeWrite(v, path, meta) : undefined;
     try {
       const stat = await v.stat(path);
-      if (stat) await recordVersion(v, meta, await v.readText(path), stat.lastModified || Date.now(), { label: 'Before sync' });
+      if (stat)
+        await recordVersion(
+          v,
+          meta ?? { path },
+          await v.readText(path),
+          stat.lastModified || Date.now(),
+          when === 'resolve' ? { keep: true, label: 'Replaced by a later edit' } : { label: 'Before sync' },
+        );
     } catch (err) {
       console.warn('Could not keep a version of', path, err);
     }
+  },
+  keepVersion: async (path, bytes, label) => {
+    const v = getState().vault;
+    if (!v) return;
+    const meta = getState().docs[path];
+    await recordVersion(v, meta ?? { path }, new TextDecoder().decode(bytes), Date.now(), { keep: true, label });
+  },
+  resolved: (path, kept, from) => {
+    noteResolved({ path, kept, from, at: Date.now() });
+    // One message for all the pages of one comparison, not one each.
+    resolvedNow.push({ path, kept });
+    clearTimeout(resolvedTimer);
+    resolvedTimer = setTimeout(() => {
+      const all = resolvedNow.splice(0);
+      const title = (p: string) => getState().docs[p]?.title ?? basename(p);
+      if (all.length === 1) {
+        const [{ path: p, kept: k }] = all;
+        toast(
+          k === 'here'
+            ? `“${title(p)}” was changed here and on the ${from}: the edit here was the latest and is kept; the ${from}’s is in the page’s history.`
+            : `“${title(p)}” was changed here and on the ${from}: the ${from}’s edit was the latest and is kept; the one from here is in the page’s history.`,
+          'info',
+          { label: 'Open', run: () => navigate({ name: 'doc', path: p }) },
+          { sticky: true },
+        );
+      } else
+        toast(
+          `${all.length} pages were changed here and on the ${from}: the latest edit of each is kept, the other in the page’s history.`,
+          'info',
+          { label: 'Review', run: () => navigate({ name: 'phone' }) },
+          { sticky: true },
+        );
+    }, 800);
   },
   hadVersion: (path, h) => inHistory(path, h),
   applied: remoteChanged,

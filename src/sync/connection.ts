@@ -12,7 +12,11 @@ import { pairKeys, seal, unseal, type PairKeys } from './crypto';
 import type { Link } from './link';
 
 export type Role = 'computer' | 'phone';
-export type LinkState = 'connecting' | 'waiting' | 'connected' | 'offline';
+/** `elsewhere`: another tab (or window) of this device took the connection over. */
+export type LinkState = 'connecting' | 'waiting' | 'connected' | 'offline' | 'elsewhere';
+
+/** The relay closes a device's older connection with this when the same device connects again. */
+const REPLACED = 4000;
 
 export interface Hello {
   role: Role;
@@ -317,11 +321,18 @@ export class Connection {
       // Decrypt in order of arrival.
       this.incoming = this.incoming.then(() => this.onFrame(data)).catch((err) => console.warn('Ignored a message that could not be read', err));
     };
-    ws.onclose = () => {
+    ws.onclose = (e) => {
       if (this.ws !== ws) return;
       clearInterval(this.pingTimer);
       this.endSession();
       if (this.stopped) return;
+      if (e.code === REPLACED) {
+        // Another tab took over. Taking it back at once, each would push the other out in turn: this
+        // one waits until it is used again (back on screen, or Try to connect now).
+        this.ws = undefined;
+        this.setState('elsewhere');
+        return;
+      }
       this.setState('offline');
       const wait = Math.min(30_000, 1000 * 2 ** this.retry++);
       this.retryTimer = setTimeout(() => this.open(), wait);

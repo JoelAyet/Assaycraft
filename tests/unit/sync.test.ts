@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { FileStat, Vault, VaultEntry, WriteData } from '../../src/fs/types';
 import { SyncEngine, syncable } from '../../src/sync/engine';
-import { fromB64url, isSecret, newSecret, pairKeys, seal, unseal } from '../../src/sync/crypto';
+import { fromB64url, isSecret, newSecret, pairKeys, rekeyPair, rekeySecret, seal, unseal } from '../../src/sync/crypto';
 import { decodeMessage, encodeMessage, linkPair, type Link } from '../../src/sync/link';
 import { SyncableVault } from '../../src/sync/vault';
 import { baseFiles, baseRecord } from '../../src/sync/store';
@@ -89,12 +89,25 @@ function devices(computerFiles: Record<string, string>, phoneFiles: Record<strin
   const busy = new Set<string>();
   /** Files replaced on the computer by the phone's version, and when: "compare:A.md", "live:A.md". */
   const overwrites: string[] = [];
+  /** Versions that lost to a later edit, kept in a history: "computer:A.md:text". */
+  const kept: string[] = [];
+  /** Resolved both-changed files: "computer:A.md:here". */
+  const resolved: string[] = [];
+  const dec = (b: Uint8Array) => new TextDecoder().decode(b);
   /** One session. `silence()` makes what the computer sends vanish, as into a phone's dead connection. */
   let silent = false;
+  /** The largest message the computer sent. */
+  let largest = 0;
   const connect = async (opts: { quiet?: boolean } = {}) => {
     silent = !!opts.quiet;
     const [pair, b] = linkPair();
-    const a: Link = { ...pair, send: (data) => (silent ? Promise.resolve() : pair.send(data)) };
+    const a: Link = {
+      ...pair,
+      send: (data) => {
+        largest = Math.max(largest, data.length);
+        return silent ? Promise.resolve() : pair.send(data);
+      },
+    };
     const leader = new SyncEngine({
       role: 'leader',
       vault: computer,
@@ -102,7 +115,12 @@ function devices(computerFiles: Record<string, string>, phoneFiles: Record<strin
       peerLabel: 'phone',
       base: { load: async () => ({ files: { ...base }, confirmed }), save: async (files) => void ((base = files), (confirmed = true)) },
       hadVersion: async (path, h) => history.get(path)?.has(h) ?? false,
-      beforeOverwrite: async (path, when) => void overwrites.push(`${when}:${path}`),
+      beforeOverwrite: async (path, when) => {
+        overwrites.push(`${when}:${path}`);
+        if (when !== 'live') kept.push(`computer:${path}:${(computer.raw as MemVault).text(path)}`);
+      },
+      keepVersion: async (path, bytes) => void kept.push(`computer:${path}:${dec(bytes)}`),
+      onResolved: (path, k) => void resolved.push(`computer:${path}:${k}`),
       onConflict: (path, copy) => conflicts.push([path, copy]),
       isBusy: (p) => busy.has('computer:' + p),
     });
@@ -113,6 +131,11 @@ function devices(computerFiles: Record<string, string>, phoneFiles: Record<strin
       peerLabel: 'computer',
       onConflict: (path, copy) => conflicts.push([path, copy]),
       isBusy: (p) => busy.has('phone:' + p),
+      beforeOverwrite: async (path, when) => {
+        if (when !== 'live') kept.push(`phone:${path}:${(phone.raw as MemVault).text(path)}`);
+      },
+      keepVersion: async (path, bytes) => void kept.push(`phone:${path}:${dec(bytes)}`),
+      onResolved: (path, k) => void resolved.push(`phone:${path}:${k}`),
     });
     leader.start();
     follower.start();
@@ -127,6 +150,9 @@ function devices(computerFiles: Record<string, string>, phoneFiles: Record<strin
     conflicts,
     busy,
     overwrites,
+    kept,
+    resolved,
+    largest: () => largest,
     pc: mem(computer),
     mobile: mem(phone),
     base: () => base,
@@ -149,6 +175,19 @@ describe('pairing secret', () => {
     const sealed = await seal(a.key, new TextEncoder().encode('offer'));
     expect(new TextDecoder().decode(await unseal(b.key, sealed))).toBe('offer');
   });
+  it('after pairing, both devices work out the same new secret, which no one else can', async () => {
+    const computer = await rekeyPair();
+    const phone = await rekeyPair();
+    const onComputer = await rekeySecret(computer.priv, phone.pub, 'abc123');
+    const onPhone = await rekeySecret(phone.priv, computer.pub, 'abc123');
+    expect(onComputer).toBe(onPhone);
+    expect(isSecret(onComputer)).toBe(true);
+    // Someone else with both public halves (they went through the relay) and a key pair of their own gets another.
+    const eve = await rekeyPair();
+    expect(await rekeySecret(eve.priv, computer.pub, 'abc123')).not.toBe(onComputer);
+    expect(await rekeySecret(computer.priv, phone.pub, 'other')).not.toBe(onComputer);
+  });
+
   it('rejects messages made with another key or changed on the way', async () => {
     const mine = await pairKeys(newSecret());
     const other = await pairKeys(newSecret());
@@ -222,16 +261,44 @@ describe('sync engine', () => {
     expect(d.conflicts).toEqual([]);
   });
 
-  it('keeps both versions when both devices changed the same file apart', async () => {
-    const d = devices({ 'Projects/EXP-0007 Gel.md': 'v1' });
+  it('a page changed on both apart keeps its latest edit on both; the other goes into its history on both', async () => {
+    const page = (text: string, when: string) => `---\nid: EXP-0007\nmodified: ${when}\n---\n\n${text}\n`;
+    const d = devices({ 'Projects/EXP-0007 Gel.md': page('v1', '2026-11-18T09:00:00+01:00') });
     (await d.connect()).disconnect();
-    await d.computer.write('Projects/EXP-0007 Gel.md', 'computer edit');
-    await d.phone.write('Projects/EXP-0007 Gel.md', 'phone edit');
+    // The phone's edit is the later one, though the computer's was saved last.
+    await d.phone.write('Projects/EXP-0007 Gel.md', page('phone edit', '2026-11-18T10:05:00+01:00'));
+    await d.computer.write('Projects/EXP-0007 Gel.md', page('computer edit', '2026-11-18T10:01:00+01:00'));
     await d.connect();
     same(d);
-    expect(d.pc.text('Projects/EXP-0007 Gel.md')).toBe('computer edit');
-    expect(d.pc.text('Projects/EXP-0007 Gel (from phone).md')).toBe('phone edit');
-    expect(d.conflicts).toEqual([['Projects/EXP-0007 Gel.md', 'Projects/EXP-0007 Gel (from phone).md']]);
+    expect(d.pc.text('Projects/EXP-0007 Gel.md')).toContain('phone edit');
+    expect(d.conflicts).toEqual([]);
+    expect(d.resolved).toEqual(['computer:Projects/EXP-0007 Gel.md:there']);
+    expect(d.kept.some((k) => k.startsWith('computer:Projects/EXP-0007 Gel.md:') && k.includes('computer edit'))).toBe(true);
+
+    // Again, the computer's later this time: the phone gets it, and keeps its own in its history.
+    (await d.connect()).disconnect();
+    await d.phone.write('Projects/EXP-0007 Gel.md', page('phone again', '2026-11-18T11:00:00+01:00'));
+    await d.computer.write('Projects/EXP-0007 Gel.md', page('computer later', '2026-11-18T11:30:00+01:00'));
+    await d.connect();
+    same(d);
+    expect(d.mobile.text('Projects/EXP-0007 Gel.md')).toContain('computer later');
+    expect(d.kept.some((k) => k.startsWith('phone:Projects/EXP-0007 Gel.md:') && k.includes('phone again'))).toBe(true);
+    expect(d.kept.some((k) => k.startsWith('computer:Projects/EXP-0007 Gel.md:') && k.includes('phone again'))).toBe(true);
+  });
+
+  it('a page changed on both with no edit time keeps the computer’s; not text, both are kept', async () => {
+    const d = devices({ 'Notes/Plan.md': 'p1', 'gel.png': 'png1' });
+    (await d.connect()).disconnect();
+    await d.computer.write('Notes/Plan.md', 'computer plan');
+    await d.phone.write('Notes/Plan.md', 'phone plan');
+    await d.computer.write('gel.png', 'png from the desk');
+    await d.phone.write('gel.png', 'png from the bench');
+    await d.connect();
+    same(d);
+    expect(d.pc.text('Notes/Plan.md')).toBe('computer plan');
+    expect(d.kept).toContain('computer:Notes/Plan.md:phone plan');
+    expect(d.pc.text('gel.png')).toBe('png from the desk');
+    expect(d.pc.text('gel (from phone).png')).toBe('png from the bench');
   });
 
   it('an edit wins over a deletion made apart', async () => {
@@ -244,19 +311,100 @@ describe('sync engine', () => {
     expect(d.mobile.text('X.md')).toBe('x2');
   });
 
-  it('a live change to a page being edited on the other device is kept as a copy, not lost', async () => {
+  it('a live change to a page being edited on the other device is not lost: it goes into the page’s history', async () => {
     const d = devices({ 'Notes/Bench.md': 'start' });
     await d.connect();
     d.busy.add('computer:Notes/Bench.md');
     await d.phone.write('Notes/Bench.md', 'typed on the phone');
-    await vi.waitFor(() => expect(d.pc.text('Notes/Bench (from phone).md')).toBe('typed on the phone'));
+    await vi.waitFor(() => expect(d.kept).toContain('computer:Notes/Bench.md:typed on the phone'));
     expect(d.pc.text('Notes/Bench.md')).toBe('start');
-    // The computer's pending edit is saved and sent: both end up with it, and with the copy.
+    // The computer's edit, being typed, is the latest: once saved, both have it.
     d.busy.clear();
     await d.computer.write('Notes/Bench.md', 'typed on the computer');
     await vi.waitFor(() => same(d));
     expect(d.mobile.text('Notes/Bench.md')).toBe('typed on the computer');
-    expect(d.mobile.text('Notes/Bench (from phone).md')).toBe('typed on the phone');
+    expect([...d.mobile.files.keys()].filter((p) => p.includes('(from'))).toEqual([]);
+  });
+
+  // ── From the audit report (F01, F02, F06): what the comparison decided is checked again. ──
+
+  it('a folder deleted on the computer keeps a page the phone added inside it meanwhile (F01)', async () => {
+    const d = devices({ 'P/A.md': 'a1', 'P/attachments/x/gel.png': 'g' });
+    await d.connect();
+    await d.phone.raw.write('P/B.md', 'new result at the bench'); // saved, not sent yet
+    await d.computer.remove('P');
+    await vi.waitFor(() => expect(d.pc.text('P/B.md')).toBe('new result at the bench'));
+    expect(d.mobile.text('P/B.md')).toBe('new result at the bench');
+    expect(d.mobile.files.has('P/A.md')).toBe(false);
+    expect(d.mobile.files.has('P/attachments/x/gel.png')).toBe(false);
+  });
+
+  it('a page edited on the computer while the devices compare is not deleted (F02)', async () => {
+    const d = devices({ 'A.md': 'a1' });
+    (await d.connect()).disconnect();
+    await d.phone.remove('A.md'); // deleted on the phone while apart
+    // The computer saves A again after it listed its files, right before the comparison acts on it.
+    const stat = d.pc.stat.bind(d.pc);
+    let calls = 0;
+    d.pc.stat = async (path: string) => {
+      if (path === 'A.md' && ++calls === 2) await d.computer.write('A.md', 'a2 typed during the comparison');
+      return stat(path);
+    };
+    await d.connect();
+    await vi.waitFor(() => expect(d.mobile.text('A.md')).toBe('a2 typed during the comparison'));
+    expect(d.pc.text('A.md')).toBe('a2 typed during the comparison');
+  });
+
+  it('a page saved on the phone while the devices compare is not overwritten by the computer’s (F02)', async () => {
+    const page = (text: string, when: string) => `---\nmodified: ${when}\n---\n\n${text}\n`;
+    const d = devices({ 'A.md': page('a1', '2026-11-18T09:00:00Z') });
+    (await d.connect()).disconnect();
+    await d.computer.write('A.md', page('a2 from the desk', '2026-11-18T10:00:00Z'));
+    // The phone saves A after it listed its files, right before the computer's version is written.
+    const stat = d.mobile.stat.bind(d.mobile);
+    let calls = 0;
+    d.mobile.stat = async (path: string) => {
+      if (path === 'A.md' && ++calls === 2) await d.phone.write('A.md', page('a3 typed at the bench meanwhile', '2026-11-18T10:05:00Z'));
+      return stat(path);
+    };
+    await d.connect();
+    // The phone's is the later edit: the page on both; the computer's is in its history.
+    await vi.waitFor(() => {
+      same(d);
+      expect(d.pc.text('A.md')).toContain('a3 typed at the bench meanwhile');
+    });
+    expect(d.kept.some((k) => k.includes('a2 from the desk'))).toBe(true);
+  });
+
+  it('an empty folder deleted on the phone while apart does not come back (F06)', async () => {
+    const d = devices({ 'A.md': 'a1' });
+    await d.computer.mkdir('Empty');
+    (await d.connect()).disconnect();
+    await d.phone.remove('Empty');
+    await d.connect();
+    expect(d.pc.dirs.has('Empty')).toBe(false);
+    (await d.connect()).disconnect();
+    expect(d.pc.dirs.has('Empty')).toBe(false);
+    expect(d.mobile.dirs.has('Empty')).toBe(false);
+  });
+
+  it('an empty folder deleted on the computer while connected is deleted on the phone', async () => {
+    const d = devices({ 'A.md': 'a1' });
+    await d.computer.mkdir('Old');
+    await d.connect();
+    expect(d.mobile.dirs.has('Old')).toBe(true);
+    await d.computer.remove('Old');
+    await vi.waitFor(() => expect(d.mobile.dirs.has('Old')).toBe(false));
+  });
+
+  it('lists with long paths go in parts well under the relay’s limit', async () => {
+    const long = 'Projects/' + 'A very long project folder name '.repeat(8);
+    const files: Record<string, string> = {};
+    for (let i = 0; i < 500; i++) files[`${long}/EXP-${i} ${'entry '.repeat(10)}.md`] = `e${i}`;
+    const d = devices(files);
+    await d.connect();
+    same(d);
+    expect(d.largest()).toBeLessThan(100 * 1024);
   });
 
   it('a deletion does not remove a file the other device changed since; that version comes back', async () => {

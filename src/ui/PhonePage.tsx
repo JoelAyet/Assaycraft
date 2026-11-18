@@ -19,6 +19,7 @@ export function peerStatus(p: PeerStatus, other: 'phone' | 'computer'): { text: 
     return { text: p.path === 'direct' ? 'Connected directly' : 'Connected through the relay', tone: 'live' };
   }
   if (p.link === 'offline') return { text: 'No internet connection; trying again', tone: 'idle' };
+  if (p.link === 'elsewhere') return { text: 'Connected in another tab of this browser', tone: 'idle' };
   return { text: other === 'computer' ? 'Waiting for the computer' : 'Not connected', tone: 'idle' };
 }
 
@@ -136,8 +137,11 @@ function SyncCopies() {
 /** On the computer: the code a phone scans, and the phones already connected. */
 function ComputerView({ notebook }: { notebook: string }) {
   const pending = useSync((s) => s.pending);
+  const expired = useSync((s) => s.expired);
   const peers = useSync((s) => s.peers);
   const [showCode, setShowCode] = useState(true);
+  /** Counts the codes shown, to show a new one. */
+  const [round, setRound] = useState(0);
   const [error, setError] = useState('');
   const [justPaired, setJustPaired] = useState<string | null>(null);
 
@@ -158,7 +162,7 @@ function ComputerView({ notebook }: { notebook: string }) {
       off();
       cancelPendingPairing();
     };
-  }, [showCode]);
+  }, [showCode, round]);
 
   const disconnect = async (id: string, p: PeerStatus) => {
     const ok = await confirmDialog({
@@ -185,13 +189,20 @@ function ComputerView({ notebook }: { notebook: string }) {
               )}
               <div className="gc-pair-wait" role="status">
                 {error ||
-                  (pending?.link === 'offline'
-                    ? 'No connection to the relay. Check the internet connection.'
-                    : pending?.link === 'connected'
-                      ? 'A phone is connecting…'
-                      : 'Waiting for a phone…')}
+                  (expired && !pending
+                    ? 'This code has expired: a code works for 10 minutes.'
+                    : pending?.link === 'offline'
+                      ? 'No connection to the relay. Check the internet connection.'
+                      : pending?.link === 'connected'
+                        ? 'A phone is connecting…'
+                        : 'Waiting for a phone…')}
               </div>
               {pending && <CopyLink url={pending.url} />}
+              {expired && !pending && (
+                <button className="btn btn-sm" onClick={() => setRound((r) => r + 1)}>
+                  <RefreshCw /> Show a new code
+                </button>
+              )}
             </div>
             <ol className="gc-pair-steps">
               <li>

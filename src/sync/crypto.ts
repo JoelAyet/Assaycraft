@@ -71,3 +71,28 @@ export async function unseal(key: CryptoKey, data: Uint8Array<ArrayBuffer>): Pro
 export async function fingerprint(data: Uint8Array<ArrayBuffer>): Promise<string> {
   return hex(await crypto.subtle.digest('SHA-256', data)).slice(0, 32);
 }
+
+/**
+ * After pairing, the two devices agree on a secret of their own, so the QR code (which someone else
+ * may have seen) stops being a key to the notebook. Each makes a key pair (ECDH P-256) and sends the
+ * public half, encrypted with the pairing's current key; each works out the same new secret from its
+ * own private half and the other's public one. Someone who knows the QR code and recorded what went
+ * through the relay still cannot work it out.
+ */
+export async function rekeyPair(): Promise<{ priv: CryptoKey; pub: string }> {
+  const pair = (await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits'])) as CryptoKeyPair;
+  return { priv: pair.privateKey, pub: toB64url(new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey))) };
+}
+
+/** The new pairing secret, from this device's private half, the other's public half and the exchange's id. */
+export async function rekeySecret(priv: CryptoKey, theirPub: string, id: string): Promise<string> {
+  const pub = await crypto.subtle.importKey('raw', fromB64url(theirPub), { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const shared = await crypto.subtle.deriveBits({ name: 'ECDH', public: pub }, priv, 256);
+  const base = await crypto.subtle.importKey('raw', shared, 'HKDF', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'HKDF', hash: 'SHA-256', salt: enc.encode('assaycraft pairing v2'), info: enc.encode(id) },
+    base,
+    128,
+  );
+  return toB64url(new Uint8Array(bits));
+}
