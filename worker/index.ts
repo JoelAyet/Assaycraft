@@ -181,7 +181,7 @@ export class PairingRoom extends DurableObject<Env> {
     this.ctx.acceptWebSocket(server, [role]);
     const peers = this.ctx.getWebSockets(other(role));
     server.send(peerMessage(peers.length > 0));
-    for (const ws of peers) ws.send(peerMessage(true));
+    for (const ws of peers) sendTo(ws, peerMessage(true));
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -192,7 +192,7 @@ export class PairingRoom extends DurableObject<Env> {
       return;
     }
     const role = this.ctx.getTags(ws)[0] as Role;
-    for (const peer of this.ctx.getWebSockets(other(role))) peer.send(message);
+    for (const peer of this.ctx.getWebSockets(other(role))) sendTo(peer, message);
   }
 
   override webSocketClose(ws: WebSocket, code: number, reason: string) {
@@ -212,12 +212,19 @@ export class PairingRoom extends DurableObject<Env> {
   private left(ws: WebSocket) {
     const role = this.ctx.getTags(ws)[0] as Role;
     if (this.ctx.getWebSockets(role).some((s) => s !== ws && s.readyState === WebSocket.OPEN)) return;
-    for (const peer of this.ctx.getWebSockets(other(role))) {
-      try {
-        peer.send(peerMessage(false));
-      } catch {
-        /* closing */
-      }
-    }
+    for (const peer of this.ctx.getWebSockets(other(role))) sendTo(peer, peerMessage(false));
+  }
+}
+
+/**
+ * Sends unless the socket is closing: the list of a room's sockets still holds one that is being
+ * replaced or has just dropped, and a send to it throws, which failed the whole connection.
+ */
+function sendTo(ws: WebSocket, message: string | ArrayBuffer) {
+  if (ws.readyState !== WebSocket.OPEN) return;
+  try {
+    ws.send(message);
+  } catch {
+    /* closed meanwhile */
   }
 }
