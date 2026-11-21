@@ -51,17 +51,16 @@ test('the "/" menu: the search marked in the text, shortcuts, a foot to close it
   await expect(menu(page)).toHaveCount(0);
   await expect(prose(page)).toContainText('/ta /he');
 
-  // Nothing matches: "No results", and three letters later the menu is gone (it was not meant for it).
+  // Nothing matches: "No results", and at the third letter that matches nothing the menu is gone
+  // (it was not meant for it).
   await page.keyboard.press('Enter');
-  await page.keyboard.type('/xq');
+  await page.keyboard.type('/zq');
   await expect(menu(page).locator('.gc-slash-empty')).toHaveText('No results');
-  await page.keyboard.type('zw');
-  await expect(menu(page)).toBeVisible();
-  await page.keyboard.type('v');
+  await page.keyboard.type('x');
   await expect(menu(page)).toHaveCount(0);
   await page.keyboard.type('y');
   await expect(menu(page)).toHaveCount(0);
-  await expect(prose(page)).toContainText('/xqzwvy');
+  await expect(prose(page)).toContainText('/zqxy');
   // And Enter is a new line again.
   await page.keyboard.press('Enter');
   await page.keyboard.type('after');

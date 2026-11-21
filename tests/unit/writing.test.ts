@@ -39,6 +39,8 @@ describe('the "/" search', () => {
     expect(titles('ta')).not.toContain('Divider');
     expect(titles('ta')).not.toContain('Quote');
     expect(titles('xqz')).toEqual([]);
+    // The browser test types these, expecting nothing to match from the first letter.
+    expect(titles('z')).toEqual([]);
   });
 
   it('shows the typed shortcut of the basic blocks', () => {
