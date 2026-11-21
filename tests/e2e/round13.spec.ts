@@ -3,7 +3,7 @@
  * boards, pictures side by side, flows by drag and drop, pasting from Word and PowerPoint.
  */
 import { test, expect, type Page } from '@playwright/test';
-import { newBlankEntry, openFolderNotebook, readFile, trackErrors, waitForSave, KEYS } from './helpers';
+import { newBlankEntry, openFolderNotebook, readFile, trackErrors, waitForSave, selectLine } from './helpers';
 
 let errors: string[] = [];
 test.beforeEach(({ page }) => {
@@ -58,7 +58,7 @@ test('a highlight over H₂O is one straight band, and a second click shows its 
   await page.keyboard.type('2');
   await page.keyboard.press('ControlOrMeta+,');
   await page.keyboard.type('O at 37 °C');
-  await page.keyboard.press(KEYS.selectToLineStart);
+  await selectLine(page, 'Dissolve in H2O at 37 °C');
   await page.getByRole('button', { name: 'Highlight', exact: true }).click();
   // One mark around the subscript, not three pieces.
   await expect(page.locator('.ProseMirror mark')).toHaveCount(1);

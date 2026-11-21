@@ -141,6 +141,26 @@ export function ymd(d: Date) {
 }
 
 /**
+ * Select the line the cursor is on, and wait until the editor has the selection, not only the browser.
+ * Typed in the same instant as the click into the text (as only a test can), the editor's own check
+ * after taking the focus can come after Shift+Home and put its cursor back.
+ */
+export async function selectLine(page: Page, text: string) {
+  await expect(async () => {
+    await page.keyboard.press(KEYS.lineEnd);
+    await page.keyboard.press(KEYS.selectToLineStart);
+    const selected = await page.evaluate(() => {
+      const el = document.activeElement?.closest('.ProseMirror') as unknown as {
+        editor?: { state: { selection: { from: number; to: number }; doc: { textBetween(a: number, b: number): string } } };
+      } | null;
+      const state = el?.editor?.state;
+      return state ? state.doc.textBetween(state.selection.from, state.selection.to) : '';
+    });
+    expect(selected).toBe(text);
+  }).toPass();
+}
+
+/**
  * Keys for moving in text, as on the computer the tests run on: on a Mac, Home and End scroll
  * the page, and ⌘ with the arrows moves to the start or end of a line or of the page.
  * (For Ctrl/⌘ shortcuts, the tests use Playwright's ControlOrMeta.)

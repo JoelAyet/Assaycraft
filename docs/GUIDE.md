@@ -35,6 +35,9 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 - **Copy and paste in tables.** With text selected in the page, picking a cell and pressing <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>V</kbd> pasted over that text instead of into the cell (and <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>C</kbd> copied the text). Both now go to the table that is picked. Cells pasted into a new table (which starts writing in A1) fill the table, instead of landing in A1 as one line.
 - **A second click writes in a cell.** One click picks a cell (typing then replaces what is in it, as in Excel); a second click on it writes in it, after what is there, as in Notion. Double-click, <kbd>Enter</kbd> and <kbd>F2</kbd> still do too, and pressing on the picked cell and dragging still picks several.
 - **A click below the end of a page** writes on a new last line. A page that ended with a table, a picture or a plate had nowhere to click to write after it.
+- **A new task closed as it was opened is not kept.** _New task_ (on Home, on a board, on the calendar) opens a task to fill in; closed without a title, text, date or anything else, it no longer stays on the board as _Untitled task_. Opened as a page, it is kept.
+- **Boards with the keyboard:** <kbd>Tab</kbd> reaches each card, <kbd>Enter</kbd> opens it, <kbd>Shift</kbd>+<kbd>F10</kbd> (or the menu key) shows its menu, and <kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>→</kbd> moves it to the column before or after.
+- **For screen readers**, the template picker says which template is picked, the page's text is named (_Entry content_, _Protocol content_…), and a link that does not connect a phone is read out, tied to its field. **On a phone**, the welcome page shows a way in on the first screen.
 
 **18 November 2026**
 
@@ -609,7 +612,8 @@ The **Notes** page (below Templates in the sidebar) is for meeting notes, journa
 Boards are Kanban columns, as in Notion or Trello.
 
 - **Experiments** is built in: every entry by status. Drag a card to another column to change the entry's status. Its columns are the entry statuses: **⋯ → Edit statuses…** renames, recolors or adds them in Settings. Completed experiments are struck through. A failed one has a red edge and two ways on, also offered when it is moved to _Failed_: **Troubleshoot** adds a _Troubleshooting_ section to the entry (what happened, what could have caused it, what to change next time), and **Repeat** makes a copy of it, planned for today, that starts with a link back to it.
-- **New** in the board's bar adds a card to the first column (on Experiments, a new entry); point at a column to add straight into it with the column's own _New_.
+- **New** in the board's bar adds a card to the first column (on Experiments, a new entry); point at a column to add straight into it with the column's own _New_. A new card closed without anything in it is not kept.
+- **With the keyboard:** <kbd>Tab</kbd> to a card, <kbd>Enter</kbd> to open it, <kbd>Shift</kbd>+<kbd>F10</kbd> for its menu, <kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>→</kbd> to move it to the next column.
 - **Your own boards** come in two kinds, chosen when you create one (and switchable later from the board's **⋯** menu):
   - **Things to track** (the default): constructs, samples, orders, mice… moving through stages you name, e.g. _Designed → PCR → Assembled → Sequenced_. Cards have tags, links to entries and protocols, and full notes, but no due date, so they stay off the calendar.
   - **Tasks**: to-dos with a due date and a priority, e.g. _Lab tasks_. They show on the calendar and in Home's next 7 days, and Home warns when one is overdue. The _Priority_ menu above the columns shows the tasks of one priority (or those with none). A task can have a time too (_Time_, under its dates): then it sits at its hours in the calendar's week, and its card shows it. On the calendar, its box ticks it off: it moves to the board's last column.

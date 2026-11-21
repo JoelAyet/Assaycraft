@@ -145,8 +145,15 @@ function ConnectComputer({ close, initial, paste }: { close: () => void; initial
                 onChange={(e) => setText(e.target.value)}
                 placeholder={`${location.origin}/#/pair/…`}
                 autoComplete="off"
+                aria-invalid={problem ? true : undefined}
+                aria-describedby={problem ? 'gc-pair-link-problem' : undefined}
               />
-              {problem && <p className="gc-option-note">{problem}</p>}
+              {/* Tied to the field and read out when it appears (audit of 21 November). */}
+              {problem && (
+                <p id="gc-pair-link-problem" className="gc-option-note" role="alert">
+                  {problem}
+                </p>
+              )}
               <div className="gc-row-buttons">
                 <button type="submit" className="btn btn-primary">
                   Connect

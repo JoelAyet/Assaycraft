@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import {
   RotateCcw,
   Stethoscope,
@@ -154,6 +154,36 @@ function Kanban({
     return cards.length;
   };
 
+  /** A card moved with the keyboard keeps the focus in its new column. */
+  const refocus = useRef<string | null>(null);
+  useEffect(() => {
+    const path = refocus.current;
+    if (!path) return;
+    refocus.current = null;
+    const card = Array.from(document.querySelectorAll<HTMLElement>('.gc-card')).find((el) => el.dataset.path === path);
+    card?.focus();
+  });
+
+  const onCardKey = (e: KeyboardEvent<HTMLElement>, d: DocMeta) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onOpen(d);
+    } else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+      const r = e.currentTarget.getBoundingClientRect();
+      openContextMenu({ clientX: r.left + 16, clientY: r.top + 16, preventDefault: () => e.preventDefault() }, cardMenu(d));
+    } else if (e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+      e.preventDefault();
+      const at = columns.findIndex((c) => c.id === d.status);
+      const to = columns[at + (e.key === 'ArrowRight' ? 1 : -1)];
+      if (!to) return;
+      // To the end of that column, as a drop there would.
+      const list = (grouped.get(to.id) ?? []).filter((x) => x.path !== d.path);
+      refocus.current = d.path;
+      onDrop(d, to.id, null, list[list.length - 1] ?? null);
+    }
+  };
+
   const handleDrop = (e: DragEvent, col: string) => {
     e.preventDefault();
     const path = e.dataTransfer.getData(CARD_MIME);
@@ -224,6 +254,12 @@ function Kanban({
                     }}
                     onClick={() => onOpen(d)}
                     onContextMenu={(e) => openContextMenu(e, cardMenu(d))}
+                    // With the keyboard too (audit of 21 November): Tab to it, Enter opens it, the menu
+                    // key or Shift+F10 shows its menu, Alt+← and Alt+→ move it to the next column.
+                    tabIndex={0}
+                    data-path={d.path}
+                    aria-keyshortcuts="Enter Shift+F10 Alt+ArrowLeft Alt+ArrowRight"
+                    onKeyDown={(e) => onCardKey(e, d)}
                   >
                     {renderCard(d, col.id === doneColumn)}
                   </article>

@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { strToU8, zipSync } from 'fflate';
-import { newBlankEntry, openFolderNotebook, skipTour, trackErrors, waitForSave, KEYS } from './helpers';
+import { newBlankEntry, openFolderNotebook, skipTour, trackErrors, waitForSave, KEYS, selectLine } from './helpers';
 
 /** With SHOTS=<folder>, each checked screen is also saved as a picture there, to look at. */
 async function shot(page: Page, setup: string, screen: string) {
@@ -682,7 +682,7 @@ for (const s of SETUPS) {
       await newBlankEntry(page, 'Western blot, day 2');
       await page.locator('.ProseMirror').click();
       await page.keyboard.type('Transfer at 100 V');
-      await page.keyboard.press(KEYS.selectToLineStart);
+      await selectLine(page, 'Transfer at 100 V');
       await page.getByRole('button', { name: 'Highlight color' }).click();
       await check('Highlight colors');
       await page.getByRole('button', { name: 'Highlight green' }).click();

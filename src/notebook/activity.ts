@@ -95,6 +95,21 @@ export function recordEdit(doc: Pick<DocMeta, 'id' | 'path'>, day = localDate())
   void save(v);
 }
 
+/** Take back a note of `recordEdit`: the document was not kept after all (a blank task closed untouched). */
+export function forgetEdit(doc: Pick<DocMeta, 'id' | 'path'>, day = localDate()) {
+  const v = current;
+  if (!v) return;
+  const key = docKey(doc);
+  const { days } = useActivity.getState();
+  if (!days[day]?.includes(key)) return;
+  const left = days[day].filter((k) => k !== key);
+  const next = { ...days };
+  if (left.length) next[day] = left;
+  else delete next[day];
+  useActivity.setState({ days: next });
+  void save(v);
+}
+
 export function flushActivity() {
   return saving;
 }

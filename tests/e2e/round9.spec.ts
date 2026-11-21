@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { newBlankEntry, openFolderNotebook, readFile, trackErrors, waitForSave, ymd, KEYS } from './helpers';
+import { newBlankEntry, openFolderNotebook, readFile, selectLine, trackErrors, waitForSave, ymd } from './helpers';
 
 const day = (n: number) => {
   const d = new Date();
@@ -31,22 +31,7 @@ test('text gets a highlight color, a color and a size; tags get a color', async 
   await newBlankEntry(page, 'Colors');
   await page.locator('.ProseMirror').click();
   await page.keyboard.type('Band at 1 kb');
-  // Selected once the editor itself has it. Typed in the same instant as the click into the text (as
-  // only a test can), the editor's own check after taking the focus can come after Shift+Home and
-  // put its cursor back.
-  await expect(async () => {
-    await page.keyboard.press(KEYS.lineEnd);
-    await page.keyboard.press(KEYS.selectToLineStart);
-    const selected = await page.evaluate(() => {
-      const { state } = (
-        document.querySelector('.ProseMirror') as unknown as {
-          editor: { state: { selection: { from: number; to: number }; doc: { textBetween(a: number, b: number): string } } };
-        }
-      ).editor;
-      return state.doc.textBetween(state.selection.from, state.selection.to);
-    });
-    expect(selected).toBe('Band at 1 kb');
-  }).toPass();
+  await selectLine(page, 'Band at 1 kb');
   // The highlight's colors are by its button; text color and size have a button of their own.
   await page.getByRole('button', { name: 'Highlight color' }).click();
   await page.getByRole('button', { name: 'Highlight green' }).click();

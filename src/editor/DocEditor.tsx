@@ -102,6 +102,25 @@ function writeAtEnd(editor: Editor, e: React.MouseEvent) {
   editor.chain().insertContentAt(doc.content.size, { type: 'paragraph' }).focus('end').scrollIntoView().run();
 }
 
+/** What the text of a page is called, for screen readers. */
+function contentLabel(kind: DocMeta['kind']): string {
+  switch (kind) {
+    case 'protocol':
+      return 'Protocol content';
+    case 'note':
+      return 'Note';
+    case 'card':
+      return 'Task notes';
+    case 'reference':
+      return 'Reading notes';
+    case 'template':
+    case 'subtemplate':
+      return 'Template content';
+    default:
+      return 'Entry content';
+  }
+}
+
 export interface DocEditorProps {
   path: string;
   meta: DocMeta;
@@ -185,7 +204,14 @@ function DocEditorInner({ path, meta, initialBody, readOnly, placeholder, compac
     immediatelyRender: true,
     shouldRerenderOnTransaction: false,
     editorProps: {
-      attributes: { class: `gc-prose ${compact ? 'is-compact' : ''}`, spellcheck: 'true' },
+      // Named, so screen readers say what the text is (audit of 21 November).
+      attributes: {
+        class: `gc-prose ${compact ? 'is-compact' : ''}`,
+        spellcheck: 'true',
+        role: 'textbox',
+        'aria-multiline': 'true',
+        'aria-label': contentLabel(meta.kind),
+      },
       // Files in copied blocks follow them into another entry (see clipboardFiles).
       transformCopied: (slice) => markCopiedFiles(slice, ctxRef.current),
       transformPastedHTML: (html) => cleanOfficeHtml(html),
