@@ -193,6 +193,15 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The cell being written grows with its text, as the cell does once written: in a narrow column (on a
+  // phone) the text wrapped and its first line was hidden (design check of 21 November).
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el || editing?.source !== 'cell') return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [editing?.value, editing?.r, editing?.c, editing?.source]);
+
   useEffect(() => {
     if (!editing || editing.source !== 'cell') return;
     const el = inputRef.current;

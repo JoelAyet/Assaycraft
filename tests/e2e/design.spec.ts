@@ -1132,6 +1132,232 @@ for (const s of SETUPS) {
       expect(problems).toEqual({});
       expect(errors).toEqual([]);
     });
+
+    test('the "/" menu, a table cell being written and a board card with keyboard focus pass the design checks', async ({ page }) => {
+      test.setTimeout(120_000);
+      const errors = trackErrors(page);
+      const problems: Record<string, unknown> = {};
+      const check = async (screen: string) => {
+        await page.waitForTimeout(250);
+        const found = faults(await page.evaluate(audit, s.phone));
+        if (found) problems[screen] = found;
+        await shot(page, s.name, screen);
+      };
+      await openFolderNotebook(page);
+      if (s.phone) await page.locator('.gc-nav-toggle').first().click();
+      await newBlankEntry(page, 'Western blot, day 3');
+      await page.locator('.ProseMirror').click();
+      await page.keyboard.type('Blocked in 5% milk for 1 h.');
+      await page.keyboard.press('Enter');
+      // The menu as typed: "/" alone, then a search, then one that finds nothing.
+      await page.keyboard.type('/');
+      await expect(page.locator('.gc-slash')).toBeVisible();
+      await check('The / menu');
+      await page.keyboard.type('ta');
+      await expect(page.locator('.gc-slash-item').first()).toContainText('Table');
+      await check('The / menu, searching');
+      await page.keyboard.press('Backspace');
+      await page.keyboard.press('Backspace');
+      await page.keyboard.type('zq');
+      await expect(page.locator('.gc-slash-empty')).toBeVisible();
+      await check('The / menu, no results');
+      await page.keyboard.press('Escape');
+      for (let i = 0; i < 3; i++) await page.keyboard.press('Backspace');
+      await page.keyboard.type('/table');
+      await page.keyboard.press('Enter');
+      // The new table takes the keyboard a moment later (about 40 ms): before that, keys go to the text.
+      await expect(page.locator('.gc-cell-input')).toBeFocused();
+      for (const v of ['Antibody', 'Dilution', 'Time']) {
+        await page.keyboard.type(v);
+        await page.keyboard.press('Tab');
+      }
+      await page.keyboard.press('Escape');
+      // Picked, then clicked again: written in, after what is there.
+      const cell = page.locator('.gc-sheet td[data-r="0"][data-c="1"]').first();
+      await cell.click();
+      await cell.click();
+      await expect(cell.locator('textarea')).toBeFocused();
+      await page.keyboard.type(' (1:5000)');
+      await check('A table, a cell being written');
+      await page.keyboard.press('Enter');
+      await page.keyboard.press('Escape');
+      await waitForSave(page);
+      if (s.phone) await page.locator('.gc-nav-toggle').first().click();
+      await page.locator('.gc-nav-item', { hasText: 'Lab tasks' }).click();
+      const card = page.locator('.gc-card').first();
+      // Reached with the keyboard, as its focus ring shows (a click before would hide it).
+      await page.keyboard.press('Shift');
+      await card.focus();
+      await expect(card).toBeFocused();
+      await check('Task board, a card with keyboard focus');
+      expect(problems).toEqual({});
+      expect(errors).toEqual([]);
+    });
+
+    test('connecting a phone: an expired code, pages kept twice, the latest edit kept, another tab, a link that does not work, no room left, an iPhone', async ({
+      browser,
+    }) => {
+      test.setTimeout(240_000);
+      const problems: Record<string, unknown> = {};
+      const device = async (phone: boolean, mine: boolean, userAgent = phone ? PHONE_UA : undefined) => {
+        const context = await browser.newContext({
+          viewport: mine ? { width: s.w, height: s.h } : phone ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+          isMobile: phone,
+          hasTouch: phone,
+          colorScheme: mine ? s.scheme : 'light',
+          userAgent,
+        });
+        const page = await context.newPage();
+        await skipTour(page);
+        return { context, page, errors: trackErrors(page) };
+      };
+      const checkOn = async (page: Page, screen: string) => {
+        await page.waitForTimeout(250);
+        const found = faults(await page.evaluate(audit, s.phone));
+        if (found) problems[screen] = found;
+        await shot(page, s.name, screen);
+      };
+      const openEntry = async (page: Page, title: string) => {
+        await page.keyboard.press('ControlOrMeta+k');
+        await page.keyboard.type(title);
+        await page.keyboard.press('Enter');
+        await expect(page.locator('.gc-title-input')).toHaveValue(title);
+      };
+      const pasteLink = async (page: Page, url: string) => {
+        await page.getByRole('button', { name: /Paste the link/ }).click();
+        await page.getByLabel('Link from the computer').fill(url);
+        await page.getByRole('button', { name: 'Connect', exact: true }).click();
+      };
+      // Each setup looks at one side: the computer's on a computer, the phone's on a phone.
+      const computer = await device(false, !s.phone);
+      const phone = await device(true, s.phone);
+      // The phone's storage can be made full, as in the round 18 test.
+      await phone.context.addInitScript(() => {
+        const put = IDBObjectStore.prototype.put;
+        IDBObjectStore.prototype.put = function (this: IDBObjectStore, ...args: Parameters<IDBObjectStore['put']>) {
+          if ((window as unknown as { full?: boolean }).full && this.name === 'files')
+            throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+          return put.apply(this, args);
+        };
+      });
+      try {
+        if (s.phone) {
+          // A link that is not one from a computer.
+          await phone.page.goto('/');
+          await pasteLink(phone.page, 'https://example.org/not-a-pairing-link');
+          await expect(phone.page.getByRole('alert').first()).toBeVisible();
+          await checkOn(phone.page, 'Connect to a computer, a link that does not work');
+          await phone.page.keyboard.press('Escape');
+          // On an iPhone, how to keep the copy.
+          const iphone = await device(
+            true,
+            true,
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1',
+          );
+          await iphone.page.goto('/');
+          await iphone.page.locator('.gc-welcome-options').getByRole('button', { name: 'Scan the code' }).click();
+          await expect(iphone.page.getByRole('dialog').getByText('add Assaycraft to your Home Screen')).toBeVisible();
+          await iphone.page.waitForTimeout(1000);
+          await checkOn(iphone.page, 'Scan the code, on an iPhone');
+          await iphone.context.close();
+        }
+
+        // The computer's notebook, with an entry and two copies kept twice by an earlier version.
+        await computer.page.clock.install();
+        await computer.page.goto('/');
+        await computer.page.getByRole('button', { name: /Create browser notebook/ }).click();
+        await computer.page.getByRole('dialog').getByRole('textbox').fill('Smith lab');
+        await computer.page.getByRole('button', { name: 'Create notebook' }).click();
+        await newBlankEntry(computer.page, 'Bench log');
+        await computer.page.locator('.ProseMirror').click();
+        await computer.page.keyboard.type('Written on the computer.');
+        await waitForSave(computer.page);
+        await computer.page.evaluate(async () => {
+          const { getState } = await import(/* @vite-ignore */ '/src/notebook/store.ts' as string);
+          const v = getState().vault;
+          const meta = (Object.values(getState().docs) as { title: string; path: string }[]).find((d) => d.title === 'Bench log')!;
+          const text: string = await v.readText(meta.path);
+          const stem = meta.path.replace(/\.md$/, '');
+          await v.raw.write(`${stem} (from iPhone).md`, text);
+          await v.raw.write(`${stem} (from iPhone 2).md`, text.replace('Written on the computer.', 'Written at the bench.'));
+        });
+        await computer.page.reload();
+        await computer.page.goto('/#/phone');
+        await computer.page.getByRole('img', { name: /QR code/ }).waitFor();
+        await expect(computer.page.getByRole('heading', { name: 'Pages kept twice' })).toBeVisible();
+        if (!s.phone) {
+          await checkOn(computer.page, 'Connect a phone, with pages kept twice');
+          // Not used for 10 minutes, the code is no longer good.
+          await computer.page.clock.fastForward('10:30');
+          await expect(computer.page.getByRole('button', { name: 'Show a new code' })).toBeVisible();
+          await checkOn(computer.page, 'Connect a phone, the code expired');
+          await computer.page.getByRole('button', { name: 'Show a new code' }).click();
+          await computer.page.getByRole('img', { name: /QR code/ }).waitFor();
+        }
+        const url = (await computer.page.getByRole('button', { name: 'Copy link' }).getAttribute('data-url'))!;
+
+        // The phone's storage is full the first time: it gives up, the computer shows a new code.
+        await phone.page.goto('/');
+        await phone.page.evaluate(() => ((window as unknown as { full: boolean }).full = true));
+        await pasteLink(phone.page, url);
+        const dialog = phone.page.getByRole('dialog');
+        await expect(dialog).toContainText('no room left for the notebook', { timeout: 30_000 });
+        const copyLink = computer.page.getByRole('button', { name: 'Copy link' });
+        await expect(copyLink).not.toHaveAttribute('data-url', url, { timeout: 20_000 });
+        if (s.phone) await checkOn(phone.page, 'Connecting, no room left');
+        else {
+          await expect(computer.page.locator('.toast', { hasText: 'has no room left' })).toBeVisible();
+          await checkOn(computer.page, 'Connect a phone, a new code after the phone ran out of space');
+          await computer.page.locator('.toast', { hasText: 'has no room left' }).getByRole('button', { name: 'Dismiss' }).click();
+        }
+        // Space freed: tried again with the new code.
+        const fresh = (await copyLink.getAttribute('data-url'))!;
+        await phone.page.evaluate(() => ((window as unknown as { full: boolean }).full = false));
+        await dialog.getByRole('button', { name: 'Try again' }).click();
+        await phone.page.getByLabel('Link from the computer').fill(fresh);
+        await phone.page.getByRole('button', { name: 'Connect', exact: true }).click();
+        await phone.page.locator('.gc-main').waitFor({ timeout: 30_000 });
+
+        // Both edit the page while the phone is offline; reconnected, the latest edit is kept.
+        await openEntry(computer.page, 'Bench log');
+        await openEntry(phone.page, 'Bench log');
+        await phone.context.setOffline(true);
+        await expect(phone.page.locator('.gc-sync-indicator')).toHaveAttribute('title', /No internet connection|Waiting/, { timeout: 20_000 });
+        // The computer's edit is the later one: the device whose edit was set aside is told (on a phone setup,
+        // the phone), as is the one that decided (the computer).
+        const [first, later] = [phone.page, computer.page];
+        for (const [page, text] of [
+          [first, ' Edited first.'],
+          [later, ' Edited later.'],
+        ] as const) {
+          await page.locator('.ProseMirror').click();
+          await page.keyboard.press(KEYS.lineEnd);
+          await page.keyboard.type(text);
+          await waitForSave(page);
+          await page.waitForTimeout(1500);
+        }
+        await phone.context.setOffline(false);
+        const mine = s.phone ? phone.page : computer.page;
+        await expect(mine.locator('.toast', { hasText: 'is kept' })).toBeVisible({ timeout: 30_000 });
+        await checkOn(mine, s.phone ? 'The latest edit kept, on the phone' : 'The latest edit kept');
+        await mine.locator('.toast', { hasText: 'is kept' }).getByRole('button', { name: 'Dismiss' }).click();
+
+        // A second tab takes the connection; the first says so.
+        await mine.goto(mine.url().replace(/#.*/, '#/phone'));
+        await expect(mine.locator(s.phone ? '.gc-peer-status' : '.gc-peer')).toContainText('Connected', { timeout: 30_000 });
+        const second = await (s.phone ? phone : computer).context.newPage();
+        await second.goto('/');
+        await expect(mine.getByText('Connected in another tab')).toBeVisible({ timeout: 30_000 });
+        await checkOn(mine, s.phone ? 'Computer connection, connected in another tab' : 'Connect a phone, connected in another tab');
+        await second.close();
+        expect(computer.errors).toEqual([]);
+        expect(phone.errors.filter((e) => !/quota|QuotaExceeded/i.test(e))).toEqual([]);
+      } finally {
+        await computer.context.close().catch(() => {});
+        await phone.context.close().catch(() => {});
+      }
+      expect(problems).toEqual({});
+    });
   });
 }
 

@@ -143,7 +143,7 @@ function ComputerView({ notebook }: { notebook: string }) {
   /** Counts the codes shown, to show a new one. */
   const [round, setRound] = useState(0);
   const [error, setError] = useState('');
-  const [justPaired, setJustPaired] = useState<string | null>(null);
+  const [justPaired, setJustPaired] = useState<{ id: string; device: string } | null>(null);
 
   useEffect(() => {
     if (!showCode) return;
@@ -154,7 +154,7 @@ function ComputerView({ notebook }: { notebook: string }) {
     const off = useSync.subscribe((s) => {
       const added = Object.keys(s.peers).find((id) => !before.has(id));
       if (added && !s.pending) {
-        setJustPaired(s.peers[added].device);
+        setJustPaired({ id: added, device: s.peers[added].device });
         setShowCode(false);
       }
     });
@@ -163,6 +163,15 @@ function ComputerView({ notebook }: { notebook: string }) {
       cancelPendingPairing();
     };
   }, [showCode, round]);
+
+  // The phone just connected gave up its first copy (no room left on it): it is forgotten, and its code
+  // no longer good, so a new one is shown (it waited on the old one forever: design check of 21 November).
+  useEffect(() => {
+    if (!showCode && justPaired && !peers[justPaired.id]) {
+      setJustPaired(null);
+      setShowCode(true);
+    }
+  }, [peers, showCode, justPaired]);
 
   const disconnect = async (id: string, p: PeerStatus) => {
     const ok = await confirmDialog({
@@ -221,7 +230,7 @@ function ComputerView({ notebook }: { notebook: string }) {
           <div className="gc-storage-card">
             <Check />
             <div>
-              <strong>{justPaired || 'The phone'} is connected to this notebook.</strong>
+              <strong>{justPaired?.device || 'The phone'} is connected to this notebook.</strong>
               <p className="muted">It keeps its own copy. Leave this notebook open here to keep the two in sync.</p>
               <button className="btn btn-sm gc-pair-again" onClick={() => setShowCode(true)}>
                 <Smartphone /> Connect another phone

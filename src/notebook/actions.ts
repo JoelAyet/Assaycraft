@@ -2141,6 +2141,9 @@ async function refreshRemote(paths: string[]): Promise<void> {
  * were apart can share an ID: both are kept, and this says which ones, once.
  */
 const warnedIds = new Set<string>();
+/** “A and B”, “A, B and C”: said “Both are kept” of three pages (design check of 21 November). */
+const listed = (items: string[]) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`);
+
 function warnDuplicateIds() {
   const byId = new Map<string, DocMeta[]>();
   for (const d of Object.values(getState().docs))
@@ -2156,7 +2159,7 @@ function warnDuplicateIds() {
     if (docs.length < 2 || warnedIds.has(key)) continue;
     warnedIds.add(key);
     toast(
-      `${id} is now the ID of ${docs.length} pages, made on different devices while they were apart: ${docs.map((d) => `“${d.title}”`).join(' and ')}. Both are kept.`,
+      `${id} is now the ID of ${docs.length} pages, made on different devices while they were apart: ${listed(docs.map((d) => `“${d.title}”`))}. ${docs.length === 2 ? 'Both are' : 'All are'} kept.`,
       'info',
       undefined,
       { sticky: true },

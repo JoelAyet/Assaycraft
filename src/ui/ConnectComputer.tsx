@@ -103,11 +103,18 @@ function ConnectComputer({ close, initial, paste }: { close: () => void; initial
       ) : secret ? (
         <div className="gc-connect-status" role="status">
           <p>{problem || statusText(status)}</p>
-          {p && p.phase === 'copying' && p.total > 0 && (
+          {!problem && p && p.phase === 'copying' && p.total > 0 && (
             <progress className="gc-connect-progress" max={p.total} value={p.done} aria-label="Copying the notebook" />
           )}
           {problem && (
-            <button className="btn" onClick={() => setSecret(null)}>
+            <button
+              className="btn"
+              onClick={() => {
+                // Back to scanning, without this message shown as if about the link (design check of 21 November).
+                setProblem('');
+                setSecret(null);
+              }}
+            >
               Try again
             </button>
           )}
