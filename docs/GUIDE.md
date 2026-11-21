@@ -37,6 +37,7 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 - **A click below the end of a page** writes on a new last line. A page that ended with a table, a picture or a plate had nowhere to click to write after it.
 - **A new task closed as it was opened is not kept.** _New task_ (on Home, on a board, on the calendar) opens a task to fill in; closed without a title, text, date or anything else, it no longer stays on the board as _Untitled task_. Opened as a page, it is kept.
 - **Boards with the keyboard:** <kbd>Tab</kbd> reaches each card, <kbd>Enter</kbd> opens it, <kbd>Shift</kbd>+<kbd>F10</kbd> (or the menu key) shows its menu, and <kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>→</kbd> moves it to the column before or after.
+- **A phone out of space while getting its first copy** stops and says so, and the computer shows a new code (the one used is spent). Free some space on the phone and scan the new code: the copy goes on from where it stopped. Before, trying again with the same code waited forever.
 - **For screen readers**, the template picker says which template is picked, the page's text is named (_Entry content_, _Protocol content_…), and a link that does not connect a phone is read out, tied to its field. **On a phone**, the welcome page shows a way in on the first screen.
 
 **18 November 2026**
