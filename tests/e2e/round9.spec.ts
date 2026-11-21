@@ -31,12 +31,21 @@ test('text gets a highlight color, a color and a size; tags get a color', async 
   await newBlankEntry(page, 'Colors');
   await page.locator('.ProseMirror').click();
   await page.keyboard.type('Band at 1 kb');
-  // Selected once the browser has the text: pressed in the same instant as the last letter (as only a
-  // test can), Shift+Home sometimes moved the cursor without selecting.
+  // Selected once the editor itself has it. Typed in the same instant as the click into the text (as
+  // only a test can), the editor's own check after taking the focus can come after Shift+Home and
+  // put its cursor back.
   await expect(async () => {
     await page.keyboard.press(KEYS.lineEnd);
     await page.keyboard.press(KEYS.selectToLineStart);
-    expect(await page.evaluate(() => window.getSelection()?.toString())).toBe('Band at 1 kb');
+    const selected = await page.evaluate(() => {
+      const { state } = (
+        document.querySelector('.ProseMirror') as unknown as {
+          editor: { state: { selection: { from: number; to: number }; doc: { textBetween(a: number, b: number): string } } };
+        }
+      ).editor;
+      return state.doc.textBetween(state.selection.from, state.selection.to);
+    });
+    expect(selected).toBe('Band at 1 kb');
   }).toPass();
   // The highlight's colors are by its button; text color and size have a button of their own.
   await page.getByRole('button', { name: 'Highlight color' }).click();
