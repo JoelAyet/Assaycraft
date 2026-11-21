@@ -1,6 +1,6 @@
 import { EditorContent, ReactNodeViewRenderer, useEditor, type Editor } from '@tiptap/react';
 import { Placeholder } from '@tiptap/extensions';
-import { useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import { schemaExtensions } from './schema';
 import { SlashCommands, SlashMenuHost } from './slash';
 import { Toolbar } from './Toolbar';
@@ -86,6 +86,41 @@ function openLink(href: string, folder: string) {
   if (isWebLink(href)) window.open(href, '_blank', 'noopener,noreferrer');
 }
 
+/**
+ * A click below the end of the page writes on its last line, a new one if the page ends with a
+ * table, a picture or a line with text, as in Notion. It did nothing before (audit of 21 November).
+ */
+function writeAtEnd(editor: Editor, e: React.MouseEvent) {
+  if (e.button !== 0 || !editor.isEditable) return;
+  e.preventDefault();
+  const { doc } = editor.state;
+  const last = doc.lastChild;
+  if (last && last.type.name === 'paragraph' && last.content.size === 0) {
+    editor.chain().focus('end').scrollIntoView().run();
+    return;
+  }
+  editor.chain().insertContentAt(doc.content.size, { type: 'paragraph' }).focus('end').scrollIntoView().run();
+}
+
+/** What the text of a page is called, for screen readers. */
+function contentLabel(kind: DocMeta['kind']): string {
+  switch (kind) {
+    case 'protocol':
+      return 'Protocol content';
+    case 'note':
+      return 'Note';
+    case 'card':
+      return 'Task notes';
+    case 'reference':
+      return 'Reading notes';
+    case 'template':
+    case 'subtemplate':
+      return 'Template content';
+    default:
+      return 'Entry content';
+  }
+}
+
 export interface DocEditorProps {
   path: string;
   meta: DocMeta;
@@ -96,7 +131,24 @@ export interface DocEditorProps {
   onEditor?: (editor: Editor | null) => void;
 }
 
-export function DocEditor({ path, meta, initialBody, readOnly, placeholder, compact, onEditor }: DocEditorProps) {
+/**
+ * The editor is drawn again only when what it uses changes: not each time the page's metadata does,
+ * which is at every save while typing.
+ */
+export const DocEditor = memo(
+  DocEditorInner,
+  (a, b) =>
+    a.path === b.path &&
+    a.meta.id === b.meta.id &&
+    a.meta.kind === b.meta.kind &&
+    a.initialBody === b.initialBody &&
+    a.readOnly === b.readOnly &&
+    a.placeholder === b.placeholder &&
+    a.compact === b.compact &&
+    a.onEditor === b.onEditor,
+);
+
+function DocEditorInner({ path, meta, initialBody, readOnly, placeholder, compact, onEditor }: DocEditorProps) {
   const vault = useNotebook((s) => s.vault)!;
   const pathRef = useRef(path);
   pathRef.current = path;
@@ -152,7 +204,14 @@ export function DocEditor({ path, meta, initialBody, readOnly, placeholder, comp
     immediatelyRender: true,
     shouldRerenderOnTransaction: false,
     editorProps: {
-      attributes: { class: `gc-prose ${compact ? 'is-compact' : ''}`, spellcheck: 'true' },
+      // Named, so screen readers say what the text is (audit of 21 November).
+      attributes: {
+        class: `gc-prose ${compact ? 'is-compact' : ''}`,
+        spellcheck: 'true',
+        role: 'textbox',
+        'aria-multiline': 'true',
+        'aria-label': contentLabel(meta.kind),
+      },
       // Files in copied blocks follow them into another entry (see clipboardFiles).
       transformCopied: (slice) => markCopiedFiles(slice, ctxRef.current),
       transformPastedHTML: (html) => cleanOfficeHtml(html),
@@ -284,6 +343,7 @@ export function DocEditor({ path, meta, initialBody, readOnly, placeholder, comp
         </div>
       )}
       <EditorContent editor={editor} className="gc-editor" />
+      {!readOnly && <div className={`gc-editor-tail ${compact ? 'is-compact' : ''}`} aria-hidden="true" onMouseDown={(e) => writeAtEnd(editor, e)} />}
       <SlashMenuHost />
     </DocContext.Provider>
   );

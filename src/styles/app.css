@@ -2411,6 +2411,13 @@
   }
 }
 
+/* On a phone the picture pushed every way in below the first screen (audit of 21 November). */
+@media (max-width: 600px) {
+  .gc-welcome-art {
+    display: none;
+  }
+}
+
 /* ───────── Guided tour ───────── */
 
 .gc-tour {

@@ -5,7 +5,8 @@
 import { Extension } from '@tiptap/core';
 import type { Editor } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
-import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import { Decoration } from '@tiptap/pm/view';
+import { rescanChanged, scanAll } from './incremental';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { Popover, openDialog } from '../ui/overlay';
 import { MiniCalendar } from '../ui/MiniCalendar';
@@ -13,15 +14,11 @@ import { dateHeadingText } from './datePrompts';
 
 const DAY_HEADING = /^(\d{4}-\d{2}-\d{2}) · [A-Za-z]+$/;
 
-function decorate(doc: PMNode): DecorationSet {
-  const out: Decoration[] = [];
-  doc.descendants((node, pos) => {
-    if (node.type.name !== 'heading') return true;
-    const m = DAY_HEADING.exec(node.textContent);
-    if (m) out.push(Decoration.inline(pos + 1, pos + 1 + m[1].length, { class: 'gc-date-chip', 'data-date': m[1], title: 'Change the day' }));
-    return false;
-  });
-  return DecorationSet.create(doc, out);
+/** Headings are top-level blocks: the chip of the one at `pos`, if it is a day heading. */
+function scanBlock(node: PMNode, pos: number): Decoration[] {
+  if (node.type.name !== 'heading') return [];
+  const m = DAY_HEADING.exec(node.textContent);
+  return m ? [Decoration.inline(pos + 1, pos + 1 + m[1].length, { class: 'gc-date-chip', 'data-date': m[1], title: 'Change the day' })] : [];
 }
 
 function pickDay(editor: Editor, pos: number, date: string, anchor: DOMRect) {
@@ -53,8 +50,8 @@ export const DateHeading = Extension.create({
       new Plugin({
         key: new PluginKey('dateHeading'),
         state: {
-          init: (_, { doc }) => decorate(doc),
-          apply: (tr, old) => (tr.docChanged ? decorate(tr.doc) : old),
+          init: (_, { doc }) => scanAll(doc, scanBlock),
+          apply: (tr, old) => rescanChanged(tr, old, scanBlock),
         },
         props: {
           decorations(state) {

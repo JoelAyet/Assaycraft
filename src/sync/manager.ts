@@ -137,7 +137,9 @@ function setPeer(id: string, patch: Partial<PeerStatus>) {
     if (p && patch.link) useSync.setState({ pending: { ...p, link: patch.link } });
     return;
   }
-  useSync.setState((s) => ({ peers: { ...s.peers, [id]: { ...(s.peers[id] ?? { device: '', link: 'connecting' }), ...patch } } }));
+  // Only a device still listed: news from a connection being stopped (a phone forgotten, a first copy
+  // given up, the notebook closed) listed it again, as a phone with no name (design check of 21 November).
+  useSync.setState((s) => (s.peers[id] ? { peers: { ...s.peers, [id]: { ...s.peers[id], ...patch } } } : s));
 }
 
 function saveHashes() {
@@ -236,13 +238,31 @@ function runEngine(run: Run, vault: SyncableVault, session: Session, hashes: Has
     onError: (err) => {
       // Out of space: each new session would fail the same way, over and over. Stop and say so.
       if (isQuotaError(err)) {
-        run.conn.stop();
         setPeer(run.id, { link: 'offline', progress: undefined });
-        const message =
-          'This device has no room left for the notebook in this browser, so syncing stopped. Free some space (or remove large attachments on the computer), then try again.';
-        // Copying it for the first time: that ends here, with this (the copy so far stays, and a new try goes on from it).
-        if (onFatal) onFatal(new Error(message));
-        else hooks?.notice(message, 'error');
+        if (!onFatal) {
+          run.conn.stop();
+          hooks?.notice(
+            'This device has no room left for the notebook in this browser, so syncing stopped. Free some space (or remove large attachments on the computer), then try again.',
+            'error',
+          );
+          return;
+        }
+        // Copying it for the first time: that ends here. The computer is told to forget this phone, so it
+        // shows a new code: the one used is no longer good (the two switched to a key of their own), and
+        // trying it again waited forever (design check of 21 November). The copy so far stays, and the
+        // next try, with the new code, goes on from it.
+        const told = Promise.race([
+          run.conn.control({ t: 'unpaired', reason: 'full' }).catch(() => undefined),
+          new Promise((r) => setTimeout(r, 2000)),
+        ]);
+        void told.finally(() => {
+          run.conn.stop();
+          onFatal(
+            new Error(
+              'This device has no room left for the notebook in this browser. Free some space (or remove large attachments on the computer), then scan the code on the computer again: it shows a new one.',
+            ),
+          );
+        });
         return;
       }
       console.warn('Sync stopped; it starts again on the next connection.', err);
@@ -320,7 +340,7 @@ async function onControl(run: Run, conn: Connection, msg: { t: string; [k: strin
   if (msg.t === 'unpaired') {
     // Only for a pairing of the open notebook (a phone's first copy, not opened yet, has nothing to undo).
     if ((conn === run.conn || conn === run.next?.conn) && current?.runs.get(run.id) === run)
-      await (run.role === 'computer' ? forgetPairing(run.id, false) : unlinkFromComputer(false));
+      await (run.role === 'computer' ? forgetPairing(run.id, false, msg.reason === 'full' ? 'full' : undefined) : unlinkFromComputer(false));
     return;
   }
   if (typeof msg.pub !== 'string' || typeof msg.id !== 'string' || conn !== run.conn) return;
@@ -511,7 +531,8 @@ export function cancelPendingPairing() {
 }
 
 /** Disconnect a phone from this notebook. Its copy stays on the phone, as a notebook of its own. */
-export async function forgetPairing(id: string, tellPhone = true) {
+/** `full`: the phone gave up its first copy, out of space (it tries again with a new code). */
+export async function forgetPairing(id: string, tellPhone = true, reason?: 'full') {
   const run = current?.runs.get(id);
   if (run) {
     if (tellPhone) await run.conn.control({ t: 'unpaired' }).catch(() => undefined);
@@ -526,7 +547,12 @@ export async function forgetPairing(id: string, tellPhone = true) {
     delete peers[id];
     return { peers, role: Object.keys(peers).length ? s.role : null };
   });
-  if (!tellPhone && device) hooks?.notice(`${shortDevice(device)} disconnected from this notebook.`);
+  if (!tellPhone && device)
+    hooks?.notice(
+      reason === 'full'
+        ? `${shortDevice(device)} has no room left for the notebook, so it stopped before it had all of it. Once it has space, scan the new code with it.`
+        : `${shortDevice(device)} disconnected from this notebook.`,
+    );
 }
 
 // ───────────── on a phone ─────────────

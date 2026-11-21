@@ -169,8 +169,9 @@ function NewEntryDialog({ close, initial }: { close: () => void; initial: Initia
       }
     >
       <div className="gc-new-entry-grid">
-        <div className="gc-template-list" role="listbox" aria-label="Template">
-          <button className={`gc-template-option ${tpl === null ? 'active' : ''}`} onClick={() => setTpl(null)}>
+        {/* One picked at a time, and screen readers say which (it claimed to be a list box, with none of its parts) */}
+        <div className="gc-template-list" role="group" aria-label="Template">
+          <button className={`gc-template-option ${tpl === null ? 'active' : ''}`} aria-pressed={tpl === null} onClick={() => setTpl(null)}>
             <FileText />
             <span>
               <strong>Blank entry</strong>
@@ -178,7 +179,12 @@ function NewEntryDialog({ close, initial }: { close: () => void; initial: Initia
             </span>
           </button>
           {templates.map((t) => (
-            <button key={t.path} className={`gc-template-option ${tpl === t.path ? 'active' : ''}`} onClick={() => setTpl(t.path)}>
+            <button
+              key={t.path}
+              className={`gc-template-option ${tpl === t.path ? 'active' : ''}`}
+              aria-pressed={tpl === t.path}
+              onClick={() => setTpl(t.path)}
+            >
               <LayoutTemplate />
               <span>
                 <strong>{t.title}</strong>

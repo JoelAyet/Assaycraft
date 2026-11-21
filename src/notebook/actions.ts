@@ -56,7 +56,7 @@ import { TRASH_DIR, TRASH_INDEX, listTrash, parseTrashIndex, serializeTrashIndex
 import { HISTORY_DIR, historyPathFor, moveHistory, readHistory, recordVersion, versionTexts } from '../history/store';
 import { fingerprint } from '../sync/crypto';
 import { noteResolved, useResolvedPages } from '../sync/resolved';
-import { ACTIVITY_FILE, flushActivity, importActivity, loadActivity, recordEdit, reloadActivity } from './activity';
+import { ACTIVITY_FILE, flushActivity, forgetEdit, importActivity, loadActivity, recordEdit, reloadActivity } from './activity';
 import { SyncableVault } from '../sync/vault';
 import { setSyncHooks, startSync, stopSync } from '../sync/manager';
 import { startFeed, stopFeed } from '../calendar/feed';
@@ -1437,8 +1437,55 @@ export async function createCard(boardFolder: string, opts: NewCardOptions = {})
     '',
   );
   reserved.delete(id);
+  if (opts.open && !opts.title?.trim()) blankDrafts.set(path, draftPrint(getState().docs[path]));
   if (opts.open) setState({ peek: path });
   return path;
+}
+
+/**
+ * Cards made by New task, which opens them to be filled in, and what they were made with. Closed
+ * without anything added (no title, text, date, link or file), one is not kept: it left an
+ * “Untitled task” on the board (audit of 21 November).
+ */
+const blankDrafts = new Map<string, string>();
+const SAVE_FACTS = new Set(['text', 'preview', 'modified', 'mtime', 'includes', 'tasks', 'refs', 'stockItems', 'flow', 'reminders']);
+const draftPrint = (meta: DocMeta | undefined) =>
+  meta
+    ? JSON.stringify(
+        Object.entries(meta)
+          .filter(([k]) => !SAVE_FACTS.has(k))
+          .sort(([a], [b]) => a.localeCompare(b)),
+      )
+    : '';
+
+/** The new task is being written (opened as a page): kept, whatever is in it yet. */
+export function keepDraft(path: string) {
+  blankDrafts.delete(path);
+}
+
+/** A card closed as it was made by New task goes, as if never made. True when it went. */
+export async function discardBlankDraft(path: string): Promise<boolean> {
+  const print = blankDrafts.get(path);
+  if (print === undefined) return false;
+  blankDrafts.delete(path);
+  // The panel's last save (made as it closes) first.
+  await new Promise((r) => setTimeout(r));
+  await flushAllWrites();
+  const meta = getState().docs[path];
+  // Renamed (a title was typed), changed, or gone: it is kept, or not ours to remove.
+  if (!meta || draftPrint(meta) !== print || getState().peek === path) return false;
+  const v = vault();
+  if (await v.exists(attachmentsDir(path, meta.id))) return false;
+  const { body } = await readDoc(path).catch(() => ({ body: 'unreadable' }));
+  if (body.trim()) return false;
+  await serialized(path, () => v.remove(path));
+  setState((s) => {
+    const docs = { ...s.docs };
+    delete docs[path];
+    return { docs };
+  });
+  forgetEdit(meta);
+  return true;
 }
 
 // ───────────────────────────── notes ─────────────────────────────
@@ -2094,6 +2141,9 @@ async function refreshRemote(paths: string[]): Promise<void> {
  * were apart can share an ID: both are kept, and this says which ones, once.
  */
 const warnedIds = new Set<string>();
+/** “A and B”, “A, B and C”: said “Both are kept” of three pages (design check of 21 November). */
+const listed = (items: string[]) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`);
+
 function warnDuplicateIds() {
   const byId = new Map<string, DocMeta[]>();
   for (const d of Object.values(getState().docs))
@@ -2109,7 +2159,7 @@ function warnDuplicateIds() {
     if (docs.length < 2 || warnedIds.has(key)) continue;
     warnedIds.add(key);
     toast(
-      `${id} is now the ID of ${docs.length} pages, made on different devices while they were apart: ${docs.map((d) => `“${d.title}”`).join(' and ')}. Both are kept.`,
+      `${id} is now the ID of ${docs.length} pages, made on different devices while they were apart: ${listed(docs.map((d) => `“${d.title}”`))}. ${docs.length === 2 ? 'Both are' : 'All are'} kept.`,
       'info',
       undefined,
       { sticky: true },

@@ -7,6 +7,7 @@ import { CodeBlock as BaseCodeBlock } from '@tiptap/extension-code-block';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import { rescanChanged, scanAll } from './incremental';
 
 type Highlighter = typeof import('./codeHighlight');
 let highlighter: Highlighter | null = null;
@@ -77,12 +78,13 @@ export const LONG_CODE_LINES = 15;
 const highlightKey = new PluginKey<DecorationSet>('codeHighlight');
 const spansOf = new WeakMap<PMNode, ReturnType<Highlighter['highlightSpans']>>();
 
-function decorate(doc: PMNode): DecorationSet {
+/** The colors of the code blocks in one top-level block (lists and quotes can hold some). */
+function scanBlock(block: PMNode, at: number): Decoration[] {
   const hl = highlighter;
-  if (!hl) return DecorationSet.empty;
+  if (!hl) return [];
   const decos: Decoration[] = [];
-  doc.descendants((node, pos) => {
-    if (node.type.name !== 'codeBlock') return true;
+  const visit = (node: PMNode, pos: number) => {
+    if (node.type.name !== 'codeBlock') return !node.isTextblock;
     let spans = spansOf.get(node);
     if (!spans) {
       spans = hl.highlightSpans(node.textContent, languageValue(node.attrs.language as string | null) || null);
@@ -90,16 +92,18 @@ function decorate(doc: PMNode): DecorationSet {
     }
     for (const s of spans) decos.push(Decoration.inline(pos + 1 + s.from, pos + 1 + s.to, { class: s.className }));
     return false;
-  });
-  return DecorationSet.create(doc, decos);
+  };
+  if (visit(block, at)) block.descendants((node, pos) => visit(node, at + 1 + pos));
+  return decos;
 }
 
+/** Whether the page has a code block (text is not looked into: no block is inside a line). */
 function hasCode(doc: PMNode): boolean {
   let found = false;
   doc.descendants((node) => {
     if (found) return false;
     if (node.type.name === 'codeBlock') found = true;
-    return !found;
+    return !found && !node.isTextblock;
   });
   return found;
 }
@@ -114,15 +118,21 @@ export const CodeHighlight = Extension.create({
       new Plugin<DecorationSet>({
         key: highlightKey,
         state: {
-          init: (_, state) => decorate(state.doc),
-          apply: (tr, old, _prev, state) => (tr.docChanged || tr.getMeta(highlightKey) ? decorate(state.doc) : old),
+          init: (_, state) => (highlighter ? scanAll(state.doc, scanBlock) : DecorationSet.empty),
+          // Only the blocks a change touched are colored again, not the whole page at every key.
+          apply: (tr, old, _prev, state) =>
+            !highlighter ? DecorationSet.empty : tr.getMeta(highlightKey) ? scanAll(state.doc, scanBlock) : rescanChanged(tr, old, scanBlock),
         },
         props: {
           decorations: (state) => highlightKey.getState(state),
         },
         view: (view) => {
+          let seen: PMNode | null = null;
           const check = () => {
-            if (highlighter || !hasCode(view.state.doc)) return;
+            // Looked at again only when the text changed, not when the cursor moved.
+            if (highlighter || view.state.doc === seen) return;
+            seen = view.state.doc;
+            if (!hasCode(view.state.doc)) return;
             void loadHighlighter().then(() => {
               if (!view.isDestroyed) view.dispatch(view.state.tr.setMeta(highlightKey, true));
             });

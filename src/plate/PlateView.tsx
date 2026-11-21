@@ -4,8 +4,10 @@ import { Copy, Eraser, FileText, Grid3x3, Link2, Link2Off, MoreHorizontal, Penci
 import { MenuButton, confirmDialog, openDialog, promptDialog, type MenuItemSpec } from '../ui/overlay';
 import { EntryPicker } from '../ui/pickers';
 import { StockPicker } from '../stocks/StockPicker';
-import { navigate, toast, useNotebook } from '../notebook/store';
+import { navigate, toast } from '../notebook/store';
 import type { DocMeta } from '../notebook/model';
+import { useDocsBesidesSaves } from '../notebook/useDocs';
+import { useDocContext } from '../editor/context';
 import { rememberInsertionPoint } from '../editor/insertion';
 import { toDelimited } from '../sheet/tsv';
 import {
@@ -38,8 +40,8 @@ export function focusNextInsertedPlate() {
 }
 
 /** What a sample is linked to: a stock (in its collection) or a page with that ID. */
-function useLinkTarget() {
-  const docs = useNotebook((s) => s.docs);
+function useLinkTarget(page: string) {
+  const docs = useDocsBesidesSaves(page);
   return useCallback(
     (ref: string): { label: string; open: () => void } | null => {
       for (const d of Object.values(docs)) {
@@ -77,7 +79,7 @@ export function PlateView({ node, updateAttributes, editor, getPos, deleteNode }
   const data = useMemo(() => normalizePlate(node.attrs.data as PlateData), [node.attrs.data]);
   const format = formatOf(data.format);
   const counts = useMemo(() => plateCounts(data), [data]);
-  const linkTarget = useLinkTarget();
+  const linkTarget = useLinkTarget(useDocContext().path);
   const rootRef = useRef<HTMLDivElement>(null);
   const addRef = useRef<HTMLInputElement>(null);
   const [brush, setBrush] = useState<Brush>(() => data.samples[0]?.name ?? null);

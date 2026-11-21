@@ -44,6 +44,7 @@ import { syncSupported, useSync } from '../sync/manager';
 import { peerStatus } from './PhonePage';
 import { BUILTIN_EXPERIMENTS_BOARD, navigate, setState, setTheme, toast, useNotebook, type Route } from '../notebook/store';
 import { LAYOUT, type DocMeta } from '../notebook/model';
+import { useDocsBesidesSaves } from '../notebook/useDocs';
 import {
   closeNotebook,
   createFolder,
@@ -516,7 +517,8 @@ export function Sidebar() {
   const vault = useNotebook((s) => s.vault)!;
   const syncRole = useSync((s) => s.role);
   const config = useNotebook((s) => s.config);
-  const docs = useNotebook((s) => s.docs);
+  // Not redrawn by the saves made while typing: the sidebar shows nothing they change.
+  const docs = useDocsBesidesSaves(true);
   const folders = useNotebook((s) => s.folders);
   const route = useNotebook((s) => s.route);
   const theme = useNotebook((s) => s.theme);

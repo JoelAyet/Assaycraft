@@ -162,9 +162,23 @@ test('a page edited on the computer is read again on its own on the phone; a new
     await computerWithEntry(computer.page);
     await connectPhone(phone.page, await showCode(computer.page));
     await openEntry(phone.page, 'Bench log');
-    // Count the phone's rescans from here on.
+    // Count the phone's rescans from here on: once its first copy has settled, whose last look at
+    // the notebook comes a moment after it ends (and could come after the page opened).
     await phone.page.evaluate(async () => {
       const { useNotebook } = await import(/* @vite-ignore */ '/src/notebook/store.ts' as string);
+      let busy = performance.now();
+      await new Promise<void>((done) => {
+        const stop = useNotebook.subscribe((s: { scanning: boolean }) => {
+          if (s.scanning) busy = performance.now();
+        });
+        const check = () => {
+          if (!useNotebook.getState().scanning && performance.now() - busy > 600) {
+            stop();
+            done();
+          } else setTimeout(check, 50);
+        };
+        check();
+      });
       const w = window as unknown as { rescans: number };
       w.rescans = 0;
       useNotebook.subscribe((s: { scanning: boolean }, prev: { scanning: boolean }) => {

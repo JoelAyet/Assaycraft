@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { Maximize2, MoreHorizontal, X } from 'lucide-react';
 import { navigate, setState, useNotebook } from '../notebook/store';
-import { readDoc } from '../notebook/actions';
+import { discardBlankDraft, keepDraft, readDoc } from '../notebook/actions';
 import { DocEditor } from '../editor/DocEditor';
 import { useMarqueeSelect } from '../editor/blockSelect';
 import { Breadcrumbs, DocHeader, docMenu } from './DocPage';
@@ -18,7 +18,11 @@ function PeekPanel({ path, split }: { path: string; split: boolean }) {
   const [editor, setEditor] = useState<Editor | null>(null);
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   useMarqueeSelect(meta?.locked ? null : editor, scrollEl);
-  const close = () => setState({ peek: null, peekSplit: null });
+  const close = () => {
+    setState({ peek: null, peekSplit: null });
+    // A task opened by New task and closed without anything in it is not kept.
+    void discardBlankDraft(path);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -52,7 +56,9 @@ function PeekPanel({ path, split }: { path: string; split: boolean }) {
           className="icon-btn"
           title="Open as page"
           onClick={() => {
-            close();
+            // Opened as a page, a new task is being written: kept, whatever is in it yet.
+            keepDraft(path);
+            setState({ peek: null, peekSplit: null });
             navigate({ name: 'doc', path });
           }}
         >

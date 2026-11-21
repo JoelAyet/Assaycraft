@@ -103,11 +103,18 @@ function ConnectComputer({ close, initial, paste }: { close: () => void; initial
       ) : secret ? (
         <div className="gc-connect-status" role="status">
           <p>{problem || statusText(status)}</p>
-          {p && p.phase === 'copying' && p.total > 0 && (
+          {!problem && p && p.phase === 'copying' && p.total > 0 && (
             <progress className="gc-connect-progress" max={p.total} value={p.done} aria-label="Copying the notebook" />
           )}
           {problem && (
-            <button className="btn" onClick={() => setSecret(null)}>
+            <button
+              className="btn"
+              onClick={() => {
+                // Back to scanning, without this message shown as if about the link (design check of 21 November).
+                setProblem('');
+                setSecret(null);
+              }}
+            >
               Try again
             </button>
           )}
@@ -145,8 +152,15 @@ function ConnectComputer({ close, initial, paste }: { close: () => void; initial
                 onChange={(e) => setText(e.target.value)}
                 placeholder={`${location.origin}/#/pair/…`}
                 autoComplete="off"
+                aria-invalid={problem ? true : undefined}
+                aria-describedby={problem ? 'gc-pair-link-problem' : undefined}
               />
-              {problem && <p className="gc-option-note">{problem}</p>}
+              {/* Tied to the field and read out when it appears (audit of 21 November). */}
+              {problem && (
+                <p id="gc-pair-link-problem" className="gc-option-note" role="alert">
+                  {problem}
+                </p>
+              )}
               <div className="gc-row-buttons">
                 <button type="submit" className="btn btn-primary">
                   Connect

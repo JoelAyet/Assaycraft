@@ -115,6 +115,8 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
   selRef.current = sel;
   const drag = useRef<'select' | 'fill' | 'point' | null>(null);
   const point = useRef<{ start: number; len: number; anchor: Pos } | null>(null);
+  /** The cell clicked again, written in once the button is let go there. */
+  const clickToEdit = useRef<Pos | null>(null);
 
   const setEditing = (e: Editing | null) => {
     editingRef.current = e;
@@ -152,7 +154,18 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
     [data],
   );
 
-  const focusGrid = () => containerRef.current?.focus({ preventScroll: true });
+  /**
+   * The table takes the keyboard. The browser keeps the text selected in the page, though, and sends
+   * Ctrl+C and Ctrl+V there: a paste replaced that text instead of filling the cells (audit of
+   * 21 November). The selection goes, so they come to the table.
+   */
+  const focusGrid = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    const domSel = window.getSelection();
+    if (domSel?.rangeCount && !el.contains(domSel.anchorNode)) domSel.removeAllRanges();
+  };
 
   const scrollToCell = (p: Pos) => {
     requestAnimationFrame(() => {
@@ -179,6 +192,15 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The cell being written grows with its text, as the cell does once written: in a narrow column (on a
+  // phone) the text wrapped and its first line was hidden (design check of 21 November).
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el || editing?.source !== 'cell') return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [editing?.value, editing?.r, editing?.c, editing?.source]);
 
   useEffect(() => {
     if (!editing || editing.source !== 'cell') return;
@@ -464,6 +486,10 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
       commitEdit(undefined, false);
     }
     e.preventDefault();
+    // A second click on the cell already picked writes in it, as in Notion (a double-click does too);
+    // pressed there and dragged, it picks cells as always.
+    const picked = active && sel && !e.shiftKey && sel.a.r === r && sel.a.c === c && sel.f.r === r && sel.f.c === c;
+    clickToEdit.current = picked && editable && !ed ? { r, c } : null;
     focusGrid();
     if (e.shiftKey && sel) setSel({ a: sel.a, f: { r, c } });
     else setSel({ a: { r, c }, f: { r, c } });
@@ -471,6 +497,8 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
   };
 
   const onCellEnter = (r: number, c: number) => {
+    const pending = clickToEdit.current;
+    if (pending && (pending.r !== r || pending.c !== c)) clickToEdit.current = null;
     if (drag.current === 'select') setSel((s) => (s ? { a: s.a, f: { r, c } } : s));
     else if (drag.current === 'fill' && rect) {
       const below = r - rect.r2;
@@ -495,6 +523,9 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
 
   useEffect(() => {
     const up = () => {
+      const edit = clickToEdit.current;
+      clickToEdit.current = null;
+      if (edit && drag.current === 'select') startEdit(edit, 'edit');
       if (drag.current === 'fill' && fillRect && rect) fillInto(rect, fillRect);
       if (drag.current === 'fill' && fillRect) setSel({ a: { r: fillRect.r1, c: fillRect.c1 }, f: { r: fillRect.r2, c: fillRect.c2 } });
       drag.current = null;
@@ -546,8 +577,10 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
 
   // ───────────── clipboard ─────────────
 
-  const onCopy = (e: React.ClipboardEvent, cut = false) => {
-    if (editingRef.current || !rect || fromTextField(e)) return;
+  type Clip = { clipboardData: DataTransfer | null; target: EventTarget | null; preventDefault(): void };
+
+  const onCopy = (e: Clip, cut = false) => {
+    if (editingRef.current || !rect || !e.clipboardData || (e.target && fromTextField({ target: e.target }))) return;
     e.preventDefault();
     const raw = sub(current().rows, rect);
     const vals = sub(display, rect);
@@ -558,11 +591,15 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
     if (cut && editable) clearRect(rect);
   };
 
-  const onPaste = (e: React.ClipboardEvent) => {
-    if (editingRef.current || !sel || !editable || fromTextField(e)) return;
+  const onPaste = (e: Clip) => {
+    if (editingRef.current || !sel || !editable || !e.clipboardData || (e.target && fromTextField({ target: e.target }))) return;
     e.preventDefault();
-    const text = e.clipboardData.getData('text/plain');
-    const html = e.clipboardData.getData('text/html');
+    pasteCells(e.clipboardData.getData('text/plain'), e.clipboardData.getData('text/html'));
+  };
+
+  /** Fill the cells from the selected one with what was copied (cells, text, or a table from another program). */
+  const pasteCells = (text: string, html: string) => {
+    const rect = rectOf(selRef.current!.a, selRef.current!.f);
     let cells: string[][] | null = null;
     let origin: Pos | null = null;
     // Our own copy (or an empty system clipboard, e.g. when clipboard access is restricted).
@@ -572,10 +609,10 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
     } else if (text) cells = parseDelimited(text);
     else cells = tableFromHtml(html);
     if (!cells || !cells.length) return;
-    const r0 = rect!.r1;
-    const c0 = rect!.c1;
+    const r0 = rect.r1;
+    const c0 = rect.c1;
     const single = cells.length === 1 && cells[0].length === 1;
-    const target: Rect = single ? rect! : { r1: r0, c1: c0, r2: r0 + cells.length - 1, c2: c0 + Math.max(...cells.map((x) => x.length)) - 1 };
+    const target: Rect = single ? rect : { r1: r0, c1: c0, r2: r0 + cells.length - 1, c2: c0 + Math.max(...cells.map((x) => x.length)) - 1 };
     const updates: { r: number; c: number; v: string }[] = [];
     for (let r = target.r1; r <= target.r2; r++) {
       for (let c = target.c1; c <= target.c2; c++) {
@@ -589,6 +626,48 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
     const next = setCells(ensureSize(current(), target.r2 + 1, target.c2 + 1), updates);
     write(next);
     setSel({ a: { r: target.r1, c: target.c1 }, f: { r: target.r2, c: target.c2 } });
+  };
+
+  /**
+   * While the table has the keyboard, Ctrl+C, Ctrl+X and Ctrl+V are the table's, even when the
+   * browser would send them to text elsewhere in the page.
+   */
+  const clip = useRef({ onCopy, onPaste });
+  clip.current = { onCopy, onPaste };
+  useEffect(() => {
+    if (!active) return;
+    const route = (kind: 'copy' | 'cut' | 'paste') => (e: ClipboardEvent) => {
+      const el = containerRef.current;
+      if (!el || document.activeElement !== el || el.contains(e.target as Node)) return;
+      if (kind === 'paste') clip.current.onPaste(e);
+      else clip.current.onCopy(e, kind === 'cut');
+      if (e.defaultPrevented) e.stopPropagation();
+    };
+    const handlers = { copy: route('copy'), cut: route('cut'), paste: route('paste') };
+    for (const [k, h] of Object.entries(handlers)) document.addEventListener(k, h as EventListener, true);
+    return () => {
+      for (const [k, h] of Object.entries(handlers)) document.removeEventListener(k, h as EventListener, true);
+    };
+  }, [active]);
+
+  /**
+   * Cells pasted while typing in an empty cell (a new table starts that way) fill the cells from
+   * there, as when the cell is only selected; in a cell with text, they are typed into it.
+   */
+  const onEditPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const ed = editingRef.current;
+    if (!ed || ed.value !== '' || !editable) return;
+    const text = e.clipboardData.getData('text/plain');
+    const html = e.clipboardData.getData('text/html');
+    const own = clipboard && clipboard.text === text ? clipboard.cells : null;
+    const cells = own ?? (text.includes('\t') ? parseDelimited(text) : !text && html ? tableFromHtml(html) : null);
+    if (!cells || (cells.length < 2 && (cells[0]?.length ?? 0) < 2)) return;
+    e.preventDefault();
+    setEditing(null);
+    point.current = null;
+    selRef.current = { a: { r: ed.r, c: ed.c }, f: { r: ed.r, c: ed.c } };
+    pasteCells(text, html);
+    focusGrid();
   };
 
   // ───────────── structure ─────────────
@@ -899,6 +978,7 @@ export function SheetView({ node, updateAttributes, editor, getPos, deleteNode }
                           spellCheck={false}
                           onChange={(e) => setEditing({ ...editing, value: e.target.value })}
                           onKeyDown={onEditKeyDown}
+                          onPaste={onEditPaste}
                           onMouseDown={(e) => e.stopPropagation()}
                         />
                       ) : (

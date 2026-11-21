@@ -172,7 +172,7 @@ test('a second tab takes the connection over; the first says so and does not tak
   }
 });
 
-test('a phone out of space ends its first copy with a clear message and can try again', async ({ browser }) => {
+test('a phone out of space ends its first copy with a clear message, and tries again with a new code', async ({ browser }) => {
   const computer = await device(browser);
   const phone = await device(browser, true);
   // The phone's browser storage is full: writing a file of a notebook fails as a full disk does.
@@ -195,6 +195,35 @@ test('a phone out of space ends its first copy with a clear message and can try 
     const dialog = phone.page.getByRole('dialog');
     await expect(dialog).toContainText('no room left for the notebook', { timeout: 20_000 });
     await expect(dialog.getByRole('button', { name: 'Try again' })).toBeVisible();
+
+    // The code used is no longer good (the two had switched to a key of their own): the computer
+    // forgets the phone and shows a new one. Trying the old one again waited forever.
+    const copyLink = computer.page.getByRole('button', { name: 'Copy link' });
+    await expect(copyLink).not.toHaveAttribute('data-url', url, { timeout: 20_000 });
+    const fresh = (await copyLink.getAttribute('data-url'))!;
+    await expect(computer.page.locator('.toast', { hasText: 'has no room left for the notebook' })).toBeVisible();
+    // Space freed, tried again with the new code: the copy so far is taken up, and finished.
+    await phone.page.evaluate(() => ((window as unknown as { full: boolean }).full = false));
+    await dialog.getByRole('button', { name: 'Try again' }).click();
+    await expect(dialog).not.toContainText('no room left');
+    await phone.page.getByLabel('Link from the computer').fill(fresh);
+    await phone.page.getByRole('button', { name: 'Connect', exact: true }).click();
+    await expect(phone.page.locator('.gc-main')).toBeVisible({ timeout: 30_000 });
+    await openEntry(phone.page, 'Bench log');
+    await expect(phone.page.locator('.ProseMirror')).toContainText('Written on the computer.');
+    expect(
+      await phone.page.evaluate(async () => {
+        const { listKnownNotebooks } = await import(/* @vite-ignore */ '/src/fs/registry.ts' as string);
+        return (await listKnownNotebooks()).length;
+      }),
+    ).toBe(1);
+    // One phone on the computer, by its name: none left over from the first try.
+    await expect(computer.page.getByText('Android phone · Chrome is connected to this notebook.')).toBeVisible({ timeout: 20_000 });
+    const peers = await computer.page.evaluate(async () => {
+      const { useSync } = await import(/* @vite-ignore */ '/src/sync/manager.ts' as string);
+      return Object.values(useSync.getState().peers).map((p) => (p as { device: string }).device);
+    });
+    expect(peers).toEqual(['Android phone · Chrome']);
   } finally {
     await close(computer.context, phone.context);
   }

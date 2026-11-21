@@ -193,8 +193,10 @@ export function Welcome() {
               that stays yours.
             </h2>
             <p className="gc-lede">
-              Experiments, protocols, templates and boards are saved as plain Markdown files in a folder on your computer. It runs in your browser and
-              works offline.
+              {touch
+                ? // On a phone the files are not in a folder there: it works on a copy, or on its own.
+                  'Experiments, protocols, templates and boards are plain Markdown files, kept on your computer. On your phone, work on a copy that stays in sync, offline too.'
+                : 'Experiments, protocols, templates and boards are saved as plain Markdown files in a folder on your computer. It runs in your browser and works offline.'}
             </p>
           </div>
           <WelcomeArt />
