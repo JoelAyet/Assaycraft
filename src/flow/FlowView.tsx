@@ -30,6 +30,7 @@ import { openNewEntryDialog } from '../ui/NewEntryDialog';
 import { useDocContext } from '../editor/context';
 import { rememberInsertionPoint } from '../editor/insertion';
 import { navigate, useNotebook } from '../notebook/store';
+import { useDocsBesidesSaves } from '../notebook/useDocs';
 import { LAYOUT, type DocMeta } from '../notebook/model';
 import { dirname, isInside, relative } from '../lib/path';
 import { entriesById, flowProgress, normalizeFlow, type FlowData, type FlowStep } from './model';
@@ -170,7 +171,8 @@ export function FlowView({ node, updateAttributes, editor, getPos, deleteNode }:
   const ctx = useDocContext();
   const editable = useEditorState({ editor, selector: (s) => s.editor.isEditable });
   const data = useMemo(() => normalizeFlow(node.attrs.data as FlowData), [node.attrs.data]);
-  const docs = useNotebook((s) => s.docs);
+  // Not redrawn by the saves of the page around it (at every pause in typing).
+  const docs = useDocsBesidesSaves(ctx.path);
   const statuses = useNotebook((s) => s.config.entryStatuses);
   const byId = useMemo(() => entriesById(Object.values(docs)), [docs]);
   const templates = useMemo(() => Object.values(docs).filter((d) => d.kind === 'template'), [docs]);

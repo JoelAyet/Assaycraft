@@ -591,6 +591,16 @@
 .gc-editor {
   min-height: 300px;
 }
+/* Below the end of the page: a click there writes on a last line (see DocEditor). */
+.gc-editor-tail {
+  height: max(120px, 20vh);
+  margin-top: -40px;
+  cursor: text;
+}
+.gc-editor-tail.is-compact {
+  height: 48px;
+  margin-top: -24px;
+}
 .gc-prose {
   outline: none;
   font-family: var(--prose-font);
@@ -1712,45 +1722,100 @@ mark[data-color='gray'] {
 
 /* ───────── Slash menu ───────── */
 
+/* A list that scrolls, and a foot that stays: Close menu (esc), as in Notion. */
 .gc-slash {
-  width: 300px;
-  max-height: 360px;
+  width: 330px;
+  max-height: none;
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.gc-slash-list {
+  max-height: min(372px, 52vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
 }
 .gc-slash-item {
   gap: 10px;
-  padding: 6px 8px;
+  min-height: 34px;
+  padding: 5px 8px;
 }
 .gc-slash-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--panel);
   flex: none;
 }
 .gc-slash-icon svg {
-  width: 16px !important;
-  height: 16px !important;
+  width: 14px !important;
+  height: 14px !important;
   color: var(--text-2) !important;
-}
-.gc-slash-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
 }
 .gc-slash-title {
   font-size: 13.5px;
-  font-weight: 550;
+  font-weight: 500;
+  white-space: nowrap;
+  flex: none;
 }
 .gc-slash-desc {
+  flex: 1;
+  min-width: 0;
   font-size: 12px;
   color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.gc-slash-hint,
+.gc-slash-foot kbd {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-3);
+  background: none;
+  border: none;
+  padding: 0;
+}
+.gc-slash-empty {
+  padding: 8px 9px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.gc-slash-foot {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 15px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.gc-slash-foot:hover {
+  background: var(--bg-hover);
+}
+/* "/" and the search typed after it, while the menu is open. */
+.gc-prose .gc-slash-query {
+  background: var(--bg-muted);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px var(--bg-muted);
+}
+.gc-prose .gc-slash-query.is-empty::after {
+  content: attr(data-decoration-content);
+  color: var(--text-4);
+  pointer-events: none;
 }
 .gc-check {
   margin-left: auto;

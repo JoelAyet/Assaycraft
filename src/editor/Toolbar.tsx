@@ -1,5 +1,6 @@
 import { useEditorState, type Editor } from '@tiptap/react';
-import { useEffect, useRef, useState } from 'react';
+import { redoDepth, undoDepth } from '@tiptap/pm/history';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
   Baseline,
   Bold,
@@ -296,7 +297,8 @@ const INSERT_MENU = [
   'divider',
 ];
 
-export function Toolbar({ editor, handlers, inTemplate }: { editor: Editor; handlers: InsertHandlers; inTemplate: boolean }) {
+/** Drawn again only when the editor's state calls for it, not whenever the page around it is (at each save). */
+export const Toolbar = memo(function Toolbar({ editor, handlers, inTemplate }: { editor: Editor; handlers: InsertHandlers; inTemplate: boolean }) {
   const scrollRef = useScrollHint();
   const s = useEditorState({
     editor,
@@ -324,8 +326,9 @@ export function Toolbar({ editor, handlers, inTemplate }: { editor: Editor; hand
               : e.isActive('codeBlock')
                 ? 'code'
                 : 'p',
-      canUndo: e.can().undo(),
-      canRedo: e.can().redo(),
+      // Read from the history directly: e.can() builds a whole chain of commands at every key.
+      canUndo: undoDepth(e.state) > 0,
+      canRedo: redoDepth(e.state) > 0,
     }),
   });
   const insert = usePopover();
@@ -468,4 +471,4 @@ export function Toolbar({ editor, handlers, inTemplate }: { editor: Editor; hand
       </button>
     </div>
   );
-}
+});

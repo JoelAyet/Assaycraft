@@ -61,6 +61,8 @@ export interface BlockCommand {
   description: string;
   icon: ReactNode;
   keywords: string;
+  /** What to type at the start of a line for the same block, shown in the menu (as in Notion). */
+  hint?: string;
   group: 'Basic' | 'Lab' | 'Insert';
   run: (editor: Editor) => void;
 }
@@ -102,6 +104,7 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
       description: 'Big section heading',
       icon: <Heading1 />,
       keywords: 'title h1 #',
+      hint: '#',
       group: 'Basic',
       run: (e) => e.chain().focus().setHeading({ level: 1 }).run(),
     },
@@ -111,6 +114,7 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
       description: 'Medium heading',
       icon: <Heading2 />,
       keywords: 'subtitle h2 ##',
+      hint: '##',
       group: 'Basic',
       run: (e) => e.chain().focus().setHeading({ level: 2 }).run(),
     },
@@ -120,6 +124,7 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
       description: 'Small heading',
       icon: <Heading3 />,
       keywords: 'h3 ###',
+      hint: '###',
       group: 'Basic',
       run: (e) => e.chain().focus().setHeading({ level: 3 }).run(),
     },
@@ -129,6 +134,7 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
       description: 'Simple list',
       icon: <List />,
       keywords: 'ul unordered -',
+      hint: '-',
       group: 'Basic',
       run: (e) => e.chain().focus().toggleBulletList().run(),
     },
@@ -138,6 +144,7 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
       description: 'Steps of a protocol',
       icon: <ListOrdered />,
       keywords: 'ol ordered steps 1.',
+      hint: '1.',
       group: 'Basic',
       run: (e) => e.chain().focus().toggleOrderedList().run(),
     },
@@ -147,6 +154,7 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
       description: 'Check off protocol steps',
       icon: <CheckSquare />,
       keywords: 'todo task checkbox [ ]',
+      hint: '[]',
       group: 'Basic',
       run: (e) => e.chain().focus().toggleTaskList().run(),
     },
@@ -156,6 +164,7 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
       description: 'Callout or citation',
       icon: <Quote />,
       keywords: 'blockquote callout note >',
+      hint: '>',
       group: 'Basic',
       run: (e) => e.chain().focus().toggleBlockquote().run(),
     },
@@ -165,6 +174,7 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
       description: 'Scripts, sequences, raw output',
       icon: <Code2 />,
       keywords: 'pre monospace ```',
+      hint: '```',
       group: 'Basic',
       run: (e) => e.chain().focus().toggleCodeBlock().run(),
     },
@@ -174,6 +184,7 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
       description: 'Horizontal line',
       icon: <Minus />,
       keywords: 'hr rule ---',
+      hint: '---',
       group: 'Basic',
       run: (e) => insertBlocks(e, { type: 'horizontalRule' }),
     },
@@ -315,13 +326,31 @@ export function blockCommands(h: InsertHandlers, opts: { inTemplate: boolean }):
   ];
 }
 
+/** Whether a word in `text` starts with `q`. */
+const wordStarts = (text: string, q: string) => text.split(/[^\p{L}\p{N}#>`.@\-[\]]+/u).some((w) => w.startsWith(q));
+
+/**
+ * The blocks for what is typed after "/", best first: titles that start with it, then words of
+ * titles, keywords, titles that hold it, words of descriptions. Letters inside other words do not
+ * count: "/ta" found Divider ("horizontal") and Quote ("citation") (audit of 21 November).
+ */
 export function filterCommands(cmds: BlockCommand[], query: string): BlockCommand[] {
   const q = query.trim().toLowerCase();
   if (!q) return cmds;
   return cmds
     .map((c) => {
       const t = c.title.toLowerCase();
-      const score = t.startsWith(q) ? 0 : t.includes(q) ? 1 : c.keywords.includes(q) ? 2 : c.description.toLowerCase().includes(q) ? 3 : 9;
+      const score = t.startsWith(q)
+        ? 0
+        : wordStarts(t, q)
+          ? 1
+          : wordStarts(c.keywords.toLowerCase(), q)
+            ? 2
+            : t.includes(q)
+              ? 3
+              : wordStarts(c.description.toLowerCase(), q)
+                ? 4
+                : 9;
       return { c, score };
     })
     .filter((x) => x.score < 9)

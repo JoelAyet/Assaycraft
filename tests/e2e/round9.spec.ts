@@ -31,7 +31,13 @@ test('text gets a highlight color, a color and a size; tags get a color', async 
   await newBlankEntry(page, 'Colors');
   await page.locator('.ProseMirror').click();
   await page.keyboard.type('Band at 1 kb');
-  await page.keyboard.press(KEYS.selectToLineStart);
+  // Selected once the browser has the text: pressed in the same instant as the last letter (as only a
+  // test can), Shift+Home sometimes moved the cursor without selecting.
+  await expect(async () => {
+    await page.keyboard.press(KEYS.lineEnd);
+    await page.keyboard.press(KEYS.selectToLineStart);
+    expect(await page.evaluate(() => window.getSelection()?.toString())).toBe('Band at 1 kb');
+  }).toPass();
   // The highlight's colors are by its button; text color and size have a button of their own.
   await page.getByRole('button', { name: 'Highlight color' }).click();
   await page.getByRole('button', { name: 'Highlight green' }).click();

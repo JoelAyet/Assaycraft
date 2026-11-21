@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { TextSelection } from '@tiptap/pm/state';
 import { BookOpen, FlaskConical, NotebookPen, Plus } from 'lucide-react';
-import { navigate, setState, toast, useNotebook } from '../notebook/store';
+import { navigate, setState, toast } from '../notebook/store';
+import { useDocsBesidesSaves } from '../notebook/useDocs';
 import { createNote } from '../notebook/actions';
 import type { DocKind, DocMeta } from '../notebook/model';
 
@@ -40,25 +41,45 @@ function headingsOf(editor: Editor): Heading[] {
  * On a computer, hovering the right edge of a page shows its index: a new note beside it, recent
  * experiments, notes and protocols to jump to, then the page's headings and days.
  */
-export function DocIndex({ editor, meta }: { editor: Editor | null; meta: DocMeta }) {
+export const DocIndex = memo(
+  function DocIndex({ editor, meta }: { editor: Editor | null; meta: DocMeta }) {
+    return <Index editor={editor} path={meta.path} />;
+  },
+  (a, b) => a.editor === b.editor && a.meta.path === b.meta.path,
+);
+
+/** The same headings, as far as the index shows them (where each one is changes as you type above it). */
+const sameOutline = (a: Heading[], b: Heading[]) => a.length === b.length && a.every((h, i) => h.level === b[i].level && h.text === b[i].text);
+
+function Index({ editor, path }: { editor: Editor | null; path: string }) {
   const [headings, setHeadings] = useState<Heading[]>([]);
-  const docs = useNotebook((s) => s.docs);
+  const shown = useRef<Heading[]>([]);
+  // Saving this page (at every pause in typing) changes nothing the index shows.
+  const docs = useDocsBesidesSaves(path);
   const recent = useMemo(
     () =>
       Object.values(docs)
-        .filter((d) => RECENT_KINDS[d.kind] && d.path !== meta.path)
+        .filter((d) => RECENT_KINDS[d.kind] && d.path !== path)
         .sort((a, b) => (b.modified ?? '').localeCompare(a.modified ?? ''))
         .slice(0, 4),
-    [docs, meta.path],
+    [docs, path],
   );
   useEffect(() => {
     if (!editor) return;
     let t: ReturnType<typeof setTimeout> | undefined;
     const update = () => {
       clearTimeout(t);
-      t = setTimeout(() => !editor.isDestroyed && setHeadings(headingsOf(editor)), 250);
+      t = setTimeout(() => {
+        if (editor.isDestroyed) return;
+        const next = headingsOf(editor);
+        // Compared here: even a state update that changes nothing draws the index again.
+        if (sameOutline(shown.current, next)) return;
+        shown.current = next;
+        setHeadings(next);
+      }, 250);
     };
-    setHeadings(headingsOf(editor));
+    shown.current = headingsOf(editor);
+    setHeadings(shown.current);
     editor.on('update', update);
     return () => {
       clearTimeout(t);
@@ -66,8 +87,10 @@ export function DocIndex({ editor, meta }: { editor: Editor | null; meta: DocMet
     };
   }, [editor]);
 
-  const jump = (h: Heading) => {
-    if (!editor) return;
+  const jump = (i: number) => {
+    // Where the heading is now: typing above it since the index was drawn has moved it.
+    const h = editor && headingsOf(editor)[i];
+    if (!editor || !h) return;
     const dom = editor.view.nodeDOM(h.pos);
     if (dom instanceof HTMLElement) dom.scrollIntoView({ block: 'start', behavior: 'smooth' });
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(h.pos + 1))));
@@ -78,8 +101,8 @@ export function DocIndex({ editor, meta }: { editor: Editor | null; meta: DocMet
     <nav className="gc-doc-index" aria-label="Index of this page">
       {/* One tick per heading, as a hint of what is there. */}
       <div className="gc-doc-index-ticks" aria-hidden="true">
-        {headings.slice(0, 24).map((h) => (
-          <span key={h.pos} className={`gc-doc-index-tick lvl-${h.level - top}`} />
+        {headings.slice(0, 24).map((h, i) => (
+          <span key={i} className={`gc-doc-index-tick lvl-${h.level - top}`} />
         ))}
         {!headings.length && <span className="gc-doc-index-tick" />}
       </div>
@@ -110,8 +133,8 @@ export function DocIndex({ editor, meta }: { editor: Editor | null; meta: DocMet
         {headings.length > 0 && (
           <>
             <div className="gc-doc-index-label">In this page</div>
-            {headings.map((h) => (
-              <button key={h.pos} className={`gc-doc-index-item lvl-${Math.min(2, h.level - top)}`} onClick={() => jump(h)}>
+            {headings.map((h, i) => (
+              <button key={i} className={`gc-doc-index-item lvl-${Math.min(2, h.level - top)}`} onClick={() => jump(i)}>
                 <span className="gc-doc-index-text">{h.text}</span>
               </button>
             ))}
