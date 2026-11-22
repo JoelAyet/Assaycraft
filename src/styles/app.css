@@ -746,8 +746,6 @@
 .gc-cycle {
   --cycle-line: #b9c1cf;
   --cycle-molecule: var(--text-2);
-  --cycle-disc: #ffffff;
-  --cycle-disc-shadow: rgba(23, 43, 99, 0.16);
   position: relative;
   width: 100%;
   aspect-ratio: 480 / 450;
@@ -760,8 +758,6 @@
 }
 :root[data-theme='dark'] .gc-cycle {
   --cycle-line: #5a606c;
-  --cycle-disc: #f4f6fa;
-  --cycle-disc-shadow: rgba(0, 0, 0, 0.5);
 }
 .gc-cycle.is-grabbable {
   cursor: grab;
@@ -841,23 +837,20 @@
 .gc-cycle-token {
   fill: var(--accent);
 }
-.gc-cycle-badge-disc {
-  fill: var(--cycle-disc);
-  filter: drop-shadow(0 3px 8px var(--cycle-disc-shadow));
+/* The logo sits on the arrow, as the molecules do; it glows a little as the molecule goes through it. */
+.gc-cycle-badge {
+  --glow: 0;
 }
-.gc-cycle-badge-ring {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
-  opacity: 0;
+.gc-cycle-logo {
+  filter: drop-shadow(0 0 calc(var(--glow) * 7px) color-mix(in srgb, var(--accent) calc(var(--glow) * 70%), transparent));
 }
 .gc-cycle-badge-label {
   font: italic 700 13px var(--font);
   fill: var(--accent-text);
 }
+/* Pointing at a step says what it is; it is not a button, so the wheel's grab hand stays. */
 .gc-cycle-hit {
   fill: transparent;
-  cursor: pointer;
 }
 .gc-cycle-center {
   position: absolute;

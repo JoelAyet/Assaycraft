@@ -1,12 +1,15 @@
 import { useEffect, useRef } from 'react';
-import logoGif from '../assets/lab-cycle-logo.gif';
+// The logo's own animation, with the A in black for the light theme and in the dark theme's ink.
+import logoLight from '../assets/lab-cycle-logo-light.gif';
+import logoDark from '../assets/lab-cycle-logo-dark.gif';
 
 /**
  * The welcome page's picture: the lab cycle, drawn like the Krebs cycle. Six steps (idea, protocol,
  * experiment, document, analysis, result) are its intermediates, each drawn as a molecule a lab knows
  * (unexplained, on purpose); the app's tools are the enzymes on the arrows, and Assaycraft itself, the
- * animated logo, is the one that turns an experiment into a document. A molecule travels round; the
- * drawing leans toward the pointer and can be turned by dragging, springing back when let go.
+ * animated logo, is the one that turns an experiment into a document. A molecule travels round, into
+ * each step and out of it; the drawing leans toward the pointer and can be turned by dragging, springing
+ * back when let go.
  */
 export function LabCycle() {
   const ref = useRef<HTMLDivElement>(null);
@@ -99,6 +102,9 @@ const CX = 236,
 const BOND = 11;
 const HALF = 3.4; // half a heteroatom's width at the atom label size
 const LAP = 14; // seconds for the travelling molecule to go round
+const LOGO = 56; // the logo's size
+const LOGO_R = LOGO * 0.42; // how far its drawing reaches from its middle (the GIF has a margin)
+const LOGO_AT = 27; // degrees past Experiment: nearer it than Document, whose molecule is bigger
 let instances = 0;
 
 const rad = (d: number) => (d * Math.PI) / 180;
@@ -214,7 +220,9 @@ function mountCycle(art: HTMLElement): () => void {
     );
     el('path', { d: 'M1 1 L8 5 L1 9 Z', class: 'gc-cycle-head' }, marker);
   }
-  const arcs = ARROWS.map(() => ({
+  const arcs = ARROWS.map((a) => ({
+    // The arrow through Assaycraft is two: into the logo (when there is room), and out of it.
+    lead: a.badge ? { base: el('path', { class: 'gc-cycle-arc' }), flux: el('path', { class: 'gc-cycle-flux' }) } : null,
     base: el('path', { class: 'gc-cycle-arc', 'marker-end': `url(#${id}-head)` }),
     flux: el('path', { class: 'gc-cycle-flux' }),
   }));
@@ -246,14 +254,14 @@ function mountCycle(art: HTMLElement): () => void {
   const trail = [0.25, 0.45, 0.7].map((o, i) => el('circle', { r: 2 + i * 0.7, opacity: o }, token));
   const tokenHead = el('circle', { r: 4.6 }, token);
   const badge = el('g', { class: 'gc-cycle-badge' });
-  const badgeRing = el('circle', { class: 'gc-cycle-badge-ring', r: 33 }, badge);
-  el('circle', { class: 'gc-cycle-badge-disc', r: 29 }, badge);
-  const clip = el('clipPath', { id: `${id}-disc` }, defs);
-  el('circle', { r: 28 }, clip);
-  el('image', { href: logoGif, width: 46, height: 46, x: -23, y: -23, 'clip-path': `url(#${id}-disc)` }, badge);
+  const logo = el('image', { class: 'gc-cycle-logo', width: LOGO, height: LOGO, x: -LOGO / 2, y: -LOGO / 2 }, badge);
+  const setLogo = () => logo.setAttribute('href', document.documentElement.dataset.theme === 'dark' ? logoDark : logoLight);
+  setLogo();
+  const themes = new MutationObserver(setLogo);
+  themes.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   const badgeLabel = el('text', { class: 'gc-cycle-badge-label' });
   badgeLabel.textContent = ENZYME.name;
-  const badgeHit = el('circle', { class: 'gc-cycle-hit', r: 34 });
+  const badgeHit = el('circle', { class: 'gc-cycle-hit', r: f(LOGO_R + 6) });
 
   // ── State ──
   let turn = 0; // degrees the wheel is turned by a drag; it springs back to 0
@@ -264,6 +272,7 @@ function mountCycle(art: HTMLElement): () => void {
   let lean = { x: 0, y: 0 };
   const aim = { x: 0, y: 0 };
   let pulse = 0;
+  // How far round the circle something on it reaches, in degrees, so arrows stop short of it.
   const gap = (r: number) => ((r + 6) / R) * (180 / Math.PI);
 
   function layout(t: number) {
@@ -275,9 +284,21 @@ function mountCycle(art: HTMLElement): () => void {
         mid = (a + b) / 2;
       const start = a + gap(nodes[i].mol.r),
         end = b - gap(nodes[next].mol.r) - 1.5;
-      arcs[i].base.setAttribute('d', arcPath(start, end));
-      arcs[i].flux.setAttribute('d', arcPath(start, end - 2));
-      (arcs[i].flux as SVGElement).style.strokeDashoffset = still ? '0' : String(-(t * 18) % 13.1);
+      const dash = still ? '0' : String(-(t * 18) % 13.1);
+      const lead = arcs[i].lead;
+      let from = start;
+      if (lead) {
+        // Right after Experiment, the arrow goes straight into the logo.
+        const at = a + LOGO_AT;
+        const into = at - gap(LOGO_R) - start > 3 ? arcPath(start, at - gap(LOGO_R)) : '';
+        lead.base.setAttribute('d', into);
+        lead.flux.setAttribute('d', into);
+        (lead.flux as SVGElement).style.strokeDashoffset = dash;
+        from = at + gap(LOGO_R);
+      }
+      arcs[i].base.setAttribute('d', arcPath(from, end));
+      arcs[i].flux.setAttribute('d', arcPath(from, end - 2));
+      (arcs[i].flux as SVGElement).style.strokeDashoffset = dash;
       const enzyme = enzymes[i];
       if (enzyme) {
         // Along the top, left to right; along the bottom, drawn the other way so it is not upside down.
@@ -311,15 +332,15 @@ function mountCycle(art: HTMLElement): () => void {
         });
       }
       if (arrow.badge) {
-        const bp = P(mid),
+        const at = a + LOGO_AT,
+          bp = P(at),
           glow = hover === 'enzyme' ? 1 : pulse;
-        badge.setAttribute('transform', `translate(${f(bp.x)} ${f(bp.y)}) scale(${(1 + glow * 0.08).toFixed(3)})`);
-        badgeRing.setAttribute('opacity', (glow * 0.6).toFixed(2));
-        badgeRing.setAttribute('r', f(31 + glow * 5));
-        const lp = P(mid, R + 42);
+        badge.setAttribute('transform', `translate(${f(bp.x)} ${f(bp.y)}) scale(${(1 + glow * 0.1).toFixed(3)})`);
+        (badge as SVGElement).style.setProperty('--glow', glow.toFixed(2));
+        const lp = P(at, R + 42);
         badgeLabel.setAttribute('x', f(lp.x));
-        badgeLabel.setAttribute('y', f(lp.y + 4 + Math.sin(rad(mid)) * 4));
-        badgeLabel.setAttribute('text-anchor', anchorFor(mid));
+        badgeLabel.setAttribute('y', f(lp.y + 4 + Math.sin(rad(at)) * 4));
+        badgeLabel.setAttribute('text-anchor', anchorFor(at));
         badgeHit.setAttribute('cx', f(bp.x));
         badgeHit.setAttribute('cy', f(bp.y));
       }
@@ -338,15 +359,17 @@ function mountCycle(art: HTMLElement): () => void {
       n.g.classList.toggle('is-lit', lit);
       n.label.classList.toggle('is-lit', lit);
     }
-    // The molecule going round, with a short tail.
-    const tp = P(travel + turn);
-    tokenHead.setAttribute('cx', f(tp.x));
-    tokenHead.setAttribute('cy', f(tp.y));
-    trail.forEach((dot, k) => {
-      const q = P(travel + turn - (3 - k) * 3.2);
+    // The molecule going round, with a short tail: into each step, and into Assaycraft, and out the other side.
+    const inside = (at: number) =>
+      nodes.some((n) => Math.abs(norm(at - n.step.at)) < gap(n.mol.r) - 2) || Math.abs(norm(at - LOGO_AT)) < gap(LOGO_R) - 2;
+    const place = (dot: Element, at: number) => {
+      const q = P(at + turn);
       dot.setAttribute('cx', f(q.x));
       dot.setAttribute('cy', f(q.y));
-    });
+      (dot as SVGElement).style.visibility = inside(at) ? 'hidden' : '';
+    };
+    place(tokenHead, travel);
+    trail.forEach((dot, k) => place(dot, travel - (3 - k) * 3.2));
     (token as SVGElement).style.display = still ? 'none' : '';
   }
 
@@ -436,8 +459,8 @@ function mountCycle(art: HTMLElement): () => void {
     last = now;
     const still = reduced.matches;
     if (!still) travel = ((travel + 120 + dt * (360 / LAP)) % 360) - 120;
-    // Passing the enzyme, on the arrow from Experiment to Document, it glows.
-    pulse = still ? 0 : Math.max(0, 1 - Math.abs(norm(travel - 30)) / 22);
+    // Passing through the enzyme, on the arrow from Experiment to Document, it glows.
+    pulse = still ? 0 : Math.max(0, 1 - Math.abs(norm(travel - LOGO_AT)) / 22);
     if (!drag) {
       // Back to its place, with a little overshoot (none when motion is reduced).
       spin += (-turn * 42 - spin * (still ? 13 : 5.2)) * dt;
@@ -464,6 +487,7 @@ function mountCycle(art: HTMLElement): () => void {
     cancelAnimationFrame(frame);
     window.clearTimeout(swap);
     seen.disconnect();
+    themes.disconnect();
     window.removeEventListener('pointermove', onPagePointer);
     art.removeEventListener('pointerdown', onDown);
     art.removeEventListener('pointermove', onMove);
