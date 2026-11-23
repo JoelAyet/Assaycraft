@@ -28,6 +28,10 @@ A guide to each part of Assaycraft, what it is for and how to use it. For the fi
 
 ## What's new
 
+**22 November 2026**
+
+- **A new welcome page picture: the lab cycle**, drawn like the Krebs cycle. Idea, protocol, experiment, document, analysis and result go round, the app's tools are the enzymes on the arrows, and Assaycraft (the turning logo) is the one that turns an experiment into a document. Point at a step to see what it is; drag the circle round and let go, and it springs back. On a phone it is left out, so the ways in stay on the first screen.
+
 **21 November 2026**
 
 - **Quicker in long entries.** Saving, which happens at every pause in typing, no longer redraws the sidebar, the page's index, its toolbar, or the plates and flows in the page; and what marks `{{variables}}`, days and code looks again only at the lines you changed, not the whole page at every key. In a long entry on a slow computer, the pause a save made (and the key typed during it) is half as long.

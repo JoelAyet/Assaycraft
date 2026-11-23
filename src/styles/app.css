@@ -668,20 +668,10 @@
 /* ───────── Welcome ───────── */
 
 .gc-welcome {
-  --art-blob: #edf2fe;
-  --art-ink: var(--text);
-  --art-line: #c8cfdc;
-  --art-accent: var(--brand);
-  --art-mint: #7fd1b2;
-  --art-sky: #a9c4ff;
   position: relative;
   min-height: 100vh;
   overflow: auto;
   background: var(--bg);
-}
-:root[data-theme='dark'] .gc-welcome {
-  --art-blob: #262b35;
-  --art-line: #565c68;
 }
 /* Faint graph paper behind the top of the page, like a lab notebook. */
 .gc-welcome::before {
@@ -707,7 +697,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 8vh;
+  margin-bottom: 4vh;
 }
 .gc-wordmark {
   margin: 0;
@@ -725,7 +715,8 @@
 }
 .gc-welcome-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.55fr);
+  /* The lab cycle needs about 460px. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
   align-items: center;
   gap: 40px;
   margin-bottom: 48px;
@@ -744,10 +735,147 @@
   margin-top: 20px;
   font-size: 16.5px;
 }
-.gc-welcome-art {
+.gc-welcome-title .gc-title-tag {
+  padding: 0 0.14em 0.03em;
+  border-radius: 0.2em;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* The lab cycle (LabCycle.tsx): the Krebs cycle, with the steps of lab work for its intermediates. */
+.gc-cycle {
+  --cycle-line: #b9c1cf;
+  --cycle-molecule: var(--text-2);
+  position: relative;
   width: 100%;
-  max-width: 380px;
-  justify-self: end;
+  aspect-ratio: 480 / 450;
+  /* Its top and bottom are mostly air: it reaches up beside the logo, and the headline sits higher. */
+  margin: -84px 0 -44px;
+  /* Swiping up or down over it still scrolls the page. */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+:root[data-theme='dark'] .gc-cycle {
+  --cycle-line: #5a606c;
+}
+.gc-cycle.is-grabbable {
+  cursor: grab;
+}
+.gc-cycle.is-dragging {
+  cursor: grabbing;
+}
+.gc-cycle-tilt {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.gc-cycle-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.gc-cycle-arc {
+  fill: none;
+  stroke: var(--cycle-line);
+  stroke-width: 2.2;
+}
+.gc-cycle-flux {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 13;
+  opacity: 0.7;
+}
+.gc-cycle-side {
+  fill: none;
+  stroke: var(--cycle-line);
+  stroke-width: 1.6;
+}
+.gc-cycle-head {
+  fill: var(--cycle-line);
+}
+/* The molecules in one quiet color: the steps' names lead. */
+.gc-cycle-bond {
+  stroke: var(--cycle-molecule);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  transition: stroke 0.25s;
+}
+.gc-cycle-atom {
+  font: 600 10.2px var(--font);
+  fill: var(--cycle-molecule);
+  transition: fill 0.25s;
+}
+.gc-cycle-node.is-lit .gc-cycle-bond {
+  stroke: var(--accent);
+  stroke-width: 1.7;
+}
+.gc-cycle-node.is-lit .gc-cycle-atom {
+  fill: var(--accent-text);
+}
+.gc-cycle-label {
+  font: 600 14px var(--font);
+  fill: var(--text);
+  transition: fill 0.25s;
+}
+.gc-cycle-label.is-lit {
+  fill: var(--accent-text);
+}
+.gc-cycle-enzyme {
+  font: italic 500 11.5px var(--font);
+  fill: var(--text-3);
+}
+.gc-cycle-cofactor {
+  font: 500 11.5px var(--font);
+  fill: var(--text-3);
+}
+.gc-cycle-token {
+  fill: var(--accent);
+}
+/* The logo sits on the arrow, as the molecules do; it glows a little as the molecule goes through it. */
+.gc-cycle-badge {
+  --glow: 0;
+}
+.gc-cycle-logo {
+  filter: drop-shadow(0 0 calc(var(--glow) * 7px) color-mix(in srgb, var(--accent) calc(var(--glow) * 70%), transparent));
+}
+.gc-cycle-badge-label {
+  font: italic 700 13px var(--font);
+  fill: var(--accent-text);
+}
+/* Pointing at a step says what it is; it is not a button, so the wheel's grab hand stays. */
+.gc-cycle-hit {
+  fill: transparent;
+}
+.gc-cycle-center {
+  position: absolute;
+  left: 50%;
+  top: 49.3%;
+  width: 36%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+.gc-cycle-center-text {
+  transition: opacity 0.2s;
+}
+.gc-cycle-center b {
+  display: block;
+  font: var(--display-weight) 17px var(--display);
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.gc-cycle-center span {
+  display: block;
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-3);
 }
 .gc-welcome-options {
   display: grid;
@@ -2401,9 +2529,9 @@
   .gc-recent-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .gc-welcome-art {
-    justify-self: start;
-    max-width: 280px;
+  .gc-cycle {
+    max-width: 460px;
+    margin: -16px auto -8px;
   }
   .gc-template-list {
     border-right: none;
@@ -2413,7 +2541,7 @@
 
 /* On a phone the picture pushed every way in below the first screen (audit of 21 November). */
 @media (max-width: 600px) {
-  .gc-welcome-art {
+  .gc-cycle {
     display: none;
   }
 }

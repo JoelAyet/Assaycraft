@@ -14,44 +14,7 @@ import { pickFiles } from '../lib/download';
 import { maybeStartTour } from './Tour';
 import { openConnectComputer } from './ConnectComputer';
 import { syncSupported } from '../sync/manager';
-
-/** Line drawing for the welcome page: a notebook page, a flask and a helix rising from it. */
-function WelcomeArt() {
-  return (
-    <svg className="gc-welcome-art" viewBox="0 0 360 300" role="img" aria-label="A notebook page next to a flask with a DNA helix rising from it">
-      <path d="M58 44C140 2 282 12 322 74s26 150-62 188-190 30-220-52S-6 84 58 44Z" fill="var(--art-blob)" />
-      <g transform="rotate(-6 150 154)">
-        <rect x="70" y="62" width="152" height="190" rx="10" fill="var(--panel)" stroke="var(--art-ink)" strokeWidth="2" />
-        <path d="M86 74v166" stroke="var(--art-accent)" strokeWidth="1.5" opacity=".7" />
-        <g stroke="var(--art-line)" strokeWidth="2.2" strokeLinecap="round">
-          <path d="M98 98h96M98 118h80M98 138h92M98 158h60" />
-        </g>
-        <rect x="98" y="178" width="98" height="48" rx="5" fill="none" stroke="var(--art-line)" strokeWidth="1.6" />
-        <path d="M98 194h98M98 210h98M131 178v48M164 178v48" stroke="var(--art-line)" strokeWidth="1.2" />
-      </g>
-      <path d="M228.3 214h71.4L314 244a8 8 0 0 1-7 12h-86a8 8 0 0 1-7-12z" fill="var(--art-accent)" opacity=".9" />
-      <path
-        d="M254 118v42l-40 84a8 8 0 0 0 7 12h86a8 8 0 0 0 7-12l-40-84v-42M248 118h32"
-        fill="none"
-        stroke="var(--art-ink)"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <g fill="none" strokeLinecap="round" strokeWidth="3">
-        <path d="M252 108c0-12 24-12 24-24s-24-12-24-24 24-12 24-24" stroke="var(--art-accent)" />
-        <path d="M276 108c0-12-24-12-24-24s24-12 24-24-24-12-24-24" stroke="var(--art-ink)" />
-      </g>
-      <path d="M258 96h12M258 72h12M258 48h12" stroke="var(--art-line)" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="238" cy="232" r="5" fill="var(--panel)" opacity=".85" />
-      <circle cx="286" cy="240" r="3.5" fill="var(--panel)" opacity=".85" />
-      <circle cx="60" cy="226" r="10" fill="var(--art-mint)" />
-      <circle cx="318" cy="64" r="7" fill="var(--art-sky)" />
-      <circle cx="40" cy="96" r="4" fill="var(--art-accent)" />
-      <circle cx="334" cy="186" r="4" fill="var(--art-mint)" />
-    </svg>
-  );
-}
+import { LabCycle } from './LabCycle';
 
 export function Welcome() {
   const [known, setKnown] = useState<KnownNotebook[] | null>(null);
@@ -190,7 +153,7 @@ export function Welcome() {
             <h2 className="gc-welcome-title">
               The lab notebook
               <br />
-              that stays yours.
+              that stays <span className="gc-title-tag">yours</span>
             </h2>
             <p className="gc-lede">
               {touch
@@ -199,7 +162,7 @@ export function Welcome() {
                 : 'Experiments, protocols, templates and boards are saved as plain Markdown files in a folder on your computer. It runs in your browser and works offline.'}
             </p>
           </div>
-          <WelcomeArt />
+          <LabCycle />
         </section>
 
         {known && known.length > 0 && (
